@@ -1,0 +1,12 @@
+3 Extra credits
+1) Particle systems
+- When ship is moving forward/backwards
+- When ship/bullet collides with asteroids
+
+2) Text rendered on screen
+- Scores are rendered on screen
+- Win/Lose condition are rendered on screen
+- Instructions to let player know that they can restart the level
+
+3) Added texture
+- Using texture to represent live remaining
