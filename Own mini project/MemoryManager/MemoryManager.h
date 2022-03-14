@@ -5,6 +5,7 @@
 #include "Helper.h"
 #include "CollectorManager.h"
 #include "ICollector.h"
+#include "VariableType.h"
 
 template <class T>
 class MemoryManager : public ICollector
@@ -19,14 +20,12 @@ public:
 
 	T* AllocateMemory(size_t size = 1)
 	{
-		memory.push_back(new T[size]{});
-		return memory.back();
+		return Allocate(size);
 	}
 
 	T* AllocateMemory(size_t width, size_t height)
 	{
-		memory.push_back(new T[width * height]);
-		return memory.back();
+		return Allocate(width * height);
 	}
 
 private:
@@ -49,11 +48,19 @@ private:
 	MemoryManager(MemoryManager&&) = delete;
 	MemoryManager& operator=(MemoryManager&&) = delete;
 
+	T* Allocate(size_t size)
+	{
+		memory.push_back(new T[size]{});
+		return memory.back();
+	}
+
 	static MemoryManager<T>* instance;
 	std::vector<T*> memory;
 };
 
 template <class T>
 MemoryManager<T>* MemoryManager<T>::instance = nullptr;
+
+//std::cout << "decltype is " << type_name<decltype(*this)>() << std::endl;
 
 #endif
