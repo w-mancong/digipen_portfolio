@@ -19,8 +19,9 @@ namespace ManCong
         }
     }
 
-    matrix::matrix(matrix const& rhs)
+    matrix::matrix(matrix const& rhs) : R{ rhs.R }, C{ rhs.C }
     {
+        mtx = new value_type[R * C]{};
         for (size_t i = 0; i < R; ++i)
         {
             for (size_t j = 0; j < C; ++j)
@@ -152,7 +153,9 @@ namespace ManCong
     matrix operator*(matrix const& lhs, matrix const& rhs)
     {
         // throw exception here if lhs col is not same as rhs row
-        const typename matrix::size_type l_cols = lhs.Cols(), l_rows = lhs.Rows(), r_cols = rhs.Cols();
+        const typename matrix::size_type l_cols = lhs.Cols(), l_rows = lhs.Rows(), r_cols = rhs.Cols(), r_rows = rhs.Rows();
+        if (l_cols != r_rows)
+            return lhs;
         const typename matrix::size_type final_size = l_rows * r_cols;
         typename matrix::size_type curr_size = 0, k = 0, l = 0;
         matrix tmp(l_rows, r_cols);

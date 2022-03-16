@@ -2,22 +2,11 @@
 #include <iostream>
 #include <iomanip>
 
-struct A
-{
-    enum { Rows = 3, Cols = 4 };
-    int matrix[Rows][Cols];
-    int(&operator [](size_t i))[Cols] 
-    {
-        return matrix[i];
-    }
-    void print(void) const;
-};
-
 int main()
 {
     const size_t SIZE = 5;
     ManCong::matrix b(3, 2);
-    ManCong::matrix c(SIZE, SIZE);
+    ManCong::matrix c(2, 2);
 
     std::cout << c << std::endl;
 
@@ -28,9 +17,9 @@ int main()
     c(0, 0) = 8.0f; c(0, 1) = 3.0f;
     c(1, 0) = 4.0f; c(1, 1) = 5.0f;
 
-    //b *= c;
+    b *= c;
 
-    //std::cout << b(1, 1) << std::endl;
+    std::cout << b << std::endl;
 
     //ManCong::matrix<3, 2> a = b * c;
     //a.Determinant();
