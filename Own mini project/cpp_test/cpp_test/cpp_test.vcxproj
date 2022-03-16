@@ -140,21 +140,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="sllist-driver.cpp" />
-    <ClCompile Include="sllist.cpp" />
-    <ClCompile Include="str.cpp" />
-    <ClCompile Include="string.cpp" />
-    <ClCompile Include="vct-driver.cpp" />
+    <ClCompile Include="matrix.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ComponentPool.h" />
     <ClInclude Include="matrix.hpp" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="SceneView.h" />
-    <ClInclude Include="sllist.hpp" />
-    <ClInclude Include="str.hpp" />
-    <ClInclude Include="string.h" />
-    <ClInclude Include="vct.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

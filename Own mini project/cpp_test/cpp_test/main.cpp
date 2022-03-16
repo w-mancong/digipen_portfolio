@@ -15,16 +15,25 @@ struct A
 
 int main()
 {
-    ManCong::matrix<3, 2> b;
-    ManCong::matrix<2, 2> c;
+    const size_t SIZE = 5;
+    ManCong::matrix b(3, 2);
+    ManCong::matrix c(SIZE, SIZE);
 
-    b[0][0] = 7.0f; b[0][1] = 3.0f;
-    b[1][0] = 2.0f; b[1][1] = 4.0f;
+    std::cout << c << std::endl;
 
-    c[0][0] = 8.0f; c[0][1] = 3.0f;
-    c[1][0] = 4.0f; c[1][1] = 5.0f;
+    b(0, 0) = 7.0f; b(0, 1) = 3.0f;
+    b(1, 0) = 2.0f; b(1, 1) = 4.0f;
+    b(2, 0) = 6.0f; b(2, 1) = 3.0f;
 
-    b *= c;
+    c(0, 0) = 8.0f; c(0, 1) = 3.0f;
+    c(1, 0) = 4.0f; c(1, 1) = 5.0f;
 
-    ManCong::matrix<3, 2> a = b * c;
+    //b *= c;
+
+    //std::cout << b(1, 1) << std::endl;
+
+    //ManCong::matrix<3, 2> a = b * c;
+    //a.Determinant();
+    //a.Indentity();
+    //std::cout << a << std::endl;
 }
