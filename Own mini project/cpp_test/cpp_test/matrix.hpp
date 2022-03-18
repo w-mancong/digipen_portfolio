@@ -46,6 +46,7 @@ namespace ManCong
         size_type       Cols(void) const;
 
         value_type      Determinant(void) const;
+        matrix&         Transpose(void);
         void            Indentity(void);
 
     private:
