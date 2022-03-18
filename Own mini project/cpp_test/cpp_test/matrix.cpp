@@ -1,18 +1,5 @@
 #include "matrix.hpp"
 
-//namespace
-//{
-//    float const& GetGrid(float const* ptr, size_t row, size_t col, size_t MAX_COLS)
-//    {
-//        return *(ptr + row * MAX_COLS + col);
-//    }
-//
-//    float& GetGrid(float* ptr, size_t row, size_t col, size_t MAX_COLS)
-//    {
-//        return const_cast<float&>(GetGrid(static_cast<float const*>(ptr), row, col, MAX_COLS));
-//    }
-//}
-
 namespace ManCong
 {
     matrix::matrix(size_type R, size_type C) : R{ R }, C{ C }
@@ -145,7 +132,7 @@ namespace ManCong
 
     matrix& matrix::Transpose(void)
     {
-        matrix tmp(C, R);
+        matrix tmp{ C, R };
         for (size_t i = 0; i < R; ++i)
         {
             for (size_t j = 0; j < C; ++j)

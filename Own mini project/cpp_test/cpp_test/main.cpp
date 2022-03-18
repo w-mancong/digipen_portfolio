@@ -15,4 +15,7 @@ int main()
 
     b.Transpose();
     std::cout << b << std::endl;
+
+    b.Transpose();
+    std::cout << b << std::endl;
 }
