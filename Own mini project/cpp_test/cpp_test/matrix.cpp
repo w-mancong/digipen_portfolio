@@ -144,7 +144,7 @@ namespace ManCong
     void matrix::Indentity(void)
     {
         if (R != C)
-            throw InvalidDimension(R, C, "an indentity matrix. Must be a square matrix!");
+            throw InvalidDimension(R, C, "an indentity matrix");
         for (size_type i = 0; i < R; ++i)
             (*this)(i, i) = static_cast<value_type>(1);
     }
@@ -166,22 +166,25 @@ namespace ManCong
         matrix tmp(n - 1, n - 1);
         for (size_type j = 0; j < mtx.C; ++j)
         {
-            BarMatrix(tmp, mtx, j);
+            BarMatrix(tmp, mtx, 0, j);
             det += static_cast<value_type>(pow(-1.0, static_cast<double>(j))) * mtx(0, j) * Determinant(tmp, tmp.R);
         }
         return det;
     }
 
-    void matrix::BarMatrix(matrix& dst, matrix const& src, size_type col) const
+    void matrix::BarMatrix(matrix& dst, matrix const& src, size_type row, size_type col) const
     {
-        for (size_type i = 1, r = 0; r < dst.R; ++i, ++r)
+        for (size_type i = 0, r = 0; r < dst.R; ++i)
         {
+            if (i == row)
+                continue;
             for (size_type j = 0, c = 0; c < dst.C; ++j)
             {
                 if (j == col)
                     continue;
                 dst(r, c++) = src(i, j);
             }
+            ++r;
         }
     }
 
@@ -206,6 +209,7 @@ namespace ManCong
         if (l_cols != r_rows)
             throw IncompatibleMatrices("Multiplication", l_rows, l_cols, r_rows, r_cols);
         matrix tmp(l_rows, r_cols);
+
         for (typename matrix::size_type i = 0; i < l_rows; ++i)
         {
             for (typename matrix::size_type j = 0; j < l_cols; ++j)
