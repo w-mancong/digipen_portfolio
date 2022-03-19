@@ -27,7 +27,9 @@ namespace ManCong
         matrix(size_type R, size_type C);
         ~matrix(void);
         matrix(matrix const& rhs);
+        matrix(matrix&& rhs) noexcept;
         matrix&         operator=(matrix const& rhs);
+        matrix&         operator=(matrix&& rhs) noexcept;
 
         reference       operator()(size_type row, size_type col);
         const_reference operator()(size_type row, size_type col) const;

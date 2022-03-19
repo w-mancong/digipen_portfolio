@@ -5,5 +5,5 @@
 int main()
 {
     const size_t SIZE = 5;
-    ManCong::matrix b(4, 4);
+    ManCong::matrix b(5, 5);
 }

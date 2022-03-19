@@ -2,7 +2,7 @@
 
 namespace ManCong
 {
-    matrix::matrix(size_type R, size_type C) : R{ R }, C{ C }
+    matrix::matrix(size_type R, size_type C) : mtx{ nullptr }, R{ R }, C{ C }
     {
         if (0 > R || 0 > C)
             throw InvalidDimension(R, C);
@@ -21,7 +21,7 @@ namespace ManCong
         }
     }
 
-    matrix::matrix(matrix const& rhs) : R{ rhs.R }, C{ rhs.C }
+    matrix::matrix(matrix const& rhs) : mtx{ nullptr }, R{ rhs.R }, C{ rhs.C }
     {
         mtx = new value_type[R * C]{};
         for (size_type i = 0; i < R; ++i)
@@ -31,10 +31,22 @@ namespace ManCong
         }
     }
 
+    matrix::matrix(matrix&& rhs) noexcept : mtx{ nullptr }, R{ 0 }, C{ 0 }
+    {
+        swap(rhs);
+    }
+
     matrix& matrix::operator=(matrix const& rhs)
     {
         matrix tmp{ rhs };
-        std::swap(mtx, tmp.mtx);
+        swap(tmp);
+        return *this;
+    }
+
+    matrix& matrix::operator=(matrix&& rhs) noexcept
+    {
+        mtx = nullptr, R = 0, C = 0;
+        swap(rhs);
         return *this;
     }
 
