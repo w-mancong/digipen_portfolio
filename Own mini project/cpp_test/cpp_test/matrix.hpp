@@ -45,11 +45,13 @@ namespace ManCong
         size_type       Rows(void) const;
         size_type       Cols(void) const;
 
-        value_type      Determinant(void) const;
         matrix&         Transpose(void);
         void            Indentity(void);
+        value_type      Determinant(void) const;
 
     private:
+        value_type      Determinant(matrix const& mtx, size_type n) const;
+        void            BarMatrix(matrix& dst, matrix const& src, size_type col) const;
         const_reference cget(size_type row, size_type col) const;
         void            swap(matrix& rhs);
 

@@ -121,15 +121,6 @@ namespace ManCong
         return C;
     }
 
-    typename matrix::value_type matrix::Determinant(void) const
-    {
-        // do exception throw here
-        assert(R == C, "Matrix have invalid dimension: Must be a square matrix to find the determinant");
-        value_type det = {};
-
-        return det;
-    }
-
     matrix& matrix::Transpose(void)
     {
         matrix tmp{ C, R };
@@ -148,6 +139,40 @@ namespace ManCong
         assert(R == C, "Matrix have invalid dimension: Must be a square matrix for it to become an indentity matrix");
         for (size_type i = 0; i < R; ++i)
             (*this)(i, i) = static_cast<value_type>(1);
+    }
+
+    typename matrix::value_type matrix::Determinant(void) const
+    {
+        return Determinant(*this, R);
+    }
+
+    typename matrix::value_type matrix::Determinant(matrix const& mtx, size_type n) const
+    {
+        if (n == 1)
+            return mtx(0, 0);
+        if (n == 2)
+            return mtx(0, 0) * mtx(1, 1) - mtx(0, 1) * mtx(1, 0);
+        value_type det = {};
+        matrix tmp(n - 1, n - 1);
+        for (size_type j = 0; j < mtx.C; ++j)
+        {
+            BarMatrix(tmp, mtx, j);
+            det += static_cast<value_type>(pow(-1.0, static_cast<double>(j))) * mtx(0, j) * Determinant(tmp, tmp.R);
+        }
+        return det;
+    }
+
+    void matrix::BarMatrix(matrix& dst, matrix const& src, size_type col) const
+    {
+        for (size_type i = 1, r = 0; r < dst.R; ++i, ++r)
+        {
+            for (size_type j = 0, c = 0; c < dst.C; ++j)
+            {
+                if (j == col)
+                    continue;
+                dst(r, c++) = src(i, j);
+            }
+        }
     }
 
     matrix operator+(matrix const& lhs, matrix const& rhs)
