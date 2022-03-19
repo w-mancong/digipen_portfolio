@@ -10,9 +10,9 @@ class
 #ifndef MATRIX_HPP
 #define MATRIX_HPP
 
-#include <algorithm>
 #include <iostream>
-#include <cassert>
+#include <algorithm>
+#include "matrix_exception.h"
 
 namespace ManCong
 {
@@ -22,7 +22,7 @@ namespace ManCong
         using value_type        = float;
         using reference         = value_type&;
         using const_reference   = value_type const&;
-        using size_type         = size_t;
+        using size_type         = long long;
     public:
         matrix(size_type R, size_type C);
         ~matrix(void);

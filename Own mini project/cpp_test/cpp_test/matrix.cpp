@@ -4,6 +4,8 @@ namespace ManCong
 {
     matrix::matrix(size_type R, size_type C) : R{ R }, C{ C }
     {
+        if (0 > R || 0 > C)
+            throw InvalidDimension(R, C);
         // TODO : Change it to memory manager once i port to game engine
         mtx = new value_type[R * C] {};
         if (R == C)
@@ -38,6 +40,8 @@ namespace ManCong
 
     matrix::const_reference matrix::cget(size_type row, size_type col) const
     {
+        if (0 > row || R <= row || 0 > col || C <= col)
+            throw IndexOutOfBounds(row, R, col, C);
         return *(mtx + row * C + col);
     }
 
@@ -78,6 +82,8 @@ namespace ManCong
 
     matrix& matrix::operator+=(matrix const& rhs)
     {
+        if (R != rhs.R || C != rhs.C)
+            throw IncompatibleMatrices("Addition", R, C, rhs.R, rhs.C);
         for (size_type i = 0; i < R; ++i)
         {
             for (size_type j = 0; j < C; ++j)
@@ -88,6 +94,8 @@ namespace ManCong
 
     matrix& matrix::operator-=(matrix const& rhs)
     {
+        if (R != rhs.R || C != rhs.C)
+            throw IncompatibleMatrices("Subtraction", R, C, rhs.R, rhs.C);
         for (size_type i = 0; i < R; ++i)
         {
             for (size_type j = 0; j < C; ++j)
@@ -135,14 +143,16 @@ namespace ManCong
 
     void matrix::Indentity(void)
     {
-        // do exception throw here
-        assert(R == C, "Matrix have invalid dimension: Must be a square matrix for it to become an indentity matrix");
+        if (R != C)
+            throw InvalidDimension(R, C, "an indentity matrix. Must be a square matrix!");
         for (size_type i = 0; i < R; ++i)
             (*this)(i, i) = static_cast<value_type>(1);
     }
 
     typename matrix::value_type matrix::Determinant(void) const
     {
+        if (R != C)
+            throw InvalidDimension(R, C, "finding determinant. Must be a square matrix!");
         return Determinant(*this, R);
     }
 
@@ -191,25 +201,18 @@ namespace ManCong
 
     matrix operator*(matrix const& lhs, matrix const& rhs)
     {
-        // throw exception here if lhs col is not same as rhs row
-        const typename matrix::size_type l_cols = lhs.Cols(), l_rows = lhs.Rows(), r_cols = rhs.Cols(), r_rows = rhs.Rows();
+        const typename matrix::size_type l_rows = lhs.Rows(), l_cols = lhs.Cols(), 
+                                         r_rows = rhs.Rows(), r_cols = rhs.Cols();
         if (l_cols != r_rows)
-            return lhs;
-        const typename matrix::size_type final_size = l_rows * r_cols;
-        typename matrix::size_type curr_size = 0, k = 0, l = 0;
+            throw IncompatibleMatrices("Multiplication", l_rows, l_cols, r_rows, r_cols);
         matrix tmp(l_rows, r_cols);
-
-        while (curr_size < final_size)
+        for (typename matrix::size_type i = 0; i < l_rows; ++i)
         {
-            for (matrix::size_type i = 0; i < r_cols; ++i)
+            for (typename matrix::size_type j = 0; j < l_cols; ++j)
             {
-                typename matrix::value_type sum = {};
-                for (matrix::size_type j = 0; j < l_cols; ++j)
-                    sum += lhs(l, j) * rhs(j, k);
-                tmp(l, k++) = sum, ++curr_size;
+                for (typename matrix::size_type k = 0; k < r_cols; ++k)
+                    tmp(i, k) += lhs(i, j) * rhs(j, k);
             }
-            if (!(curr_size % r_cols))
-                ++l, k = 0;
         }
         return tmp;
     }
