@@ -46,6 +46,7 @@ namespace ManCong
         size_type       Cols(void) const;
 
         matrix&         Transpose(void);
+        matrix&         Inverse(void);
         void            Indentity(void);
         value_type      Determinant(void) const;
 
@@ -54,6 +55,7 @@ namespace ManCong
         void            BarMatrix(matrix& dst, matrix const& src, size_type row, size_type col) const;
         const_reference cget(size_type row, size_type col) const;
         void            swap(matrix& rhs);
+        void            swap(matrix& lhs, matrix& rhs);
 
         value_type *mtx;
         size_type R, C;

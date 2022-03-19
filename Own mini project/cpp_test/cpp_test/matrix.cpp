@@ -38,20 +38,6 @@ namespace ManCong
         return *this;
     }
 
-    matrix::const_reference matrix::cget(size_type row, size_type col) const
-    {
-        if (0 > row || R <= row || 0 > col || C <= col)
-            throw IndexOutOfBounds(row, R, col, C);
-        return *(mtx + row * C + col);
-    }
-
-    void matrix::swap(matrix& rhs)
-    {
-        std::swap(mtx, rhs.mtx);
-        std::swap(R, rhs.R);
-        std::swap(C, rhs.C);
-    }
-
     matrix::reference matrix::operator()(size_type row, size_type col)
     {
         return const_cast<reference>(cget(row, col));
@@ -141,10 +127,30 @@ namespace ManCong
         return *this;
     }
 
+    matrix& matrix::Inverse(void)
+    {
+        if (R != C)
+            throw InvalidDimension(R, C, "an inverse matrix. Must be a square matrix!");
+        value_type det = Determinant(*this, R), flag = static_cast<value_type>(1);
+        matrix inv(R, C), tmp(R - 1, C - 1);
+        for (size_type i = 0; i < R; ++i)
+        {
+            for (size_type j = 0; j < C; ++j)
+            {
+                BarMatrix(tmp, *this, i, j);
+                inv(i, j) = Determinant(tmp, tmp.R) * flag;
+                flag *= -1.0f;
+            }
+        }
+        inv *= static_cast<value_type>(1) / det;
+        swap(inv);
+        return *this;
+    }
+
     void matrix::Indentity(void)
     {
         if (R != C)
-            throw InvalidDimension(R, C, "an indentity matrix");
+            throw InvalidDimension(R, C, "an indentity matrix. Must be a square matrix!");
         for (size_type i = 0; i < R; ++i)
             (*this)(i, i) = static_cast<value_type>(1);
     }
@@ -186,6 +192,27 @@ namespace ManCong
             }
             ++r;
         }
+    }
+
+    matrix::const_reference matrix::cget(size_type row, size_type col) const
+    {
+        if (0 > row || R <= row || 0 > col || C <= col)
+            throw IndexOutOfBounds(row, R, col, C);
+        return *(mtx + row * C + col);
+    }
+
+    void matrix::swap(matrix& rhs)
+    {
+        std::swap(mtx, rhs.mtx);
+        std::swap(R, rhs.R);
+        std::swap(C, rhs.C);
+    }
+
+    void matrix::swap(matrix& lhs, matrix& rhs)
+    {
+        std::swap(lhs.mtx, rhs.mtx);
+        std::swap(lhs.R, rhs.R);
+        std::swap(lhs.C, rhs.C);
     }
 
     matrix operator+(matrix const& lhs, matrix const& rhs)
