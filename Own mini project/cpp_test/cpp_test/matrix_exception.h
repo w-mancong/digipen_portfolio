@@ -1,43 +1,39 @@
 #include <exception>
 #include <cstdio>
-
-namespace
-{
-    const size_t BUFFER = 1024;
-}
+#include <sstream>
 
 class InvalidDimension : public std::exception
 {
 public:
-    InvalidDimension(int rows, int cols, const char* s = nullptr);
+    InvalidDimension(long long rows, long long cols, const char* s = nullptr);
     ~InvalidDimension(void) = default;
 
-    virtual const char* what(void) const throw();
+    virtual const char* what(void) const noexcept;
 
 private:
-    char msg[BUFFER];
+    std::string msg;
 };
 
 class IndexOutOfBounds : public std::exception
 {
 public:
-    IndexOutOfBounds(int row, int R, int col, int C);
+    IndexOutOfBounds(long long row, long long R, long long col, long long C);
     ~IndexOutOfBounds(void) = default;
 
-    virtual const char* what(void) const throw();
+    virtual const char* what(void) const noexcept;
 
 private:
-    char msg[BUFFER];
+    std::string msg;
 };
 
 class IncompatibleMatrices : public std::exception
 {
 public:
-    IncompatibleMatrices(const char* operation, int l_rows, int l_cols, int r_rows, int r_cols);
+    IncompatibleMatrices(const char* operation, long long l_rows, long long l_cols, long long r_rows, long long r_cols);
     ~IncompatibleMatrices(void) = default;
 
-    virtual const char* what(void) const throw();
+    virtual const char* what(void) const noexcept;
 
 private:
-    char msg[BUFFER];
+    std::string msg;
 };

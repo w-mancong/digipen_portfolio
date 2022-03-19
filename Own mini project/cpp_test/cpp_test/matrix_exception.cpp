@@ -3,51 +3,56 @@
 /******************************************************************************************************************
                                            Invalid Deimensions
 ******************************************************************************************************************/
-InvalidDimension::InvalidDimension(int rows, int cols, const char* s) : msg{ "" }
+InvalidDimension::InvalidDimension(long long rows, long long cols, const char* s) : msg{ "" }
 {
     const char* ex = "Invalid Dimension Exception: ", * err = "is an invalid dimension for ";
+    std::ostringstream oss;
     if (s)
-        sprintf_s(msg, "%s%d and %d are invalid dimensions for %s", ex, rows, cols, s);
+        oss << ex << rows << " and " << cols << " are invalid dimensions for " << s;
     else if (0 > rows && 0 > cols)
-        sprintf_s(msg, "%s%d and %d are invalid dimensions for rows and columns respectively", ex, rows, cols);
+        oss << ex << rows << " and " << cols << " are invalid dimensions for rows and columns respectively";
     else if (0 > rows)
-        sprintf_s(msg, "%s%d %srows", ex, rows, err);
+        oss << ex << rows << " " << err << "rows";
     else if (0 > cols)
-        sprintf_s(msg, "%s%d %scolumns", ex, cols, err);
+        oss << ex << cols << " " << err << "columns";
+    msg = oss.str();
 }
 
-const char* InvalidDimension::what(void) const throw()
+const char* InvalidDimension::what(void) const noexcept
 {
-    return msg;
+    return msg.c_str();
 }
 
 /******************************************************************************************************************
                                             Index Out of Bound
 ******************************************************************************************************************/
-IndexOutOfBounds::IndexOutOfBounds(int row, int R, int col, int C) : msg{ "" }
+IndexOutOfBounds::IndexOutOfBounds(long long row, long long R, long long col, long long C) : msg{ "" }
 {
+    std::ostringstream oss;
     if ((0 > row || R <= row) && (0 > col || C <= col))
-        sprintf_s(msg, "Index Out Of Bounds Exception: %d and %d are invalid index for rows and columns respectively", row, col);
+        oss << "Index Out Of Bounds Exception: " << row << " and " << col << " are invalid index for rows and columns respectively";
     else if (0 > row || R <= row)
-        sprintf_s(msg, "Index Out Of Bounds Exception: %d is an invalid index for rows", row);
+        oss << "Index Out Of Bounds Exception: " << row << " is an invalid index for rows";
     else if (0 > col || C <= col)
-        sprintf_s(msg, "Index Out Of Bounds Exception: %d is an invalid index for columns", col);
+        oss << "Index Out Of Bounds Exception: " << col << " is an invalid index for columns";
 }
 
-const char* IndexOutOfBounds::what(void) const throw()
+const char* IndexOutOfBounds::what(void) const noexcept
 {
-    return msg;
+    return msg.c_str();
 }
 
 /******************************************************************************************************************
                                            Incompatible Matrices
 ******************************************************************************************************************/
-IncompatibleMatrices::IncompatibleMatrices(const char* operation, int l_rows, int l_cols, int r_rows, int r_cols) : msg{ "" }
+IncompatibleMatrices::IncompatibleMatrices(const char* operation, long long l_rows, long long l_cols, long long r_rows, long long r_cols) : msg{ "" }
 {
-    sprintf(msg, "Incompatible Matrices Exception: %s of LHS matrix with dimensions %d X %d and RHS matrix with dimensions %d X %d is undefined", operation, l_rows, l_cols, r_rows, r_cols);
+    std::ostringstream oss;
+    oss << "Incompatible Matrices Exception: " << operation << "of LHS matrix with dimensions" << l_rows << " X " << l_cols << " and RHS matrix with dimensions " << r_rows << " X " << r_cols << " is undefined";
+    msg = oss.str();
 }
 
-const char* IncompatibleMatrices::what(void) const throw()
+const char* IncompatibleMatrices::what(void) const noexcept
 {
-    return msg;
+    return msg.c_str();
 }

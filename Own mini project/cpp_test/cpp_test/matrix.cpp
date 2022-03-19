@@ -24,9 +24,9 @@ namespace ManCong
     matrix::matrix(matrix const& rhs) : R{ rhs.R }, C{ rhs.C }
     {
         mtx = new value_type[R * C]{};
-        for (size_t i = 0; i < R; ++i)
+        for (size_type i = 0; i < R; ++i)
         {
-            for (size_t j = 0; j < C; ++j)
+            for (size_type j = 0; j < C; ++j)
                 (*this)(i, j) = rhs(i, j);
         }
     }
@@ -118,9 +118,9 @@ namespace ManCong
     matrix& matrix::Transpose(void)
     {
         matrix tmp{ C, R };
-        for (size_t i = 0; i < R; ++i)
+        for (size_type i = 0; i < R; ++i)
         {
-            for (size_t j = 0; j < C; ++j)
+            for (size_type j = 0; j < C; ++j)
                 tmp(j, i) = (*this)(i, j);
         }
         swap(tmp);
@@ -162,18 +162,18 @@ namespace ManCong
         return Determinant(*this, R);
     }
 
-    typename matrix::value_type matrix::Determinant(matrix const& mtx, size_type n) const
+    typename matrix::value_type matrix::Determinant(matrix const& m, size_type n) const
     {
         if (n == 1)
-            return mtx(0, 0);
+            return m(0, 0);
         if (n == 2)
-            return mtx(0, 0) * mtx(1, 1) - mtx(0, 1) * mtx(1, 0);
+            return m(0, 0) * m(1, 1) - m(0, 1) * m(1, 0);
         value_type det = {};
         matrix tmp(n - 1, n - 1);
-        for (size_type j = 0; j < mtx.C; ++j)
+        for (size_type j = 0; j < m.C; ++j)
         {
-            BarMatrix(tmp, mtx, 0, j);
-            det += static_cast<value_type>(pow(-1.0, static_cast<double>(j))) * mtx(0, j) * Determinant(tmp, tmp.R);
+            BarMatrix(tmp, m, 0, j);
+            det += static_cast<value_type>(pow(-1.0, static_cast<double>(j))) * m(0, j) * Determinant(tmp, tmp.R);
         }
         return det;
     }
@@ -206,13 +206,6 @@ namespace ManCong
         std::swap(mtx, rhs.mtx);
         std::swap(R, rhs.R);
         std::swap(C, rhs.C);
-    }
-
-    void matrix::swap(matrix& lhs, matrix& rhs)
-    {
-        std::swap(lhs.mtx, rhs.mtx);
-        std::swap(lhs.R, rhs.R);
-        std::swap(lhs.C, rhs.C);
     }
 
     matrix operator+(matrix const& lhs, matrix const& rhs)

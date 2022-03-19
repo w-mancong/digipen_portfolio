@@ -30,7 +30,7 @@ namespace ManCong
         matrix&         operator=(matrix const& rhs);
 
         reference       operator()(size_type row, size_type col);
-        const_reference const& operator()(size_type row, size_type col) const;
+        const_reference operator()(size_type row, size_type col) const;
 
         bool            operator==(matrix const& rhs) const;
         bool            operator!=(matrix const& rhs) const;
@@ -51,11 +51,10 @@ namespace ManCong
         value_type      Determinant(void) const;
 
     private:
-        value_type      Determinant(matrix const& mtx, size_type n) const;
+        value_type      Determinant(matrix const& m, size_type n) const;
         void            BarMatrix(matrix& dst, matrix const& src, size_type row, size_type col) const;
         const_reference cget(size_type row, size_type col) const;
         void            swap(matrix& rhs);
-        void            swap(matrix& lhs, matrix& rhs);
 
         value_type *mtx;
         size_type R, C;
