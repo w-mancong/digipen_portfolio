@@ -144,6 +144,8 @@ namespace ManCong
         if (R != C)
             throw InvalidDimension(R, C, "an inverse matrix. Must be a square matrix!");
         value_type det = Determinant(*this, R), flag = static_cast<value_type>(1);
+        if (!det)
+            return *this;
         matrix inv(R, C), tmp(R - 1, C - 1);
         for (size_type i = 0; i < R; ++i)
         {
