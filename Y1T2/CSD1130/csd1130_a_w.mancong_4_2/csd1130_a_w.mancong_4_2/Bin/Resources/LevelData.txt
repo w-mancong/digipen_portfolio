@@ -1,0 +1,88 @@
+6
+posX 0.0
+posY 0.0
+dir 75.0
+speed 320.0
+radius 18.0
+
+posX -10.0
+posY -20.0
+dir -25.0
+speed 120.0
+radius 25.0
+
+posX 10.0
+posY 20.0
+dir -40.0
+speed 120.0
+radius 30.0
+
+posX 20.0
+posY 0.0
+dir 85.0
+speed 480.0
+radius 8.0
+
+posX -10.0
+posY -30.0
+dir -115.0
+speed 220.0
+radius 15.0
+
+posX 40.0
+posY 20.0
+dir -14.0
+speed 100.0
+radius 20.0
+
+10
+posX 222.0
+posY 165.5
+dir 135.0
+scale 207.0
+
+posX 0.0
+posY 239.0
+dir 0.0
+scale 298.0
+
+posX -222.0
+posY 165.5
+dir 45.0
+scale 207.0
+
+posX -294.0
+posY 0.0
+dir 90.0
+scale 184.0
+
+posX -222.0
+posY -165.5
+dir 135.0
+scale 207.0
+
+posX 0.0
+posY -239.0
+dir 0.0
+scale 298.0
+
+posX 222.0
+posY -165.5
+dir 45.0
+scale 207.0
+
+posX 296.0
+posY 0.0
+dir 90.0
+scale 184.0
+
+posX 130.0
+posY 10.0
+dir -60.0
+scale 92.0
+
+posX -130.0
+posY 10.0
+dir 60.0
+scale 92.0
+

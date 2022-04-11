@@ -1,0 +1,7 @@
+Extra credits done for this assignment:
+1) dynamic circle vs dynamic circle collision response
+- collision response between two moving circle with respect to their mass
+
+2) dynamic circle vs line segment edge collision response
+- collision response between a circle and line edge when the circle starting position
+in this frame is between the two imaginary line
