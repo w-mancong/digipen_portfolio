@@ -238,18 +238,20 @@ namespace ManCong
 
     matrix operator*(matrix const& lhs, matrix const& rhs)
     {
-        const typename matrix::size_type l_rows = lhs.Rows(), l_cols = lhs.Cols(), 
+        using value_type = typename matrix::value_type;
+        using size_type = typename matrix::size_type;
+        const size_type l_rows = lhs.Rows(), l_cols = lhs.Cols(), 
                                          r_rows = rhs.Rows(), r_cols = rhs.Cols();
         if (l_cols != r_rows)
             throw IncompatibleMatrices("Multiplication", l_rows, l_cols, r_rows, r_cols);
         matrix tmp(l_rows, r_cols);
-
-        for (typename matrix::size_type i = 0; i < l_rows; ++i)
+        for (size_type i = 0; i < l_rows; ++i)
         {
-            for (typename matrix::size_type j = 0; j < l_cols; ++j)
+            for (size_type j = 0; j < r_cols; ++j)
             {
-                for (typename matrix::size_type k = 0; k < r_cols; ++k)
-                    tmp(i, k) += lhs(i, j) * rhs(j, k);
+                tmp(i, j) = static_cast<value_type>(0);
+                for (size_type k = 0; k < r_rows; ++k)
+                    tmp(i, j) += lhs(i, k) * rhs(k, j);
             }
         }
         return tmp;

@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{784c21a8-4c05-4847-a78e-9bfc418bad42}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Controllers">
+      <UniqueIdentifier>{c8f22234-d84e-43cc-a94c-5e94b53e085c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics Pipe">
+      <UniqueIdentifier>{6dec2429-508b-4428-a794-62827c67c47e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{88fe06b8-9c92-4672-8793-458d2e890464}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{7856a2d0-443b-4669-a35c-33455126a31b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{01280461-7768-4718-adb4-3bf0136da8cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Object">
+      <UniqueIdentifier>{5f7cbd44-6312-4b23-8f53-0c9d08fc6539}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Transform">
+      <UniqueIdentifier>{cb7bdd39-8843-4cd1-bfc3-5e2028846b54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utility">
+      <UniqueIdentifier>{cb3ef4cc-e955-4486-b95d-3434d1df0d7c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Vertex">
+      <UniqueIdentifier>{5471f2d4-901d-47bb-9b36-43fb83f31c0f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="gfx\Object.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Transform.cpp">
+      <Filter>Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\CycleTimer.cpp">
+      <Filter>Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Vertex.cpp">
+      <Filter>Vertex</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Model.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Frustum.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Matrix4.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Quaternion.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Sphere.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Vector3.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Vector4.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Controller_Clipping.cpp">
+      <Filter>Controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Controller_Lighting.cpp">
+      <Filter>Controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Controller_Picking.cpp">
+      <Filter>Controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Controller_Rasterization.cpp">
+      <Filter>Controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Controller_Transformation.cpp">
+      <Filter>Controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\MeshGenerator_Plane.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\MeshGenerator_Point.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\MeshImporter_IFS.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\Camera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\GraphicsPipe.cpp">
+      <Filter>Graphics Pipe</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\GraphicsPipeControllers.cpp">
+      <Filter>Graphics Pipe</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gfx\Object.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Transform.h">
+      <Filter>Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\CycleTimer.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Vertex.h">
+      <Filter>Vertex</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Model.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Frustum.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Math.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Matrix4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Quaternion.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Sphere.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Vector3.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Vector4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Controller_Clipping.h">
+      <Filter>Controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Controller_Lighting.h">
+      <Filter>Controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Controller_Picking.h">
+      <Filter>Controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Controller_Rasterization.h">
+      <Filter>Controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Controller_Transformation.h">
+      <Filter>Controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\GFX.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\GFXInternal.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\MeshGenerator_Plane.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\MeshGenerator_Point.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\MeshImporter_IFS.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\Camera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\GraphicsPipe.h">
+      <Filter>Graphics Pipe</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="gfx\Sphere.inl">
+      <Filter>Math</Filter>
+    </None>
+    <None Include="gfx\GraphicsPipe.inl">
+      <Filter>Graphics Pipe</Filter>
+    </None>
+  </ItemGroup>
+</Project>

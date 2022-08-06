@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="GfxDriver">
+      <UniqueIdentifier>{254ac4c7-14a7-41fc-b07d-ebe1d9956618}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\YourBoundingSphere.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\YourCamera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\YourCullerClipper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\YourRasterizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\YourCamera.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\YourCullerClipper.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\YourRasterizer.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Camera.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Controller_Clipping.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Controller_Lighting.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Controller_Picking.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Controller_Rasterization.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Controller_Transformation.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\CycleTimer.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Frustum.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\GFX.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\GFXInternal.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\GraphicsPipe.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Math.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Matrix4.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\MeshGenerator_Plane.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\MeshGenerator_Point.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\MeshImporter_IFS.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Model.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Object.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Quaternion.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Sphere.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Transform.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Vector3.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Vector4.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\Vertex.h">
+      <Filter>GfxDriver</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\sum2022\csd2100\project\csd2100+proj+src\GfxLib\gfx\GraphicsPipe.inl">
+      <Filter>GfxDriver</Filter>
+    </None>
+  </ItemGroup>
+</Project>
