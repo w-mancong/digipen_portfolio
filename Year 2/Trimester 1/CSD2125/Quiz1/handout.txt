@@ -1,0 +1,88 @@
+fgets is a part of "stdio.h":
+
+char * fgets ( char * str, int num, FILE * stream ); 
+
+Get string from stream
+Reads characters from stream and stores them as a C string into str until
+(num-1) characters have been read or either a newline or the end-of-file is
+reached, whichever happens first.
+
+A newline character makes fgets stop reading, but it is considered a valid
+character by the function and included in the string copied to str.
+
+A terminating null character is automatically appended after the characters
+copied to str.
+
+Return Value 
+On success, the function returns a pointer str (the first argument).  Note that
+this means that fgets does not tell you how many characters were read. Use
+strlen to calculate how many characters were read.
+If the end-of-file is
+encountered while attempting to read a character, the eof indicator is set
+(feof). If this happens before any characters could be read, the pointer
+returned is a null pointer (and the contents of str remain unchanged).  If a
+read error occurs, the error indicator (ferror) is set and a null pointer is
+also returned (but the contents pointed by str may have changed).
+
+
+readline (is not defined in C, but exists in C++)
+========
+readline accepts an open file stream and has to read ALL characters from the 
+stream upto not including new line or new line character. The return value
+is a pointer to a C-style string, therefore NULL-terminated. The return 
+string should not have new line character.
+
+Examples:
+     input string                                   result
+1)   1234                                           1234\0
+2)   12345\n678                                     12345\0
+
+Since the size of the result is unknown, your code should be able to 
+dynamically reallocate the internal buffer. You may start with buffer
+size 2 (which allows you to read 1 character + NULL-terminator). If
+read was successful - meaning there are may be more charecters to read, 
+reallocate the buffer - double the size, copy data, next fgets will 
+read into the new buffer, but since you already have some characters
+in it, make sure to offset
+    fgets( str + size, read_size, stream ) 
+
+
+Example scenario: reading 1234567\n 
+initial buffer size 
+    catacity = 2
+size of string so far 0
+    size = 0
+
+Iteration 1:
+    fgets( str + 0, 2, stream ) 
+will read 1\0
+update 
+    size = 1
+reallocate buffer
+    capacity = 4
+
+Iteration 2:
+    fgets( str + 1, 3, stream ) // capacity is 4, but buffer contains 1 char read during previous iteration
+will read 23\0 into the buffer, making buffer content 123\0, notice that 2 overwrites the \0 inserted by first iteration
+update 
+    size = 1+2 = 3 (buffer is 123\0)
+reallocate buffer
+    capacity = 8
+
+Iteration 3:
+    fgets( str + 3, 5, stream ) // capacity is 8, but buffer contains 3 char read during previous iterations
+will read 4 characters 4567 from file and insert 4567\0 into the buffer, 
+making buffer content 1234567\0 
+update 
+    size = 3+4 = 7
+reallocate buffer
+    capacity = 16
+note that new line has not been seen during this iteration
+
+Iteration 4:
+    fgets( str + 7, 9, stream ) 
+will read 1 character from file: \n from file and insert \n\0 into the buffer, 
+making buffer content 1234567\n\0 
+    
+Substitute the last character (the new line) with \0 and return.
+
