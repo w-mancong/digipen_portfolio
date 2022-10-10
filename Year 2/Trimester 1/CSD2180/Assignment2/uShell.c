@@ -1,3 +1,5 @@
+#define _POSIX_SOURCE
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,8 +24,6 @@ char temp_buffer[MAX_BUFFER];
 char *args[MAX_ARGUMENTS];
 // there is 40 argument values, where each commands can be 80 characters long + 1 null character
 char argv[MAX_ARGUMENTS + 1][MAX_COMMANDS + 1];
-
-pid_t mainPID = 0;
 
 typedef enum bool
 {
@@ -52,13 +52,13 @@ struct Variable
 {
     char *key;
     char *value;
-} * var;
+} *var = NULL;
 
 struct Process
 {
     size_t index;
     pid_t pid;
-} *process;
+} *process = NULL;
 
 void Print(char const *msg);
 void ReadIn(char str[], size_t max);
@@ -78,9 +78,7 @@ int main(void)
     memset(var, 0, sizeof(Variable) * var_size);
     memset(temp_buffer, 0, sizeof(temp_buffer));
 
-    mainPID = getpid();
-
-    Print("Welcome to ManCong's Shell Program!\n");
+    Print("Welcome to Man Cong's Shell Program!\n");
 
     while (should_run)
     {
@@ -113,7 +111,6 @@ int main(void)
         case EXIT:
         {
             should_run = false;
-            // Print("exittttt\n");
             break;
         }
         case SETVAR:
@@ -282,7 +279,7 @@ void ResizeVariable(void)
     Variable *temp = (Variable *)malloc(sizeof(Variable) * var_size);
     memset(temp, 0, sizeof(Variable) * var_size);
     size_t const OLD_SIZE = var_size >> 1;
-    // letting new containing point to key and value
+    // swap values in var into temp
     for (size_t i = 0; i < OLD_SIZE; ++i)
     {
         (temp + i)->key = (var + i)->key;
@@ -458,8 +455,20 @@ void External(char const* buffer)
     /*
         uShell>cat prog.c
     */
-    char const *ptr = buffer;
-    bool parent_wait = true;
+    char const *ptr = buffer, *sptr = buffer;
+    bool parent_wait = true, increment = true;
+
+    // search for isolated &
+    do
+    {
+        if (*sptr != '&')
+            continue;
+        if (*(sptr - 1) != ' ' || (*(sptr + 1) != ' ' && *(sptr + 1) != '\0'))
+            continue;
+        parent_wait = false;
+        break;
+    } while (*++sptr);
+    
     // Extract program name and arguments from buffer
     size_t i = 0, j = 0;
     while(*ptr)
@@ -478,11 +487,18 @@ void External(char const* buffer)
         */
         while(isspace(*ptr)) ++ptr;
 
+        increment = true;
         // Extract relevant data
         for (j = 0; j < MAX_COMMANDS + 1; ++j)
         {
             if(isspace(*ptr) || *ptr == '\0')
                 break;
+            if(*ptr == '&')
+            {
+                ++ptr;
+                increment = false;
+                continue;
+            }
             *(*(argv + i) + j) = *ptr++;
         }
 
@@ -496,7 +512,8 @@ void External(char const* buffer)
         // Place a null terminator at the end of the string
         *(*(argv + i) + j) = '\0';
         *(args + i) = *(argv + i);
-        ++i;
+        if(increment)
+            ++i;
     }
 
     *(args + i) = NULL;
@@ -524,11 +541,15 @@ void External(char const* buffer)
     else if(pid > 0) 
     {
         if(parent_wait)
-            wait(NULL);
+        {
+            int status = 0;
+            waitpid(pid, &status, 0);
+        }
         // if dont have to wait for child process, add process and relevant stuff
         else
         {
-            
+            // Let it sleep for a bit before proceeding
+            usleep(25000);
         }
     }
 }

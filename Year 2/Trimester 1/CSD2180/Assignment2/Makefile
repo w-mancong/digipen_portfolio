@@ -2,7 +2,7 @@ PRG=ass2.out
 DEBUG=ass2_debug.out
 GCC=gcc
 GCC_FLAGS=-std=c11 -pedantic-errors -Wall -Wextra -O2 -Werror
-DEBUG_FLAGS=-std=c11 -pedantic-errors -Wall -Wextra -Werror 
+DEBUG_FLAGS=-std=c11  -pedantic-errors -Wall -Wextra -Werror 
 
 SOURCE=uShell.c
 VALGRIND_OPTIONS=-q --leak-check=full
