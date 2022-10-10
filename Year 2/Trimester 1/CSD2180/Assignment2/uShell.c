@@ -9,6 +9,7 @@
 
 typedef struct Variable Variable;
 size_t var_size = 10, current_var_index = 0;
+char error_buffer[MAX_BUFFER];
 
 typedef enum bool
 {
@@ -43,7 +44,6 @@ void Print(char const *msg);
 void ReadIn(char str[], size_t max);
 Commands Parse(char const *buffer, size_t *next_index);
 void Echo(char const *buffer, size_t index);
-void VariablesDefault(Variable **ptr, size_t size);
 void ResizeVariable(void);
 void SetVariable(char const *buffer, size_t index);
 void EchoMessage(char const* buffer, char str[]);
@@ -54,7 +54,8 @@ int main(void)
 {
     bool should_run = true;
     var = (Variable *)(malloc(sizeof(Variable) * var_size));
-    VariablesDefault(&var, var_size);
+    memset(var, 0, sizeof(Variable) * var_size);
+    memset(error_buffer, 0, sizeof(error_buffer));
 
     while (should_run)
     {
@@ -174,6 +175,7 @@ Commands Parse(char const *buffer, size_t *next_index)
 void Echo(char const *buffer, size_t index)
 {
     char temp[MAX_BUFFER];
+    memset(temp, 0, sizeof(temp));
     EchoMessage(buffer + index, temp);
     Print(temp);
 }
@@ -181,22 +183,13 @@ void Echo(char const *buffer, size_t index)
 /***********************************************************
                         SETVAR
 ***********************************************************/
-void VariablesDefault(Variable **ptr, size_t size)
-{
-    for (size_t i = 0; i < size; ++i)
-    {
-        (*ptr + i)->key = NULL;
-        (*ptr + i)->value = NULL;
-    }
-}
-
 void ResizeVariable(void)
 {
     // increase the size by two times
     var_size <<= 1;
     // Create a temp with more space allocated
     Variable *temp = (Variable *)malloc(sizeof(Variable) * var_size);
-    VariablesDefault(&temp, var_size);
+    memset(temp, 0, sizeof(Variable) * var_size);
     size_t const OLD_SIZE = var_size >> 1;
     // letting new containing point to key and value
     for (size_t i = 0; i < OLD_SIZE; ++i)
@@ -292,32 +285,30 @@ void SetVariable(char const *buffer, size_t index)
 
 void EchoMessage(char const *buffer, char str[])
 {
-    /*
-        uShell>echo ${HAHA} # calling out the value of HAHA
-        hoohoo
-        uShell>echo ${Haha}123 # Attempting to call out the value of an undefined variable.
-        Error: Haha123 is not a defined variable.
-        uShell>echo ${${HAHA}} # nested use of curly braces are not supported
-        ${hoohoo}
-        uShell>echo $${HAHA} # $ sign can be used together with variables
-        $hoohoo
-    */
-    size_t i = 0, len = 0;
+    size_t i = 0;
     EchoState state = NO_STATE;
     const char *ptr = buffer;
+    /*
+        Initial removal any white spaces in front
+        echo           ok
+            ^^^^^^^^^^^
+        All these white spaces will be removed
+    */
+    while (isspace(*ptr)) ++ptr;
     while(*ptr)
     {
+        // Possibility of it being a key that needs to be replaced
         if(*ptr == '$' && *(ptr + 1) == '{')
         {
-            char* val = SearchKeyValue(ptr + 2, &state, len);
+            size_t len = 0;
+            char* val = SearchKeyValue(ptr + 2, &state, &len);
             switch(state)
             {
                 case FAILURE:
                 {
                     sprintf(str, "Error: %s is not a defined variable\n", val);
-                    return;
-                    break;
-             
+                    memset(error_buffer, 0, sizeof(error_buffer));
+                    return;             
                 }
                 case SUCCEED:
                 {
@@ -326,18 +317,86 @@ void EchoMessage(char const *buffer, char str[])
                     ptr += len;     // let pointer point to the next ones
                     continue;
                 }
+                default:
+                    break;
             }
         }
-        *(str + i++) = *ptr++;
+        
+        /*
+            Second removal of white spaces from the echo command
+            echo   okasd       abced
+                ^^^     ^^^^^^ 
+            First three white spaces will be removed by the first white space removal
+            This while loop here is to remove all additional white spaces but only leaving one white space
+        */
+        while( isspace(*ptr) && isspace(*(ptr + 1)) ) ++ptr;
+        
+        *(str + i++) = *ptr++;  // Assigning the echo message into the str buffer
     }
+    *(str + i++) = '\n', *(str + i) = '\0';
 }
 
-char *SearchKeyValue(char const *buffer, EchoState *state, size_t len)
+/*
+uShell>echo ${HAHA} # calling out the value of HAHA
+hoohoo
+uShell>echo ${Haha}123 # Attempting to call out the value of an undefined variable.
+Error: Haha123 is not a defined variable.
+uShell>echo ${${HAHA}} # nested use of curly braces are not supported
+${hoohoo}
+uShell>echo $${HAHA} # $ sign can be used together with variables
+$hoohoo
+*/
+char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len)
 {
-    *state = NO_STATE; // Default value
-    // using this to store the key value
-    char key[MAX_BUFFER] = { '\0' };
+    // Search the entire buffer to see if there is a closing bracer, if dh means it's no a key
+    const char *ptr = buffer;
+    do
+    {
+        if(*ptr == '}')
+            break;
+    } while (*++ptr);
+    
+    // ptr reached the end of buffer and didn't find a closing bracer, therefore this buffer doesn't contain a key
+    if(!*ptr)
+    {
+        *state = NOT_A_KEY;
+        return NULL;
+    }
 
+    // using this to store the extracted key value from buffer
+    char key[MAX_BUFFER] = { '$', '{' };
+    size_t index = 2; size_t const KEY_LEN = ptr - buffer;
+    for (size_t i = 0; i <= KEY_LEN; ++i)
+    {
+        /*
+            uShell>echo ${HAHA }123 # wrong use of curly braces, Would be read as 2 words.
+            ${HAHA }123
+        */
+        if(isspace(*(buffer + i)) || *(buffer + i) == '$')
+        {
+            *state = NOT_A_KEY;
+            return NULL;
+        }
+        *(key + index++) = *(buffer + i);
+    }
+
+    // After extracting key from buffer, search key to see if key exists
+    for (size_t i = 0; i < current_var_index; ++i)
+    {
+        if(!strcmp((var + i)->key, key))
+        {
+            *len = strlen((var + i)->value);
+            *state = SUCCEED;
+            return (var + i)->value;
+        }
+    }
+
+    *len = 0;
+    *state = FAILURE;
+    for (size_t i = 2, j = 0; i < KEY_LEN + 2; ++i, ++j)
+        *(error_buffer + j) = *(key + i);
+
+    return error_buffer;
 }
 
 void FreeMemory(void)
