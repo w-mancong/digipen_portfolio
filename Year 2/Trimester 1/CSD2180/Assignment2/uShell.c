@@ -385,7 +385,7 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len)
     {
         if(!strcmp((var + i)->key, key))
         {
-            *len = strlen((var + i)->value);
+            *len = strlen((var + i)->key);
             *state = SUCCEED;
             return (var + i)->value;
         }
