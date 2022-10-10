@@ -1,15 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
-//#include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
 
-#define MAX_BUFFER 1024
+#define MAX_BUFFER      1024
+#define MAX_ARGUMENTS   40  // max argument of 40, last element should be null terminated
+#define MAX_COMMANDS    80  // max command length in an argument
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
 
 typedef struct Variable Variable;
 size_t var_size = 10, current_var_index = 0;
-char error_buffer[MAX_BUFFER];
+
+typedef struct Process Process;
+size_t pro_size = 10, current_pro_index = 0;
+
+char temp_buffer[MAX_BUFFER];
+char *args[MAX_ARGUMENTS];
+// there is 40 argument values, where each commands can be 80 characters long + 1 null character
+char argv[MAX_ARGUMENTS + 1][MAX_COMMANDS + 1];
+
+pid_t mainPID = 0;
 
 typedef enum bool
 {
@@ -40,22 +54,33 @@ struct Variable
     char *value;
 } * var;
 
+struct Process
+{
+    size_t index;
+    pid_t pid;
+} *process;
+
 void Print(char const *msg);
 void ReadIn(char str[], size_t max);
 Commands Parse(char const *buffer, size_t *next_index);
 void Echo(char const *buffer, size_t index);
+void EchoMessage(char const *buffer, char str[]);
 void ResizeVariable(void);
 void SetVariable(char const *buffer, size_t index);
-void EchoMessage(char const* buffer, char str[]);
 char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len);
 void FreeMemory(void);
+void External(char const* buffer);
 
 int main(void)
 {
     bool should_run = true;
     var = (Variable *)(malloc(sizeof(Variable) * var_size));
     memset(var, 0, sizeof(Variable) * var_size);
-    memset(error_buffer, 0, sizeof(error_buffer));
+    memset(temp_buffer, 0, sizeof(temp_buffer));
+
+    mainPID = getpid();
+
+    Print("Welcome to ManCong's Shell Program!\n");
 
     while (should_run)
     {
@@ -88,11 +113,19 @@ int main(void)
         case EXIT:
         {
             should_run = false;
+            // Print("exittttt\n");
             break;
         }
         case SETVAR:
         {
             SetVariable(buffer, next_index);
+            break;
+        }
+        case EXTERNAL:
+        {
+            memset(args, 0, sizeof(args));
+            memset(argv, 0, sizeof(argv));
+            External(buffer);
             break;
         }
         default:
@@ -104,6 +137,9 @@ int main(void)
     return 0;
 }
 
+/***********************************************************
+                Internal Functionalities
+***********************************************************/
 void Print(char const *msg)
 {
     printf("%s", msg);
@@ -166,7 +202,7 @@ Commands Parse(char const *buffer, size_t *next_index)
 
     *next_index = 0;
     // Might be used for external commands
-    return INVALID;
+    return EXTERNAL;
 }
 
 /***********************************************************
@@ -178,6 +214,61 @@ void Echo(char const *buffer, size_t index)
     memset(temp, 0, sizeof(temp));
     EchoMessage(buffer + index, temp);
     Print(temp);
+}
+
+void EchoMessage(char const *buffer, char str[])
+{
+    size_t i = 0;
+    EchoState state = NO_STATE;
+    const char *ptr = buffer;
+    /*
+        Initial removal any white spaces in front
+        echo           ok
+            ^^^^^^^^^^^
+        All these white spaces will be removed
+    */
+    while (isspace(*ptr))
+        ++ptr;
+    while (*ptr)
+    {
+        // Possibility of it being a key that needs to be replaced
+        if (*ptr == '$' && *(ptr + 1) == '{')
+        {
+            size_t len = 0;
+            char *val = SearchKeyValue(ptr + 2, &state, &len);
+            switch (state)
+            {
+            case FAILURE:
+            {
+                sprintf(str, "Error: %s is not a defined variable\n", val);
+                memset(temp_buffer, 0, sizeof(temp_buffer));
+                return;
+            }
+            case SUCCEED:
+            {
+                strcat(str, val); // append replacement value to str
+                i = strlen(str);  // next index for str is the len of str
+                ptr += len;       // let pointer point to the next ones
+                continue;
+            }
+            default:
+                break;
+            }
+        }
+
+        /*
+            Second removal of white spaces from the echo command
+            echo   okasd       abced
+                ^^^     ^^^^^^
+            First three white spaces will be removed by the first white space removal
+            This while loop here is to remove all additional white spaces but only leaving one white space
+        */
+        while (isspace(*ptr) && isspace(*(ptr + 1)))
+            ++ptr;
+
+        *(str + i++) = *ptr++; // Assigning the echo message into the str buffer
+    }
+    *(str + i++) = '\n', *(str + i) = '\0'; // putting a newline and null terminating character at the end of str
 }
 
 /***********************************************************
@@ -223,6 +314,10 @@ void SetVariable(char const *buffer, size_t index)
         *(key + i++) = *ptr++;
     // assign last char to be a null character
     *(key + i++) = '}', *(key + i++) = '\0';
+
+    if(strlen(key) <= 3)
+        Print("Error: Variable name cannot be empty\n");
+
     // Extra value data
     ++ptr;
     while (true)
@@ -262,6 +357,7 @@ void SetVariable(char const *buffer, size_t index)
     // no such key is found (add into the container)
     else
     {
+        // Resize the "vector" if vector no longer has any storage
         if (current_var_index >= var_size)
             ResizeVariable();
 
@@ -283,69 +379,6 @@ void SetVariable(char const *buffer, size_t index)
     }
 }
 
-void EchoMessage(char const *buffer, char str[])
-{
-    size_t i = 0;
-    EchoState state = NO_STATE;
-    const char *ptr = buffer;
-    /*
-        Initial removal any white spaces in front
-        echo           ok
-            ^^^^^^^^^^^
-        All these white spaces will be removed
-    */
-    while (isspace(*ptr)) ++ptr;
-    while(*ptr)
-    {
-        // Possibility of it being a key that needs to be replaced
-        if(*ptr == '$' && *(ptr + 1) == '{')
-        {
-            size_t len = 0;
-            char* val = SearchKeyValue(ptr + 2, &state, &len);
-            switch(state)
-            {
-                case FAILURE:
-                {
-                    sprintf(str, "Error: %s is not a defined variable\n", val);
-                    memset(error_buffer, 0, sizeof(error_buffer));
-                    return;             
-                }
-                case SUCCEED:
-                {
-                    strcat(str, val);
-                    i = strlen(str);
-                    ptr += len;     // let pointer point to the next ones
-                    continue;
-                }
-                default:
-                    break;
-            }
-        }
-        
-        /*
-            Second removal of white spaces from the echo command
-            echo   okasd       abced
-                ^^^     ^^^^^^ 
-            First three white spaces will be removed by the first white space removal
-            This while loop here is to remove all additional white spaces but only leaving one white space
-        */
-        while( isspace(*ptr) && isspace(*(ptr + 1)) ) ++ptr;
-        
-        *(str + i++) = *ptr++;  // Assigning the echo message into the str buffer
-    }
-    *(str + i++) = '\n', *(str + i) = '\0';
-}
-
-/*
-uShell>echo ${HAHA} # calling out the value of HAHA
-hoohoo
-uShell>echo ${Haha}123 # Attempting to call out the value of an undefined variable.
-Error: Haha123 is not a defined variable.
-uShell>echo ${${HAHA}} # nested use of curly braces are not supported
-${hoohoo}
-uShell>echo $${HAHA} # $ sign can be used together with variables
-$hoohoo
-*/
 char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len)
 {
     // Search the entire buffer to see if there is a closing bracer, if dh means it's no a key
@@ -393,12 +426,17 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len)
 
     *len = 0;
     *state = FAILURE;
+    // Getting the name of the key
     for (size_t i = 2, j = 0; i < KEY_LEN + 2; ++i, ++j)
-        *(error_buffer + j) = *(key + i);
+        *(temp_buffer + j) = *(key + i);
 
-    return error_buffer;
+    // return the name of the key so that error message can be printed
+    return temp_buffer;
 }
 
+/***********************************************************
+                Free Dynamic Allocated Memory
+***********************************************************/
 void FreeMemory(void)
 {
     for (size_t i = 0; i < var_size; ++i)
@@ -410,4 +448,87 @@ void FreeMemory(void)
     }
     if (var)
         free(var);
+}
+
+/***********************************************************
+                External Functionalities
+***********************************************************/
+void External(char const* buffer)
+{
+    /*
+        uShell>cat prog.c
+    */
+    char const *ptr = buffer;
+    bool parent_wait = true;
+    // Extract program name and arguments from buffer
+    size_t i = 0, j = 0;
+    while(*ptr)
+    {
+        if(MAX_ARGUMENTS < i)
+        {
+            Print("Error: Too many command arguments\n");
+            return;
+        }
+        
+        /*
+            Removal of any white spaces
+            uShell>        cat       prog.c
+                   ^^^^^^^^   ^^^^^^^
+            These white spaces will be removed
+        */
+        while(isspace(*ptr)) ++ptr;
+
+        // Extract relevant data
+        for (j = 0; j < MAX_COMMANDS + 1; ++j)
+        {
+            if(isspace(*ptr) || *ptr == '\0')
+                break;
+            *(*(argv + i) + j) = *ptr++;
+        }
+
+        // Error handling to make sure the size of command is should
+        if(MAX_COMMANDS < j)
+        {
+            Print("Error: Length of command is too long\n");
+            return;
+        }
+
+        // Place a null terminator at the end of the string
+        *(*(argv + i) + j) = '\0';
+        *(args + i) = *(argv + i);
+        ++i;
+    }
+
+    *(args + i) = NULL;
+    pid_t pid = fork();
+    // Creation of a process failed
+    if(pid <= -1)
+    {
+        Print("Error: Failed to create a child process\n");
+        return;
+    }
+    // Child process
+    else if(pid == 0)
+    {
+        int error = execvp(*args, args);
+        // If unable to run the new program, reset everything then exit from child process
+        if(error <= -1)
+        {
+            sprintf(temp_buffer, "Error: %s cannot be found\n", *args);
+            Print(temp_buffer);
+            memset(temp_buffer, 0, sizeof(temp_buffer));
+            exit(0);
+        }
+    }
+    // Parent process
+    else if(pid > 0) 
+    {
+        if(parent_wait)
+            wait(NULL);
+        // if dont have to wait for child process, add process and relevant stuff
+        else
+        {
+            
+        }
+    }
 }
