@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
-#include <setjmp.h>
 
 #define MAX_BUFFER      1024
 #define MAX_ARGUMENTS   40  // max argument of 40, last element should be null terminated
@@ -26,6 +25,9 @@ char temp_buffer[MAX_BUFFER];
 char *args[MAX_ARGUMENTS];
 // there is 40 argument values, where each commands can be 80 characters long + 1 null character
 char argv[MAX_ARGUMENTS + 1][MAX_COMMANDS + 1];
+
+// standard file descriptor storage
+int std_fd[3];
 
 typedef enum bool
 {
@@ -76,30 +78,33 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len);
 void Finish(char const *buffer);
 void FreeMemory(void);
 void External(char const* buffer);
+void NoRedirect(char const *ptr);
+void Redirect(char const *ptr, size_t redirect_input, size_t redirect_output);
 void ResizeProcess(void);
 
 int main(void)
 {
     bool should_run = true;
+    // Default for variable container
     var = (Variable *)malloc(sizeof(Variable) * var_size);
     memset(var, 0, sizeof(Variable) * var_size);
 
+    // Default for process container
     process = (Process *)malloc(sizeof(Process) * pro_size);
     memset(process, 0, sizeof(Process) * pro_size);
 
+    // Default for temp buffer
     memset(temp_buffer, 0, sizeof(temp_buffer));
 
+    // For historical program
     char historical[MAX_BUFFER];
     memset(historical, 0, sizeof(historical));
     bool run_last_command = false;
 
-    // struct sigaction sa;
-    // void delete_zombies(void);
-
-    // sigfillset(&sa.sa_mask);
-    // sa.sa_handler = delete_zombies;
-    // sa.sa_flags = 0;
-    // sigaction(SIGCHLD, &sa, NULL);
+    // Initial storage to store standard file descriptor
+    std_fd[0] = dup(STDIN_FILENO);
+    std_fd[1] = dup(STDOUT_FILENO);
+    std_fd[2] = dup(STDERR_FILENO);
 
     Print("Welcome to Man Cong's Shell Program!\n");
 
@@ -213,7 +218,8 @@ void ReadIn(char str[], size_t max)
 Commands Parse(char const *buffer, size_t *next_index)
 {
     // commands are case sensitive
-    char const *COMMANDS[] = {
+    char const *COMMANDS[] = 
+    {
         "echo",
         "exit",
         "setvar",
@@ -473,6 +479,7 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len)
         }
     }
 
+    // No such key exists, so len should just be 0
     *len = 0;
     *state = FAILURE;
     // Getting the name of the key
@@ -560,69 +567,50 @@ void External(char const* buffer)
 {
     /*
         uShell>cat prog.c
+               ^
+               |
+              ptr pointing here
     */
-    char const *ptr = buffer, *sptr = buffer;
-    bool parent_wait = true, increment = true;
-
+    bool parent_wait = true;
+    size_t ampersand_position = 0;
     // search for isolated &
+    char const *ptr = buffer;
     do
     {
-        if (*sptr != '&')
+        if (*ptr != '&')
             continue;
-        if (*(sptr - 1) != ' ' || (*(sptr + 1) != ' ' && *(sptr + 1) != '\0'))
+        if (*(ptr - 1) != ' ' || (*(ptr + 1) != ' ' && *(ptr + 1) != '\0'))
             continue;
         parent_wait = false;
+        ampersand_position = ptr - buffer;
         break;
-    } while (*++sptr);
-    
-    // Extract program name and arguments from buffer
-    size_t i = 0, j = 0;
-    while(*ptr)
+    } while (*++ptr);
+
+    // search for any redirection
+    size_t redirect_input = 0, redirect_output = 0;
+    /*
+        uShell>sort < in.txt > out.txt.
+               ^
+               |
+              ptr pointing here
+    */
+    ptr = buffer;
+    do
     {
-        if(MAX_ARGUMENTS < i)
+        if(*(ptr + 1) == ' ' && *(ptr - 1) == ' ')
         {
-            Print("Error: Too many command arguments\n");
-            return;
+            if(*ptr == '<')
+                redirect_input  = ptr - buffer;
+            else if(*ptr == '>')
+                redirect_output = ptr - buffer;
         }
-        
-        /*
-            Removal of any white spaces
-            uShell>        cat       prog.c
-                   ^^^^^^^^   ^^^^^^^
-            These white spaces will be removed
-        */
-        while(isspace(*ptr)) ++ptr;
+    } while (*++ptr);
 
-        increment = true;
-        // Extract relevant data
-        for (j = 0; j < MAX_COMMANDS + 1; ++j)
-        {
-            if(isspace(*ptr) || *ptr == '\0')
-                break;
-            if(*ptr == '&')
-            {
-                ++ptr;
-                increment = false;
-                continue;
-            }
-            *(*(argv + i) + j) = *ptr++;
-        }
+    if((0 < redirect_input || 0 < redirect_output) && (ampersand_position > redirect_input || ampersand_position > redirect_output))
+        Redirect(buffer, redirect_input, redirect_output);
+    else
+        NoRedirect(buffer);
 
-        // Error handling to make sure the size of command is should
-        if(MAX_COMMANDS < j)
-        {
-            Print("Error: Length of command is too long\n");
-            return;
-        }
-
-        // Place a null terminator at the end of the string
-        *(*(argv + i) + j) = '\0';
-        *(args + i) = *(argv + i);
-        if(increment)
-            ++i;
-    }
-
-    *(args + i) = NULL;
     int fd[2];
     if(pipe(fd) == -1)
     {
@@ -632,7 +620,7 @@ void External(char const* buffer)
 
     pid_t pid = fork();
     // Creation of a process failed
-    if(pid <= -1)
+    if(pid == -1)
     {
         Print("Error: Failed to create a child process\n");
         return;
@@ -654,7 +642,7 @@ void External(char const* buffer)
             sprintf(temp_buffer, "Error: %s cannot be found\n", *args);
             Print(temp_buffer);
             memset(temp_buffer, 0, sizeof(temp_buffer));
-            exit(0);
+            exit(1);
         }
     }
     // Parent process
@@ -694,6 +682,67 @@ void External(char const* buffer)
             ++current_pro_index;
         }
     }
+}
+
+void NoRedirect(char const *ptr)
+{
+    bool increment = true;
+    // Extract program name and arguments from buffer
+    size_t i = 0, j = 0;
+    while (*ptr)
+    {
+        if (MAX_ARGUMENTS < i)
+        {
+            Print("Error: Too many command arguments\n");
+            return;
+        }
+
+        /*
+            Removal of any white spaces
+            uShell>        cat       prog.c
+                   ^^^^^^^^   ^^^^^^^
+            These white spaces will be removed
+        */
+        while (isspace(*ptr)) ++ptr;
+        if(*ptr == '\0') break;
+
+        increment = true;
+        // Extract relevant data
+        for (j = 0; j < MAX_COMMANDS + 1; ++j)
+        {
+            if (isspace(*ptr) || *ptr == '\0')
+                break;
+            if (*ptr == '&')
+            {
+                ++ptr;
+                increment = false;
+                continue;
+            }
+            *(*(argv + i) + j) = *ptr++;
+        }
+
+        // Error handling to make sure the size of command is should
+        if (MAX_COMMANDS < j)
+        {
+            Print("Error: Length of command is too long\n");
+            return;
+        }
+
+        // Place a null terminator at the end of the string
+        *(*(argv + i) + j) = '\0';
+        *(args + i) = *(argv + i);
+        if (increment)
+            ++i;
+    }
+
+    *(args + i) = NULL;
+}
+
+void Redirect(char const *ptr, size_t redirect_input, size_t redirect_output)
+{
+    (void)ptr;
+    (void)redirect_input;
+    (void)redirect_output;
 }
 
 void ResizeProcess(void)
