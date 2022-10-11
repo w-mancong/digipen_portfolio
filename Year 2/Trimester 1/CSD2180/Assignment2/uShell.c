@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -37,6 +38,8 @@ typedef enum Commands
     ECHO,
     EXIT,
     SETVAR,
+    FINISH,
+    HISTORICAL,
     EXTERNAL,
 } Commands;
 
@@ -58,25 +61,36 @@ struct Process
 {
     size_t index;
     pid_t pid;
+    bool child_process;
 } *process = NULL;
 
 void Print(char const *msg);
 void ReadIn(char str[], size_t max);
 Commands Parse(char const *buffer, size_t *next_index);
-void Echo(char const *buffer, size_t index);
+void Echo(char const *buffer);
 void EchoMessage(char const *buffer, char str[]);
 void ResizeVariable(void);
-void SetVariable(char const *buffer, size_t index);
+void SetVariable(char const *buffer);
 char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len);
+void Finish(char const *buffer);
 void FreeMemory(void);
 void External(char const* buffer);
+void ResizeProcess(void);
 
 int main(void)
 {
     bool should_run = true;
-    var = (Variable *)(malloc(sizeof(Variable) * var_size));
+    var = (Variable *)malloc(sizeof(Variable) * var_size);
     memset(var, 0, sizeof(Variable) * var_size);
+
+    process = (Process *)malloc(sizeof(Process) * pro_size);
+    memset(process, 0, sizeof(Process) * pro_size);
+
     memset(temp_buffer, 0, sizeof(temp_buffer));
+
+    char historical[MAX_BUFFER];
+    memset(historical, 0, sizeof(historical));
+    bool run_last_command = false;
 
     Print("Welcome to Man Cong's Shell Program!\n");
 
@@ -84,7 +98,16 @@ int main(void)
     {
         Print("uShell>");
         char buffer[MAX_BUFFER] = {'\0'};
-        ReadIn(buffer, MAX_BUFFER);
+        if(!run_last_command)
+            ReadIn(buffer, MAX_BUFFER);
+        else
+        {
+            strcpy(buffer, historical);
+            strcat(historical, "\n");
+            Print(historical);
+        }
+
+        run_last_command = false;
 
         /* read a command from the keyboard */
         /* parse the command */
@@ -105,7 +128,7 @@ int main(void)
         {
         case ECHO:
         {
-            Echo(buffer, next_index);
+            Echo(buffer + next_index);
             break;
         }
         case EXIT:
@@ -115,7 +138,21 @@ int main(void)
         }
         case SETVAR:
         {
-            SetVariable(buffer, next_index);
+            SetVariable(buffer + next_index);
+            break;
+        }
+        case FINISH:
+        {
+            Finish(buffer + next_index);
+            break;
+        }
+        case HISTORICAL:
+        {
+            if(strcmp(historical, ""))
+                run_last_command = true;
+            // No history commands
+            else
+                Print("Error: No commands in history buffer.\n");
             break;
         }
         case EXTERNAL:
@@ -128,6 +165,10 @@ int main(void)
         default:
             break;
         }
+
+        // Copy latest command into the historical buffer
+        if(!run_last_command && strcmp(buffer, "!!"))
+            strcpy(historical, buffer);
     }
 
     FreeMemory();
@@ -167,6 +208,8 @@ Commands Parse(char const *buffer, size_t *next_index)
         "echo",
         "exit",
         "setvar",
+        "finish",
+        "!!",
     };
 
     // remove any white spaces in front
@@ -205,11 +248,11 @@ Commands Parse(char const *buffer, size_t *next_index)
 /***********************************************************
                             ECHO
 ***********************************************************/
-void Echo(char const *buffer, size_t index)
+void Echo(char const *buffer)
 {
     char temp[MAX_BUFFER];
     memset(temp, 0, sizeof(temp));
-    EchoMessage(buffer + index, temp);
+    EchoMessage(buffer, temp);
     Print(temp);
 }
 
@@ -292,7 +335,7 @@ void ResizeVariable(void)
     var = temp;
 }
 
-void SetVariable(char const *buffer, size_t index)
+void SetVariable(char const *buffer)
 {
     /*
         uShell>setvar HAHA hoohoo # assign the value hoohoo to HAHA
@@ -300,7 +343,7 @@ void SetVariable(char const *buffer, size_t index)
                       |
                      ptr is pointing here
     */
-    const char *ptr = buffer + index;
+    const char *ptr = buffer;
     // remove any white spaces
     while (isspace(*ptr)) ++ptr;
 
@@ -432,6 +475,53 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len)
 }
 
 /***********************************************************
+                            Finish
+***********************************************************/
+void Finish(char const *buffer)
+{
+    /*
+        uShell>finish 1
+        process 10064 exited with exit status 0.
+    */
+    char const *ptr = buffer;
+
+    size_t i = 0;
+    while(*ptr && !isspace(*ptr))
+        *(temp_buffer + i++) = *ptr++;
+
+    size_t process_index = (size_t)atoll(temp_buffer) - 1;
+    // user input contains a process_index that exists
+    if(current_pro_index > process_index)
+    {
+        memset(temp_buffer, 0, sizeof(temp_buffer));
+        if ((process + process_index)->child_process)
+        {
+            if(kill( (process + process_index)->pid, SIGKILL ) == -1)
+            {
+                sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+                Print(temp_buffer);
+            } 
+            else
+            {
+                // no longer a child process
+                (process + process_index)->child_process = false;
+                sprintf(temp_buffer, "Process %d exited with exit status 0.\n", (process + process_index)->pid);
+                Print(temp_buffer);
+            }
+        }
+        else
+        {
+            sprintf(temp_buffer, "Process Index %ld with Process ID %d is no longer a child process\n", (process + process_index)->index, (process + process_index)->pid);
+            Print(temp_buffer);
+        }
+    }
+    // process_index does not exists
+    else
+        Print("Error: No such process index exist\n");
+    memset(temp_buffer, 0, sizeof(temp_buffer));
+}
+
+/***********************************************************
                 Free Dynamic Allocated Memory
 ***********************************************************/
 void FreeMemory(void)
@@ -445,6 +535,8 @@ void FreeMemory(void)
     }
     if (var)
         free(var);
+    if(process)
+        free(process);
 }
 
 /***********************************************************
@@ -517,6 +609,13 @@ void External(char const* buffer)
     }
 
     *(args + i) = NULL;
+    int fd[2];
+    if(pipe(fd) == -1)
+    {
+        Print("Error: Pipe failed\n");
+        return;
+    }
+
     pid_t pid = fork();
     // Creation of a process failed
     if(pid <= -1)
@@ -527,9 +626,16 @@ void External(char const* buffer)
     // Child process
     else if(pid == 0)
     {
+        close(fd[0]);
         int error = execvp(*args, args);
+        if(write(fd[1], &error, sizeof(int)) == -1)
+        {
+            Print("Error: Unable to write to pipe\n");
+            return;
+        }
+        close(fd[1]);
         // If unable to run the new program, reset everything then exit from child process
-        if(error <= -1)
+        if(error == -1)
         {
             sprintf(temp_buffer, "Error: %s cannot be found\n", *args);
             Print(temp_buffer);
@@ -540,6 +646,15 @@ void External(char const* buffer)
     // Parent process
     else if(pid > 0) 
     {
+        close(fd[1]);
+        int error = 0;
+        if(read(fd[0], &error, sizeof(int)) == -1)
+        {
+            Print("Error: Unable to write from pipe\n");
+            return;
+        }
+        close(fd[0]);
+
         if(parent_wait)
         {
             int status = 0;
@@ -547,9 +662,42 @@ void External(char const* buffer)
         }
         // if dont have to wait for child process, add process and relevant stuff
         else
-        {
-            // Let it sleep for a bit before proceeding
-            usleep(25000);
+        {            
+            if(error == -1)
+                return;
+
+            if (current_pro_index >= pro_size)
+                ResizeProcess();
+
+            (process + current_pro_index)->index = current_pro_index + 1;
+            (process + current_pro_index)->pid = pid;
+            (process + current_pro_index)->child_process = true;
+
+            sprintf(temp_buffer, "[%ld] %d\n", (process + current_pro_index)->index, (process + current_pro_index)->pid);
+            Print(temp_buffer);
+            memset(temp_buffer, 0, sizeof(temp_buffer));
+
+            ++current_pro_index;
         }
     }
+}
+
+void ResizeProcess(void)
+{
+    // Store the old size
+    size_t const OLD_SIZE = pro_size;
+    // Increase size of container by 2 times
+    pro_size <<= 1;
+    // Allocate a temporary memory
+    Process *temp = (Process *)malloc(sizeof(Process) * pro_size);
+    // Give temp storage a default value
+    memset(temp, 0, sizeof(Process) * pro_size);
+    // Move the data from old process to new temporary container
+    memmove(temp, process, sizeof(Process) * OLD_SIZE);
+    // Deallocate old container
+    free(process);
+    // Let process point to the new continer
+    process = temp;
+    // Temp should not be pointing to any memory after this point
+    temp = NULL;
 }
