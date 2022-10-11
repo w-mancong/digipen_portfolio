@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <setjmp.h>
 
 #define MAX_BUFFER      1024
 #define MAX_ARGUMENTS   40  // max argument of 40, last element should be null terminated
@@ -91,6 +92,14 @@ int main(void)
     char historical[MAX_BUFFER];
     memset(historical, 0, sizeof(historical));
     bool run_last_command = false;
+
+    // struct sigaction sa;
+    // void delete_zombies(void);
+
+    // sigfillset(&sa.sa_mask);
+    // sa.sa_handler = delete_zombies;
+    // sa.sa_flags = 0;
+    // sigaction(SIGCHLD, &sa, NULL);
 
     Print("Welcome to Man Cong's Shell Program!\n");
 
@@ -503,10 +512,15 @@ void Finish(char const *buffer)
             } 
             else
             {
-                // no longer a child process
-                (process + process_index)->child_process = false;
-                sprintf(temp_buffer, "Process %d exited with exit status 0.\n", (process + process_index)->pid);
-                Print(temp_buffer);
+                int status;
+                waitpid((process + process_index)->pid, &status, 0);
+                if(WIFEXITED(status))
+                {
+                    // no longer a child process
+                    (process + process_index)->child_process = false;
+                    sprintf(temp_buffer, "Process %d exited with exit status %d.\n", (process + process_index)->pid, WEXITSTATUS(status));
+                    Print(temp_buffer);
+                }
             }
         }
         else

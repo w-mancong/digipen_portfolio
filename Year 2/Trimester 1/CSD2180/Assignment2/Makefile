@@ -8,7 +8,7 @@ SOURCE=uShell.c
 VALGRIND_OPTIONS=-q --leak-check=full
 
 build:
-	$(GCC) -o $(PRG) $(GCC_FLAGS) $(SOURCE)
+	$(GCC) -o $(PRG) $(GCC_FLAGS) $(SOURCE) -lm
 	ls
 
 db: #debug build
