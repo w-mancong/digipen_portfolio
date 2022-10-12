@@ -6,9 +6,12 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
+#include <limits.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <fcntl.h>
 
 #define MAX_BUFFER      1024
 #define MAX_ARGUMENTS   40  // max argument of 40, last element should be null terminated
@@ -78,8 +81,6 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len);
 void Finish(char const *buffer);
 void FreeMemory(void);
 void External(char const* buffer);
-void NoRedirect(char const *ptr);
-void Redirect(char const *ptr, size_t redirect_input, size_t redirect_output);
 void ResizeProcess(void);
 
 int main(void)
@@ -318,8 +319,7 @@ void EchoMessage(char const *buffer, char str[])
             First three white spaces will be removed by the first white space removal
             This while loop here is to remove all additional white spaces but only leaving one white space
         */
-        while (isspace(*ptr) && isspace(*(ptr + 1)))
-            ++ptr;
+        while (isspace(*ptr) && isspace(*(ptr + 1))) ++ptr;
 
         *(str + i++) = *ptr++; // Assigning the echo message into the str buffer
     }
@@ -566,13 +566,13 @@ void FreeMemory(void)
 void External(char const* buffer)
 {
     /*
-        uShell>cat prog.c
+        uShell>cat prog.c &
                ^
                |
               ptr pointing here
     */
     bool parent_wait = true;
-    size_t ampersand_position = 0;
+    size_t ampersand_position = ULLONG_MAX;
     // search for isolated &
     char const *ptr = buffer;
     do
@@ -588,6 +588,10 @@ void External(char const* buffer)
 
     // search for any redirection
     size_t redirect_input = 0, redirect_output = 0;
+    bool redirection = false;
+    char inputFile[MAX_BUFFER >> 1], outputFile[MAX_BUFFER >> 1];
+    memset(inputFile , 0, sizeof(inputFile));
+    memset(outputFile, 0, sizeof(outputFile));
     /*
         uShell>sort < in.txt > out.txt.
                ^
@@ -603,13 +607,183 @@ void External(char const* buffer)
                 redirect_input  = ptr - buffer;
             else if(*ptr == '>')
                 redirect_output = ptr - buffer;
+            redirection = true;
         }
     } while (*++ptr);
 
-    if((0 < redirect_input || 0 < redirect_output) && (ampersand_position > redirect_input || ampersand_position > redirect_output))
-        Redirect(buffer, redirect_input, redirect_output);
+    // Extract program name and arguments from buffer
+    size_t i = 0, j = 0;
+    ptr = buffer;
+    // There is no redirection needed
+    if(!redirection || ampersand_position < redirect_input || ampersand_position < redirect_output)
+    {
+        bool increment = true;
+        while (*ptr)
+        {
+            if (MAX_ARGUMENTS < i)
+            {
+                Print("Error: Too many command arguments\n");
+                return;
+            }
+
+            /*
+                Removal of any white spaces
+                uShell>        cat       prog.c
+                       ^^^^^^^^   ^^^^^^^
+                These white spaces will be removed
+
+                uShell>cat prog.c & > input.txt // this case is wrong lol
+            */
+            while (isspace(*ptr)) ++ptr;
+            if (*ptr == '\0') break;
+
+            increment = true;
+            // Extract relevant data
+            for (j = 0; j < MAX_COMMANDS + 1; ++j)
+            {
+                if (isspace(*ptr) || *ptr == '\0')
+                    break;
+                if (*ptr == '&')
+                {
+                    ++ptr;
+                    increment = false;
+                    continue;
+                }
+                *(*(argv + i) + j) = *ptr++;
+            }
+
+            // Error handling to make sure the size of command is should
+            if (MAX_COMMANDS < j)
+            {
+                Print("Error: Length of command is too long\n");
+                return;
+            }
+
+            // Place a null terminator at the end of the string
+            *(*(argv + i) + j) = '\0';
+            *(args + i) = *(argv + i);
+            if (increment)
+                ++i;
+        }
+
+        *(args + i) = NULL;
+    }
+    // Command to be parse have the ampersand at the very end
     else
-        NoRedirect(buffer);
+    {
+        bool to_iterate = true;
+        while(to_iterate)
+        {
+            if(MAX_ARGUMENTS < i)
+            {
+                Print("Error: Too many command arguments\n");
+                return;
+            }
+
+            /*
+                Removal of any white spaces
+                uShell>        cat       prog.c > out.txt &
+                       ^^^^^^^^   ^^^^^^^
+                These white spaces will be removed
+            */
+            while(isspace(*ptr)) ++ptr;            
+
+            // Extract relevant data
+            for (j = 0; j < MAX_COMMANDS + 1; ++j)
+            {
+                if(isspace(*ptr))
+                    break;
+                if (*ptr == '<' || *ptr == '>')
+                {
+                    to_iterate = false;
+                    break;
+                }
+                *(*(argv + i) + j) = *ptr++;
+            }
+
+            // Error handling to make sure the size of command is should
+            if (MAX_COMMANDS < j)
+            {
+                Print("Error: Length of command is too long\n");
+                return;
+            }
+
+            if(!to_iterate)
+                continue;
+            // Place a null terminator at the end of the string
+            *(*(argv + i) + j) = '\0';
+            *(args + i) = *(argv + i);
+            ++i;
+        }
+        *(args + i) = NULL;
+
+        /*
+            Extract input file and output file location
+            uShell>sort < in.txt
+                        ^
+                        |
+                  redirect_input index
+
+            uShell>sort < in.txt > out.txt
+                        ^        ^
+                        |        |
+                  redirect_input index
+                                 |
+                      redirect_output index
+
+            Only accepted format to have child process run without parent process waiting
+            uShell>cat prog.c > out.txt &
+        */
+        if(0 < redirect_input)
+        {
+            /*
+                uShell>sort < in.txt > out.txt
+                              ^
+                              |
+                             ptr is pointing here
+            */
+            size_t k = 0;
+            ptr = buffer + redirect_input + 2;
+            /*
+                Removal of any whitespace
+                uShell>sort <             in.txt > out.txt
+                              ^^^^^^^^^^^^ These white spaces will be removed
+                              |
+                             ptr is pointing here
+            */
+            while(isspace(*ptr)) ++ptr;
+            // Extracting the input file name and storing it in inFile
+            while(*ptr)
+            {
+                if(isspace(*ptr)) break;
+                *(inputFile + k++) = *ptr++;
+            }
+        }
+        if(0 < redirect_output)
+        {
+            /*
+            uShell>sort < in.txt > out.txt
+                                   ^
+                                   |
+                                  ptr is pointing here
+            */
+            size_t k = 0;
+            ptr = buffer + redirect_output + 2;
+            /*
+                Removal of any whitespace
+                uShell>sort < in.txt >          out.txt
+                                      ^^^^^^^^^^^ These white spaces will be removed
+                                                |
+                                               ptr is pointing here
+            */
+            while (isspace(*ptr)) ++ptr;
+            while(*ptr)
+            {
+                if(isspace(*ptr)) break;
+                *(outputFile + k++) = *ptr++;
+            }
+        }
+    }
 
     int fd[2];
     if(pipe(fd) == -1)
@@ -629,7 +803,53 @@ void External(char const* buffer)
     else if(pid == 0)
     {
         close(fd[0]);
-        int error = execvp(*args, args);
+        int error = 0;
+        if (redirection)
+        {
+            int inFile = 0, outFile = 0;
+            if(0 < redirect_input)
+            {
+                inFile = open(inputFile, O_RDONLY, 0777);
+                if(inFile == -1)
+                {
+                    sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+                    Print(temp_buffer);
+                    memset(temp_buffer, 0, sizeof(temp_buffer));
+                    exit(1);
+                }
+                error = dup2(inFile, STDIN_FILENO);
+                if(error == -1)
+                {
+                    sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+                    Print(temp_buffer);
+                    memset(temp_buffer, 0, sizeof(temp_buffer));
+                    exit(1);
+                } 
+                close(inFile);
+            }
+            if(0 < redirect_output)
+            {
+                outFile = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+                if(outFile == -1)
+                {
+                    sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+                    Print(temp_buffer);
+                    memset(temp_buffer, 0, sizeof(temp_buffer));
+                    exit(1);
+                }
+                error = dup2(outFile, STDOUT_FILENO);
+                if (error == -1)
+                {
+                    sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+                    Print(temp_buffer);
+                    memset(temp_buffer, 0, sizeof(temp_buffer));
+                    exit(1);
+                }
+                close(outFile);
+            }
+        }
+
+        error = execvp(*args, args);
         if(write(fd[1], &error, sizeof(int)) == -1)
         {
             Print("Error: Unable to write to pipe\n");
@@ -682,67 +902,6 @@ void External(char const* buffer)
             ++current_pro_index;
         }
     }
-}
-
-void NoRedirect(char const *ptr)
-{
-    bool increment = true;
-    // Extract program name and arguments from buffer
-    size_t i = 0, j = 0;
-    while (*ptr)
-    {
-        if (MAX_ARGUMENTS < i)
-        {
-            Print("Error: Too many command arguments\n");
-            return;
-        }
-
-        /*
-            Removal of any white spaces
-            uShell>        cat       prog.c
-                   ^^^^^^^^   ^^^^^^^
-            These white spaces will be removed
-        */
-        while (isspace(*ptr)) ++ptr;
-        if(*ptr == '\0') break;
-
-        increment = true;
-        // Extract relevant data
-        for (j = 0; j < MAX_COMMANDS + 1; ++j)
-        {
-            if (isspace(*ptr) || *ptr == '\0')
-                break;
-            if (*ptr == '&')
-            {
-                ++ptr;
-                increment = false;
-                continue;
-            }
-            *(*(argv + i) + j) = *ptr++;
-        }
-
-        // Error handling to make sure the size of command is should
-        if (MAX_COMMANDS < j)
-        {
-            Print("Error: Length of command is too long\n");
-            return;
-        }
-
-        // Place a null terminator at the end of the string
-        *(*(argv + i) + j) = '\0';
-        *(args + i) = *(argv + i);
-        if (increment)
-            ++i;
-    }
-
-    *(args + i) = NULL;
-}
-
-void Redirect(char const *ptr, size_t redirect_input, size_t redirect_output)
-{
-    (void)ptr;
-    (void)redirect_input;
-    (void)redirect_output;
 }
 
 void ResizeProcess(void)
