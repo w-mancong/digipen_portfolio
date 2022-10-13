@@ -205,7 +205,7 @@ int main(void)
     memset(historical, 0, sizeof(historical));
     bool run_last_command = false;
 
-    Print("Welcome to Man Cong's Shell Program!\n");
+    Print("\033[1;31mWelcome to Man Cong's Shell Program!\033[0m\n");
 
     while (should_run)
     {
