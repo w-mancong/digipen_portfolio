@@ -81,6 +81,7 @@ char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len);
 void Finish(char const *buffer);
 void FreeMemory(void);
 void External(char const* buffer);
+void Pipe(char const *buffer, size_t pipe_index);
 void ResizeProcess(void);
 
 int main(void)
@@ -565,6 +566,26 @@ void FreeMemory(void)
 ***********************************************************/
 void External(char const* buffer)
 {
+    // Search for | to establish pipe
+    char const *ptr = buffer;
+    bool pipe_communication = false;
+    size_t pipe_index = 0;
+    do
+    {
+        if(*(ptr + 1) == ' ' && *(ptr - 1) == ' ' && *ptr == '|')
+        {
+            pipe_communication = true;
+            pipe_index = ptr - buffer;
+            break;
+        }
+    } while (*++ptr);
+
+    if(pipe_communication)
+    {
+        Pipe(buffer, pipe_index);
+        return;
+    }
+
     /*
         uShell>cat prog.c &
                ^
@@ -574,7 +595,7 @@ void External(char const* buffer)
     bool parent_wait = true;
     size_t ampersand_position = ULLONG_MAX;
     // search for isolated &
-    char const *ptr = buffer;
+    ptr = buffer;
     do
     {
         if (*ptr != '&')
@@ -604,10 +625,15 @@ void External(char const* buffer)
         if(*(ptr + 1) == ' ' && *(ptr - 1) == ' ')
         {
             if(*ptr == '<')
+            {
                 redirect_input  = ptr - buffer;
+                redirection = true;
+            }
             else if(*ptr == '>')
+            {
                 redirect_output = ptr - buffer;
-            redirection = true;
+                redirection = true;
+            }
         }
     } while (*++ptr);
 
@@ -643,7 +669,7 @@ void External(char const* buffer)
             {
                 if (isspace(*ptr) || *ptr == '\0')
                     break;
-                if (*ptr == '&')
+                if (*ptr == '&' && !parent_wait)
                 {
                     ++ptr;
                     increment = false;
@@ -793,6 +819,7 @@ void External(char const* buffer)
     }
 
     pid_t pid = fork();
+    int error = 0;
     // Creation of a process failed
     if(pid == -1)
     {
@@ -803,7 +830,6 @@ void External(char const* buffer)
     else if(pid == 0)
     {
         close(fd[0]);
-        int error = 0;
         if (redirection)
         {
             int inFile = 0, outFile = 0;
@@ -853,7 +879,7 @@ void External(char const* buffer)
         if(write(fd[1], &error, sizeof(int)) == -1)
         {
             Print("Error: Unable to write to pipe\n");
-            return;
+            exit(1);
         }
         close(fd[1]);
         // If unable to run the new program, reset everything then exit from child process
@@ -869,10 +895,9 @@ void External(char const* buffer)
     else if(pid > 0) 
     {
         close(fd[1]);
-        int error = 0;
         if(read(fd[0], &error, sizeof(int)) == -1)
         {
-            Print("Error: Unable to write from pipe\n");
+            Print("Error: Unable to read from pipe\n");
             return;
         }
         close(fd[0]);
@@ -901,6 +926,164 @@ void External(char const* buffer)
 
             ++current_pro_index;
         }
+    }
+}
+
+void Pipe(char const *buffer, size_t pipe_index)
+{
+    char const *ptr = buffer;
+    size_t i = 0, j = 0;
+    pid_t left_child = 0, right_child = 0;
+
+    int fd[2];  // 0 -> read, 1 -> write
+    if(pipe(fd) == -1)
+    {
+        Print("Error: Pipe failed\n");
+        return;
+    }
+
+    /*
+      Extract program name of left hand side first
+      uShell>ls -l | less    //  left_child process | right_child process
+    */
+    while (*ptr)
+    {
+        if ((size_t)(ptr - buffer) + 1 >= pipe_index)
+            break;
+
+        /*
+            uShell>            ls -l | less
+                   ^^^^^^^^^^^^ Removing these white spaces
+        */
+        while (isspace(*ptr)) ++ptr;
+
+        // Extract relevant data
+        for (j = 0; j < MAX_COMMANDS + 1; ++j)
+        {
+            if (isspace(*ptr))
+                break;
+            *(*(argv + i) + j) = *ptr++;
+        }
+        // Place a null terminator at the end of the string
+        *(*(argv + i) + j) = '\0';
+        *(args + i) = *(argv + i);
+        ++i;
+    }
+    *(args + j) = NULL;
+
+    int error = 0;
+    // Forking to run program on the left
+    left_child = fork();
+    if(left_child == -1)
+    {
+        Print("Error: Failed to create a left child process\n");
+        return;
+    }    
+    // Child process
+    if(left_child == 0)
+    {
+        close(fd[0]);   // close read becuz left child doesn't need to read anything
+        error = dup2(fd[1], STDOUT_FILENO);
+        if (error == -1)
+        {
+            sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+            Print(temp_buffer);
+            memset(temp_buffer, 0, sizeof(temp_buffer));
+            exit(1);
+        }
+        close(fd[1]);
+
+        // Execute program
+        error = execvp(*args, args);
+        // If unable to run the new program, reset everything then exit from child process
+        if (error == -1)
+        {
+            sprintf(temp_buffer, "Error: %s cannot be found\n", *args);
+            Print(temp_buffer);
+            memset(temp_buffer, 0, sizeof(temp_buffer));
+            exit(1);
+        }
+    }
+
+    int status = 0;
+    waitpid(left_child, &status, 0);
+
+    // child process did not exit normally
+    if(WIFEXITED(status) == 0)
+    {
+        Print("Error: Left child process did not terminate normally\n");
+        return;
+    }
+
+    // Reset variables for use to extract program for right_child
+    memset(args, 0, sizeof(args));
+    memset(argv, 0, sizeof(argv));
+    j = 0, i = 0;
+    ptr = buffer + pipe_index + 1;
+    while (*ptr)
+    {
+        /*
+            uShell>ls -l |      less
+                          ^^^^^^ Removing these white spaces
+        */
+        while (isspace(*ptr)) ++ptr;
+
+        // Extract relevant data
+        for (j = 0; j < MAX_COMMANDS + 1; ++j)
+        {
+            if (isspace(*ptr))
+                break;
+            *(*(argv + i) + j) = *ptr++;
+        }
+        // Place a null terminator at the end of the string
+        *(*(argv + i) + j) = '\0';
+        *(args + i) = *(argv + i);
+        ++i;
+    }
+    *(args + j) = NULL;
+
+    // fork right child to do the process
+    right_child = fork();
+    if (right_child == -1)
+    {
+        Print("Error: Failed to create a left child process\n");
+        return;
+    }
+    // Child process
+    if (right_child == 0)
+    {
+        close(fd[1]); // close read becuz left child doesn't need to read anything
+        error = dup2(fd[0], STDIN_FILENO);
+        if (error == -1)
+        {
+            sprintf(temp_buffer, "Error: %s\n", strerror(errno));
+            Print(temp_buffer);
+            memset(temp_buffer, 0, sizeof(temp_buffer));
+            exit(1);
+        }
+        close(fd[0]);
+
+        // Execute program
+        error = execvp(*args, args);
+        // If unable to run the new program, reset everything then exit from child process
+        if (error == -1)
+        {
+            sprintf(temp_buffer, "Error: %s cannot be found\n", *args);
+            Print(temp_buffer);
+            memset(temp_buffer, 0, sizeof(temp_buffer));
+            exit(1);
+        }
+    }
+
+    close(fd[0]);
+    close(fd[1]);
+    waitpid(right_child, &status, 0);
+
+    // child process did not exit normally
+    if (WIFEXITED(status) == 0)
+    {
+        Print("Error: Left child process did not terminate normally\n");
+        return;
     }
 }
 
