@@ -29,7 +29,7 @@ test:
 
 mem:
 	@echo "running memory test"
-	valgrind $(VALGRIND_OPTIONS) ./$(PRG) $(subst mem,,$@) 1>/dev/null 2>difference$@
+	valgrind $(VALGRIND_OPTIONS) ./$(PRG) 1>/dev/null 2>difference$@
 	@echo "Printing memory errors (if any): "; cat difference$@
 
 clean:

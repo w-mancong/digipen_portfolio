@@ -1,3 +1,13 @@
+/*!*****************************************************************************
+\file uShell.c
+\author Wong Man Cong
+\par DP email: w.mancong\@digipen.edu
+\par Course: Operating System
+\par Assignment 2
+\date 14-10-2022
+\brief
+This file contains function that mimics a shell program
+*******************************************************************************/
 #define _POSIX_SOURCE
 #define _DEFAULT_SOURCE
 #include <stdio.h>
@@ -28,9 +38,6 @@ char temp_buffer[MAX_BUFFER];
 char *args[MAX_ARGUMENTS];
 // there is 40 argument values, where each commands can be 80 characters long + 1 null character
 char argv[MAX_ARGUMENTS + 1][MAX_COMMANDS + 1];
-
-// standard file descriptor storage
-int std_fd[3];
 
 typedef enum bool
 {
@@ -70,18 +77,113 @@ struct Process
     bool child_process;
 } *process = NULL;
 
+/*!*****************************************************************************
+    \brief Prints out msg and flush stdout stream
+
+    \param [in] msg: Message to be printed out onto the screen
+*******************************************************************************/
 void Print(char const *msg);
+
+/*!*****************************************************************************
+    \brief Read in characters from the standard input file
+
+    \param [out] str: Inputs from standard input file will be stored in this 
+    char array
+    \param [in] max: Maximum characters to be read from the input stream
+*******************************************************************************/
 void ReadIn(char str[], size_t max);
+
+/*!*****************************************************************************
+    \brief To determine the different internal commands that uShell supports
+
+    \param [in] buffer: String buffer of input read from input stream
+    \param [out] next_index: To store the index position after reading in the
+    internal command
+
+    \return The enum type of command that was parse
+*******************************************************************************/
 Commands Parse(char const *buffer, size_t *next_index);
+
+/*!*****************************************************************************
+    \brief Echo a message by user onto the shell
+
+    \param [in] buffer: String buffer containing the message to be filtered 
+    and echo onto the terminal
+*******************************************************************************/
 void Echo(char const *buffer);
+
+/*!*****************************************************************************
+    \brief To filter any special variable and have it's message replaced and
+    echoed onto the terminal
+
+    \param [in] buffer: String buffer containing the message to be filtered
+    \param [out] str: Store the filtered message to be echoed into this char 
+    array
+*******************************************************************************/
 void EchoMessage(char const *buffer, char str[]);
+
+/*!*****************************************************************************
+    \brief To increase the size storing all the special variables
+*******************************************************************************/
 void ResizeVariable(void);
+
+/*!*****************************************************************************
+    \brief To add/change special variables that contain another message
+
+    \param [in] buffer: String buffer containing data of key and value of the
+    special variable
+*******************************************************************************/
 void SetVariable(char const *buffer);
+
+/*!*****************************************************************************
+    \brief Search to see if buffer contains a key that's within my var container
+    holding a value to it
+
+    \param [in] buffer: String buffer containing a potential key
+    \param [out] state: Echo state after searching the string buffer and var 
+    container. The job of each state are:
+    SUCCEED,    // Managed to find a key and is returning the value associated with it
+    NOT_A_KEY,  // Searching through to realised that it's not a key
+    FAILURE,    // No such key exist yet
+    \param [out] len: Length of the key string
+
+    \return The value string that the key string is associated with the special
+    variable, else NULL will be returned
+*******************************************************************************/
 char *SearchKeyValue(char const *buffer, EchoState *state, size_t *len);
+
+/*!*****************************************************************************
+    \brief Terminates the process
+
+    \param [in] buffer: String buffer containing the process index to be 
+    terminated
+*******************************************************************************/
 void Finish(char const *buffer);
+
+/*!*****************************************************************************
+    \brief Release all memory allocated on the heap for var and process
+*******************************************************************************/
 void FreeMemory(void);
+
+/*!*****************************************************************************
+    \brief General function that handles external commands
+
+    \param [in] buffer: String buffer containing external commands
+*******************************************************************************/
 void External(char const* buffer);
+
+/*!*****************************************************************************
+    \brief Does pipe communication between two different processes
+
+    \param [in] buffer: String buffer containing two different programs where
+    they will communicate between each other using pipe
+    \param [in] pipe_index: Index position of |
+*******************************************************************************/
 void Pipe(char const *buffer, size_t pipe_index);
+
+/*!*****************************************************************************
+    \brief To increase the size storing all the processes
+*******************************************************************************/
 void ResizeProcess(void);
 
 int main(void)
@@ -103,16 +205,15 @@ int main(void)
     memset(historical, 0, sizeof(historical));
     bool run_last_command = false;
 
-    // Initial storage to store standard file descriptor
-    std_fd[0] = dup(STDIN_FILENO);
-    std_fd[1] = dup(STDOUT_FILENO);
-    std_fd[2] = dup(STDERR_FILENO);
-
     Print("Welcome to Man Cong's Shell Program!\n");
 
     while (should_run)
     {
-        Print("uShell>");
+        /*
+            https://stackoverflow.com/questions/2616906/how-do-i-output-coloured-text-to-a-linux-terminal 
+            -> Change output text of linux terminal
+        */
+        Print("\033[0;32muShell>\033[0;33m");
         char buffer[MAX_BUFFER] = {'\0'};
         if(!run_last_command)
             ReadIn(buffer, MAX_BUFFER);
@@ -124,19 +225,6 @@ int main(void)
         }
 
         run_last_command = false;
-
-        /* read a command from the keyboard */
-        /* parse the command */
-
-        /*
-         * After parsing, the steps are:
-         * For internal comments:
-         * (1) invoke corresponding functions
-         * For external comments:
-         * (1) fork a child process using fork()
-         * (2) the child process will invoke execve()
-         * (3) parent will invoke wait() unless command included &
-         */
 
         size_t next_index = 0;
         Commands command = Parse(buffer, &next_index);
