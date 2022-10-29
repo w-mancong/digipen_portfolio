@@ -14,7 +14,7 @@ test:
 
 mem0:
 	@echo "running memory $@ test"
-	valgrind $(VALGRIND_OPTIONS) ./$(PRG) $(subset mem,,$@) 1>/dev/null 2>difference$@
+	valgrind $(VALGRIND_OPTIONS) ./$(PRG) $(subst mem,,$@) 1>/dev/null 2>difference$@
 	@echo "Printing memory erros (if any):"; cat difference$@
 
 clean:
