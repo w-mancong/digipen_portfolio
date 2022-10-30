@@ -1,6 +1,6 @@
 PRG=ass3_
 GCC=g++
-GCC_FLAGS=-std=c++14 -O2
+GCC_FLAGS=-std=c++14 -g -O2
 
 T_SOURCE=coro-lib.a
 SOURCE=new-coro-lib.cpp

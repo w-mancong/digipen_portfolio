@@ -2,14 +2,12 @@
 #include <cstdlib>
 #include "new-coro-lib.h"
 
-
 void *get_return_value(void *param )
 {
     static int count = 5;
     count--;
     return (void *)count;
 }
-
 
 int main()
 {

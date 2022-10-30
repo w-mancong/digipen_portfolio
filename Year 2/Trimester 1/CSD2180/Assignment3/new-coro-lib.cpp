@@ -1,18 +1,18 @@
 #include "new-coro-lib.h"
+#include <unordered_map>
 #include <deque>
 #include <algorithm>
-#include <iostream>
 
 namespace CORO
 {
 	enum class ThreadState
 	{
 		INVALID = -1,
-		START,
+		NEW,
 		READY,
 		RUNNING,
 		WAITING,
-		DONE,
+		TERMINATED,
 	};
 
 	enum class Register : u64
@@ -25,8 +25,8 @@ namespace CORO
 		REG_RDX,
 		REG_RSI,
 		REG_RDI,
-		REG_R8 ,
-		REG_R9 ,
+		REG_R8,
+		REG_R9,
 		REG_R10,
 		REG_R11,
 		REG_R12,
@@ -42,134 +42,125 @@ namespace CORO
 	{
 		ThreadID id{};
 		ThreadID waitID{};
-		void *(*thd_function_t)(void *) { nullptr };
-		void *gregs[(u64)Register::TOTAL_REGISTERS] { nullptr };
-		void *args{ nullptr };	// argument values
-		void *rets{ nullptr };	// return values
-		ThreadState state{ ThreadState::INVALID };
+		void *(*thd_function_t)(void *){nullptr};
+		void *param{nullptr}; // argument values
+		void *ret_value{nullptr}; // return values
+		ThreadState state{ThreadState::INVALID};
+		void *gregs[(u64)Register::TOTAL_REGISTERS]{nullptr};
 	};
 
 	namespace
 	{
-		/*
-			declare/define the following things such as:
+		// list of all threads
+		// list of all READY-state threads
+		// list of all WAITING-state threads
+		// list of all TERMINATED-state threads
+		// list of all NEW-state threads
+		// ... (Add as needed tbh, I only used arnd 3 lists)
 
-			stack size
-			enum thread states
-			struct TCB includes information such as:
-				- ID
-				- ID for waiting thread
-				- function pointer for the task
-				- registers/pointers
-					-basic stack pointer
-					-stack pointer
-					-...
-				-args/returns
-				-state
-
-			several thread lists/queues, such as
-				- all threads
-				- ready queue
-				- waiting queue
-				- partially terminated threads - need to be recycled
-				- newly created threads
-				- ...
-
-			pointer to the current thread
-		*/
-
-		u64 constexpr ONE_MB{ 1'024'000 }, THREAD_SIZE{ 1'000 };
-		ThreadID id_counter{ 0 };
+		u64 constexpr ONE_MB{ 1'024'000 };
+		static ThreadID id_counter{ 0 };
 		TCB *currTCB{ nullptr };
 
-		std::deque<TCB *> ready{}, newly_created{};
+		std::deque<TCB *> ready_queue{}, new_stack{}, waiting_list{};
+		std::unordered_map<ThreadID, TCB *> all_threads{};
 
-		void RunFunction(TCB* tcb)
+		void RunFunction(void)
 		{
-			if(tcb->thd_function_t)
-			{
-				tcb->thd_function_t(tcb->args);
-				thread_exit(tcb->rets);
-			}
+			if (currTCB->thd_function_t)
+				thread_exit(currTCB->thd_function_t(currTCB->param));
 		}
 	}
-		
-    // init the primary thread
+
+	// init the primary thread
 	void thd_init(void)
 	{
-		/*
-			 create TCB
-			 add it to one list
-			 
-			 can set the primary thread to RUNNING directly
-		*/
-		currTCB = new TCB;
-		currTCB->id = id_counter++;
-		currTCB->state = ThreadState::RUNNING;
-		newly_created.push_back(currTCB);
+		TCB *tcb = new TCB;
+		tcb->id = id_counter++;
+		tcb->state = ThreadState::RUNNING;
+
+		all_threads[tcb->id] = tcb;
+		currTCB = tcb;
 	}
 
-    // creates a new thread
+	// creates a new thread
 	ThreadID new_thd(void *(*thd_function_t)(void *), void *param)
 	{
-		/*
-			 create TCB
-			 add it to one list
-			 
-			 // init
-			 newTCB->gregs[REG_RSP] = (char*) malloc(OneMB) + OneMB;		 
-		*/
 		TCB *tcb = new TCB;
-		tcb->gregs[(u64)Register::REG_RBP] = new char[ONE_MB];
-		tcb->gregs[(u64)Register::REG_RSP] = (char*)tcb->gregs[(u64)Register::REG_RBP] + ONE_MB;
 		tcb->id = id_counter++;
 		tcb->thd_function_t = thd_function_t;
-		tcb->args = param;
-		tcb->state = ThreadState::START;
+		tcb->param = param;
+		tcb->ret_value = nullptr;
+		tcb->state = ThreadState::NEW;
+		tcb->gregs[(u64)Register::REG_RBP] = (char *)malloc(sizeof(char *));
+		tcb->gregs[(u64)Register::REG_RSP] = (char *)malloc(ONE_MB) + ONE_MB;
 
-		newly_created.push_back(tcb);
-
+		new_stack.push_back(tcb);
+		all_threads[tcb->id] = tcb;
 		return tcb->id;
 	}
 
-    // terminates thread and yields
+	// terminates thread and yields
 	void thread_exit(void *ret_value)
-	{
-		/*
-			add it to one list 
-			if there are other threads waiting for it, put them to ready 
-			yield CPU
-		*/
-    }
+	{			
+		// Set the return value for the thread as ret_value (currThrd->ret_val = ret_value)
+		currTCB->ret_value = ret_value;
+		// Set the state of the thread to TERMINATED
+		currTCB->state = ThreadState::TERMINATED;
 
-    //  wait for another thread
-	s32 wait_thread(ThreadID id, void **value)
-	{
-	    /*
-			search the thread with id
-			
-			yield CPU until the thread being waited for is terminated
-			you can set this thread to waiting, and then yield, 
-			then set to ready, when the thread with id exits
-			
-			obtain return value 
-			
-			if thread with that id is terminated, dealloc it
-			
-			Need to consider if the thread has already been terminated / TCB is valid
-		*/
-		return 0;
+		// Check if there are any threads waiting for this thread to terminate
+		// if there are, set their values as required and put them in the READY list (If required, based on your implementation)
+		auto it = std::find_if(waiting_list.begin(), waiting_list.end(), [](TCB* tcb)
+		{
+			return tcb->waitID == currTCB->id;
+		});
+
+		// Found a thread that is waiting for the current thread to be completed
+		TCB *tcb = (*it);
+		if(it != waiting_list.end())
+		{
+			tcb->state = ThreadState::READY;
+			ready_queue.push_back(tcb);
+			waiting_list.erase(it);
+		}
+		
+		// yield CPU to another thread (calls thd_yield())
+		thd_yield();
 	}
 
-    // let the current thread yield CPU and let the next thread run
-    void thd_yield(void)
-    {
-		// Note that the next thread can be "ready" or newly created  
-		
-        // save the context!
-		// context saving
-		
-		// save the registers
+	//  wait for another thread
+	s32 wait_thread(ThreadID id, void **value)
+	{
+		auto it = all_threads.find(id);
+		if (it == all_threads.end())
+			return NO_THREAD_FOUND;
+
+		TCB *tcb = it->second;
+		while (tcb->state != ThreadState::TERMINATED)
+		{
+			currTCB->state = ThreadState::WAITING;
+			currTCB->waitID = id;
+			waiting_list.push_back(currTCB);
+
+			thd_yield();
+		}
+
+		if (value)
+			*value = tcb->ret_value;
+
+		all_threads.erase(it);
+		delete tcb;
+
+		return WAIT_SUCCESSFUL;
+	}
+
+	// let the current thread yield CPU and let the next thread run
+	void thd_yield(void)
+	{
+		/*
+			Context Saving:
+			Saving of all the registers
+		*/
 		asm volatile(
 			"movq %%rbx, %0 \n"
 			"movq %%rdi, %1 \n"
@@ -203,66 +194,30 @@ namespace CORO
 			  "=m"(currTCB->gregs[(u64)Register::REG_R11]));
 
 		// // switch stack
-		// asm volatile
-		// (
-		//   "movq %%rsp, %0 \n"
-		//   "movq %%rbp, %1 \n"	
-		//   : "=m" (currThrd->gregs[REG_RSP]),
-		// 	"=m" (currThrd->gregs[REG_RBP])	  
-		// );	
-		// asm volatile
-		// (
-		//   "pushfq \n"
-		//   "popq %0 \n"
-		//   : "=m" (currThrd->gregs[REG_EFL])
-		//   : 
-		//   : "rsp"
-		// );
-
-		asm volatile
-		(
+		asm volatile(
 			"movq %%rsp, %0 \n"
 			"movq %%rbp, %1 \n"
 			: "=m"(currTCB->gregs[(u64)Register::REG_RSP]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_RBP])
-		);
+			  "=m"(currTCB->gregs[(u64)Register::REG_RBP]));
 
-		asm volatile
-		(
-			"pushfq \n"
-			"popq %0 \n"
-			: "=m"(currTCB->gregs[(u64)Register::REG_EFL])
-			:
-			: "rsp"
-		);
+		// Find the next thread
+		bool const READY_FILLED = ready_queue.size(), NEW_FILLED = new_stack.size();
 
-		// // find the next thread
-		// 	// load the context of the next thread!
-		//     // switch stack!
-		// 	asm volatile
-		// 	(
-		// 		"pushq %0 \n"
-		// 		"popfq \n\t"
-		// 		:
-		// 		: "m" (currTCB->gregs[REG_EFL])
-		// 		: "cc","rsp"
-		// 	);
+		// Both the ready queue and new_stack is empty, do nth
+		if (!READY_FILLED && !NEW_FILLED)
+			return;
 
-		// 	asm volatile
-		// 	(
-		// 		"movq %0,  %%rsp \n"
-		// 		"movq %1,  %%rbp\n"
-		// 		:
-		// 		: "m" (currTCB->gregs[REG_RSP]),
-		// 		"m" (currTCB->gregs[REG_RBP])
-		// 	);
-
-		// load the rest registers
-		if(ready.size()) // ready queue is empty
+		// If current thread is running, add it to ready queue
+		if (currTCB->state == ThreadState::RUNNING)
 		{
-			ready.push_back(currTCB);
-			currTCB = ready.front();
-			ready.pop_front();
+			currTCB->state = ThreadState::READY;
+			ready_queue.push_back(currTCB);
+		}
+
+		if (READY_FILLED)
+		{
+			currTCB = ready_queue.front(); ready_queue.pop_front();
+			currTCB->state = ThreadState::RUNNING;
 
 			asm volatile(
 				"pushq %0 \n"
@@ -311,43 +266,11 @@ namespace CORO
 				  "m"(currTCB->gregs[(u64)Register::REG_R9]),
 				  "m"(currTCB->gregs[(u64)Register::REG_R10]),
 				  "m"(currTCB->gregs[(u64)Register::REG_R11]));
-			RunFunction(currTCB);
 		}
-		// // else next thread is new
-		// 	// you can make use of the queue of newly created threads
-		// 	// switch to new stack!
-		// 	asm volatile
-		// 	(
-		// 		"pushq %0 \n"
-		// 		"popfq \n\t"
-		// 		:
-		// 		: "m" (currTCB->gregs[REG_EFL])
-		// 		: "cc","rsp"
-		// 	);
-		// 	asm volatile
-		// 	(
-		// 		"movq %0,  %%rsp \n"
-		// 		"movq %1,  %%rbp\n"
-		// 		:
-		// 		: "m" (currTCB->gregs[REG_RSP]),
-		// 		"m" (currTCB->gregs[REG_RBP])
-		// 	);
-		// 	// run its function, record its return val
-		// 	// exit
-		else
+		else if (NEW_FILLED)
 		{
-			auto it = std::find_if(newly_created.begin(), newly_created.end(), [](TCB *tcb)
-			{
-				return tcb->id == currTCB->id; 
-			});
-			// add current thread control block (currTCB) to ready queue
-			ready.push_back(currTCB);
-			// LIFO, get the last item from the deque
-			currTCB = newly_created.back();
-			newly_created.pop_back();
-			// remove currTCB from newly_created
-			newly_created.erase(it);
-
+			currTCB = new_stack.back(); new_stack.pop_back();
+			currTCB->state = ThreadState::RUNNING;
 			asm volatile(
 				"pushq %0 \n"
 				"popfq \n\t"
@@ -362,8 +285,7 @@ namespace CORO
 				:
 				: "m"(currTCB->gregs[(u64)Register::REG_RSP]),
 				  "m"(currTCB->gregs[(u64)Register::REG_RBP]));
-
-			RunFunction(currTCB);
+			RunFunction();
 		}
-    }
+	}
 }
