@@ -8,6 +8,16 @@ SOURCE=new-coro-lib.cpp
 TEST_7_INPUT=8			#random number for testing
 TEST_8_INPUT=4 4 4 10 	#random number for testing
 
+build:
+	$(GCC) -o $(PRG)t1.out $(GCC_FLAGS) ./testcases/t1.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t2.out $(GCC_FLAGS) ./testcases/t2.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t3.out $(GCC_FLAGS) ./testcases/t3.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t4.out $(GCC_FLAGS) ./testcases/t4.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t5.out $(GCC_FLAGS) ./testcases/t5.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t6.out $(GCC_FLAGS) ./testcases/t6.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t7.out $(GCC_FLAGS) ./testcases/t7.cpp $(SOURCE)
+	$(GCC) -o $(PRG)t8.out $(GCC_FLAGS) ./testcases/t8.cpp $(SOURCE)
+
 t1 t2 t3 t4 t5 t6 t7 t8:
 	$(GCC) -o $(PRG)$@.out $(GCC_FLAGS) ./testcases/$@.cpp $(SOURCE)
 	

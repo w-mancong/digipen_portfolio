@@ -1,11 +1,40 @@
+/*!*****************************************************************************
+\file new-coro-lib.cpp
+\author Wong Man Cong
+\par DP email: w.mancong\@digipen.edu
+\par Course: Operating System
+\par Assignment 3
+\date 31-10-2022
+\brief
+An implementation of a user level thread library that does concurrency
+*******************************************************************************/
 #include "new-coro-lib.h"
-#include <unordered_map>
 #include <deque>
+#include <unordered_map>
 #include <algorithm>
+
+#define REG_RAX	 	0
+#define REG_RBX	 	1
+#define REG_RCX	 	2
+#define REG_RDX	 	3
+#define REG_RDI	 	4
+#define REG_RSI	 	5
+#define REG_R8	 	6
+#define REG_R9	 	7
+#define REG_R10	 	8
+#define REG_R11	 	9
+#define REG_R12	 	10
+#define REG_R13	 	11
+#define REG_R14	 	12
+#define REG_R15	 	13
+#define REG_RBP 	14	 
+#define REG_RSP 	15
+#define REG_RIP 	16
+#define REG_EFL 	17
 
 namespace CORO
 {
-	enum class ThreadState
+	enum ThreadState : int
 	{
 		INVALID = -1,
 		NEW,
@@ -15,64 +44,39 @@ namespace CORO
 		TERMINATED,
 	};
 
-	enum class Register : u64
-	{
-		REG_RSP,
-		REG_RBP,
-		REG_RAX,
-		REG_RBX,
-		REG_RCX,
-		REG_RDX,
-		REG_RSI,
-		REG_RDI,
-		REG_R8,
-		REG_R9,
-		REG_R10,
-		REG_R11,
-		REG_R12,
-		REG_R13,
-		REG_R14,
-		REG_R15,
-		REG_RIP,
-		REG_EFL,
-		TOTAL_REGISTERS,
-	};
-
 	struct TCB
 	{
 		ThreadID id{};
 		ThreadID waitID{};
 		void *(*thd_function_t)(void *){nullptr};
-		void *param{nullptr}; // argument values
-		void *ret_value{nullptr}; // return values
-		ThreadState state{ThreadState::INVALID};
-		void *gregs[(u64)Register::TOTAL_REGISTERS]{nullptr};
+		void *param{nullptr}; 		// argument values
+		void *ret_value{nullptr}; 	// return values
+		ThreadState state = ThreadState::INVALID;
+		void *gregs[18]{nullptr};
 	};
 
 	namespace
 	{
-		// list of all threads
-		// list of all READY-state threads
-		// list of all WAITING-state threads
-		// list of all TERMINATED-state threads
-		// list of all NEW-state threads
-		// ... (Add as needed tbh, I only used arnd 3 lists)
-
-		u64 constexpr ONE_MB{ 1'024'000 };
+		size_t constexpr ONE_MB{ 1'024'000 };
 		static ThreadID id_counter{ 0 };
 		TCB *currTCB{ nullptr };
 
-		std::deque<TCB *> ready_queue{}, new_stack{}, waiting_list{};
+		std::deque<ThreadID> ready_queue{}, new_stack{}, waiting_list{};
 		std::unordered_map<ThreadID, TCB *> all_threads{};
 
+		/*!*****************************************************************************
+			\brief A wrapper function to help the user call the thread_exit function
+		*******************************************************************************/
 		void RunFunction(void)
 		{
-			if (currTCB->thd_function_t)
+			if(currTCB->thd_function_t)
 				thread_exit(currTCB->thd_function_t(currTCB->param));
 		}
 	}
 
-	// init the primary thread
+	/*!*****************************************************************************
+		\brief Initialise user-level thread library
+	*******************************************************************************/
 	void thd_init(void)
 	{
 		TCB *tcb = new TCB;
@@ -83,7 +87,12 @@ namespace CORO
 		currTCB = tcb;
 	}
 
-	// creates a new thread
+	/*!*****************************************************************************
+		\brief Create a new thread
+
+		\param [in] thd_function_t: Function to be called by thread library
+		\param [in] param: param for thd_function_t
+	*******************************************************************************/
 	ThreadID new_thd(void *(*thd_function_t)(void *), void *param)
 	{
 		TCB *tcb = new TCB;
@@ -92,75 +101,82 @@ namespace CORO
 		tcb->param = param;
 		tcb->ret_value = nullptr;
 		tcb->state = ThreadState::NEW;
-		tcb->gregs[(u64)Register::REG_RBP] = (char *)malloc(sizeof(char *));
-		tcb->gregs[(u64)Register::REG_RSP] = (char *)malloc(ONE_MB) + ONE_MB;
 
-		new_stack.push_back(tcb);
+		tcb->gregs[REG_RBP] = new char[ONE_MB];
+		tcb->gregs[REG_RSP] = (char *)tcb->gregs[REG_RBP] + ONE_MB;
+
+		new_stack.push_back(tcb->id);
 		all_threads[tcb->id] = tcb;
 		return tcb->id;
 	}
 
-	// terminates thread and yields
+	/*!*****************************************************************************
+		\brief Terminate the thread and store the return value of the thd_function_t
+			   into ret_value
+
+		\param [in] ret_value: return value provided by thd_function_t
+	*******************************************************************************/
 	void thread_exit(void *ret_value)
-	{			
-		// Set the return value for the thread as ret_value (currThrd->ret_val = ret_value)
+	{
 		currTCB->ret_value = ret_value;
-		// Set the state of the thread to TERMINATED
-		currTCB->state = ThreadState::TERMINATED;
+		currTCB->state = TERMINATED;
 
-		// Check if there are any threads waiting for this thread to terminate
-		// if there are, set their values as required and put them in the READY list (If required, based on your implementation)
-		auto it = std::find_if(waiting_list.begin(), waiting_list.end(), [](TCB* tcb)
+		// Search to see if any threads are waiting for currTCB
+		for(ThreadID const& id : waiting_list)
 		{
-			return tcb->waitID == currTCB->id;
-		});
+			TCB *tcb = all_threads[id];
+			if(tcb->waitID != currTCB->id)
+				continue;
+			tcb->state = READY;
+			ready_queue.push_back(tcb->id);
 
-		// Found a thread that is waiting for the current thread to be completed
-		TCB *tcb = (*it);
-		if(it != waiting_list.end())
-		{
-			tcb->state = ThreadState::READY;
-			ready_queue.push_back(tcb);
+			auto it = std::find(waiting_list.begin(), waiting_list.end(), tcb->id);
 			waiting_list.erase(it);
+
+			break;
 		}
-		
-		// yield CPU to another thread (calls thd_yield())
+
 		thd_yield();
 	}
 
-	//  wait for another thread
-	s32 wait_thread(ThreadID id, void **value)
+	/*!*****************************************************************************
+		\brief Waits for a thread to terminate and get the return value
+
+		\param [in] id: id of thread for the current thread to wait for
+		\param [in] value: stores the return value after thread id has terminated
+
+		\return NO_THREAD_FOUND if no threads with id are found, else WAIT_SUCCESSFUL
+	*******************************************************************************/
+	int wait_thread(ThreadID id, void **value)
 	{
-		auto it = all_threads.find(id);
-		if (it == all_threads.end())
-			return NO_THREAD_FOUND;
+        auto it = all_threads.find(id);
+        if(it == all_threads.end())
+            return NO_THREAD_FOUND;
 
-		TCB *tcb = it->second;
-		while (tcb->state != ThreadState::TERMINATED)
-		{
-			currTCB->state = ThreadState::WAITING;
-			currTCB->waitID = id;
-			waiting_list.push_back(currTCB);
+        TCB *tcb = it->second;
+        while (tcb->state != TERMINATED)
+        {
+            currTCB->state = WAITING;
+            currTCB->waitID = id;
+            waiting_list.push_back(currTCB->id);
+            thd_yield();
+        }
 
-			thd_yield();
-		}
+        if(value)
+            *value = tcb->ret_value;
+            
+        all_threads.erase(it);
+        delete tcb;
 
-		if (value)
-			*value = tcb->ret_value;
-
-		all_threads.erase(it);
-		delete tcb;
-
-		return WAIT_SUCCESSFUL;
+        return WAIT_SUCCESSFUL;
 	}
 
-	// let the current thread yield CPU and let the next thread run
+	/*!*****************************************************************************
+		\brief Give the cpu to another thread context to run
+	*******************************************************************************/
 	void thd_yield(void)
 	{
-		/*
-			Context Saving:
-			Saving of all the registers
-		*/
+		// saving the context of the current thread! 
 		asm volatile(
 			"movq %%rbx, %0 \n"
 			"movq %%rdi, %1 \n"
@@ -169,13 +185,13 @@ namespace CORO
 			"movq %%r13, %4 \n"
 			"movq %%r14, %5 \n"
 			"movq %%r15, %6 \n"
-			: "=m"(currTCB->gregs[(u64)Register::REG_RBX]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_RDI]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_RSI]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R12]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R13]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R14]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R15]));
+			: 	"=m"(currTCB->gregs[REG_RBX]),
+				"=m"(currTCB->gregs[REG_RDI]),
+				"=m"(currTCB->gregs[REG_RSI]),
+				"=m"(currTCB->gregs[REG_R12]),
+				"=m"(currTCB->gregs[REG_R13]),
+				"=m"(currTCB->gregs[REG_R14]),
+				"=m"(currTCB->gregs[REG_R15]));
 
 		asm volatile(
 			"movq %%rax, %0 \n"
@@ -185,55 +201,61 @@ namespace CORO
 			"movq %%r9, %4 \n"
 			"movq %%r10, %5 \n"
 			"movq %%r11, %6 \n"
-			: "=m"(currTCB->gregs[(u64)Register::REG_RAX]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_RDX]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_RCX]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R8]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R9]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R10]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_R11]));
+			: 	"=m"(currTCB->gregs[REG_RAX]),
+				"=m"(currTCB->gregs[REG_RDX]),
+				"=m"(currTCB->gregs[REG_RCX]),
+				"=m"(currTCB->gregs[REG_R8]),
+				"=m"(currTCB->gregs[REG_R9]),
+				"=m"(currTCB->gregs[REG_R10]),
+				"=m"(currTCB->gregs[REG_R11]));
 
-		// // switch stack
+		// switch stack (save all values on stack)
 		asm volatile(
 			"movq %%rsp, %0 \n"
 			"movq %%rbp, %1 \n"
-			: "=m"(currTCB->gregs[(u64)Register::REG_RSP]),
-			  "=m"(currTCB->gregs[(u64)Register::REG_RBP]));
+			: 	"=m"(currTCB->gregs[REG_RSP]),
+				"=m"(currTCB->gregs[REG_RBP]));
+		asm volatile(
+			"pushfq \n"
+			"popq %0 \n"
+			: "=m"(currTCB->gregs[REG_EFL])
+			:
+			: "rsp");
 
-		// Find the next thread
-		bool const READY_FILLED = ready_queue.size(), NEW_FILLED = new_stack.size();
-
-		// Both the ready queue and new_stack is empty, do nth
-		if (!READY_FILLED && !NEW_FILLED)
+		// check if ready_queue and new_stack is empty (do nth if both are empty)
+		bool const REMPTY = ready_queue.empty(), NEMPTY = new_stack.empty();
+		if (REMPTY && NEMPTY)
 			return;
 
-		// If current thread is running, add it to ready queue
-		if (currTCB->state == ThreadState::RUNNING)
+		// only if the current thread is running then i add it to ready queue
+		if (currTCB->state == RUNNING)
 		{
-			currTCB->state = ThreadState::READY;
-			ready_queue.push_back(currTCB);
+			currTCB->state = READY;
+			ready_queue.push_back(currTCB->id);
 		}
 
-		if (READY_FILLED)
+		if (!REMPTY)
 		{
-			currTCB = ready_queue.front(); ready_queue.pop_front();
-			currTCB->state = ThreadState::RUNNING;
+			// Process the thread at the front of ready_queue
+			currTCB = all_threads[ready_queue.front()];
+			ready_queue.pop_front();
+			currTCB->state = RUNNING;
 
 			asm volatile(
 				"pushq %0 \n"
 				"popfq \n\t"
 				:
-				: "m"(currTCB->gregs[(u64)Register::REG_EFL])
+				: "m"(currTCB->gregs[REG_EFL])
 				: "cc", "rsp");
 
-			// switch stack
 			asm volatile(
 				"movq %0,  %%rsp \n"
 				"movq %1,  %%rbp\n"
 				:
-				: "m"(currTCB->gregs[(u64)Register::REG_RSP]),
-				  "m"(currTCB->gregs[(u64)Register::REG_RBP]));
+				: "m"(currTCB->gregs[REG_RSP]),
+				  "m"(currTCB->gregs[REG_RBP]));
 
+			// load the rest registers
 			asm volatile(
 				"movq %0, %%rbx\n"
 				"movq %1, %%rdi \n"
@@ -243,13 +265,13 @@ namespace CORO
 				"movq %5, %%r14 \n"
 				"movq %6, %%r15 \n"
 				:
-				: "m"(currTCB->gregs[(u64)Register::REG_RBX]),
-				  "m"(currTCB->gregs[(u64)Register::REG_RDI]),
-				  "m"(currTCB->gregs[(u64)Register::REG_RSI]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R12]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R13]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R14]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R15]));
+				: "m"(currTCB->gregs[REG_RBX]),
+				  "m"(currTCB->gregs[REG_RDI]),
+				  "m"(currTCB->gregs[REG_RSI]),
+				  "m"(currTCB->gregs[REG_R12]),
+				  "m"(currTCB->gregs[REG_R13]),
+				  "m"(currTCB->gregs[REG_R14]),
+				  "m"(currTCB->gregs[REG_R15]));
 			asm volatile(
 				"movq %0, %%rax \n"
 				"movq %1, %%rcx \n"
@@ -259,32 +281,33 @@ namespace CORO
 				"movq %5, %%r10 \n"
 				"movq %6, %%r11 \n"
 				:
-				: "m"(currTCB->gregs[(u64)Register::REG_RAX]),
-				  "m"(currTCB->gregs[(u64)Register::REG_RCX]),
-				  "m"(currTCB->gregs[(u64)Register::REG_RDX]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R8]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R9]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R10]),
-				  "m"(currTCB->gregs[(u64)Register::REG_R11]));
+				: "m"(currTCB->gregs[REG_RAX]),
+				  "m"(currTCB->gregs[REG_RCX]),
+				  "m"(currTCB->gregs[REG_RDX]),
+				  "m"(currTCB->gregs[REG_R8]),
+				  "m"(currTCB->gregs[REG_R9]),
+				  "m"(currTCB->gregs[REG_R10]),
+				  "m"(currTCB->gregs[REG_R11]));
 		}
-		else if (NEW_FILLED)
+		else
 		{
-			currTCB = new_stack.back(); new_stack.pop_back();
+			// Get the thread at the back
+			currTCB = all_threads[new_stack.back()];
+			new_stack.pop_back();
 			currTCB->state = ThreadState::RUNNING;
+
 			asm volatile(
 				"pushq %0 \n"
 				"popfq \n\t"
 				:
-				: "m"(currTCB->gregs[(u64)Register::REG_EFL])
+				: "m"(currTCB->gregs[REG_EFL])
 				: "cc", "rsp");
-
-			// switch stack
 			asm volatile(
 				"movq %0,  %%rsp \n"
 				"movq %1,  %%rbp\n"
 				:
-				: "m"(currTCB->gregs[(u64)Register::REG_RSP]),
-				  "m"(currTCB->gregs[(u64)Register::REG_RBP]));
+				: "m"(currTCB->gregs[REG_RSP]),
+				  "m"(currTCB->gregs[REG_RBP]));
 			RunFunction();
 		}
 	}
