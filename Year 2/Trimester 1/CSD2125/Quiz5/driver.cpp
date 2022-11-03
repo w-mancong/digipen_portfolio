@@ -64,7 +64,7 @@ void test1() {
   p1[1] = -1; // defines 1-x
   std::cout << p1 << std::endl;
 
-  HLP3::Polynomial<int,4> p4 = p3*p1;
+  HLP3::Polynomial<int,4> p4 = p3 * p1;
   std::cout << p4 << std::endl; // produces 1+ -1 * x^4
                                 // (1+x+x^2+x^3)*(1-x) = 1-x^4
 
@@ -167,8 +167,8 @@ void test5() {   // evaluate
   p5[5] = 1;
   std::cout << p5 << std::endl;
   
-  HLP3::Polynomial<int,7> p7_1 = p2*p5;
-  HLP3::Polynomial<int,7> p7_2 = p5*p2; // should be commutative
+  HLP3::Polynomial<int,7> p7_1 = p2 * p5;
+  HLP3::Polynomial<int,7> p7_2 = p5 * p2; // should be commutative
 
   int values[] = { 1,2,3,4,5 };
   for ( int i=0; i<5; ++i ) {
@@ -202,8 +202,8 @@ void test6() {   // evaluate randomly generated polynomials
     p4[i] = rand_coeff(gen); 
   }
   
-  HLP3::Polynomial<int, 9> p9_1 = p4*p5;
-  HLP3::Polynomial<int, 9> p9_2 = p5*p4; // should be commutative
+  HLP3::Polynomial<int, 9> p9_1 = p4 * p5;
+  HLP3::Polynomial<int, 9> p9_2 = p5 * p4; // should be commutative
 
   int values[] = {1, 2, 3, 4, 5};
   for (int i=0; i<5; ++i) {

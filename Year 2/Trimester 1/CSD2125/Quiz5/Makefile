@@ -31,3 +31,4 @@ mem0 mem1 mem2 mem3 mem4 mem5 mem6:
 	@echo "lines after this are memory errors"; cat difference$@
 clean:
 	rm -f *.exe *.tds *.o *.obj *manifest* studentout* diff*
+	clear

@@ -3,7 +3,8 @@
 
 // the purpose of this driver is to test [through unsuccessful compilation] that
 // polynomials with different types [say, int and float] cannot be multiplied!!!
-int main() {   
+int main() 
+{   
   HLP3::Polynomial<int, 3> p3;
   p3[0] = 1;
   p3[1] = 1;
