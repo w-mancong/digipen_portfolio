@@ -1,0 +1,60 @@
+1. Global new/delete:
+---------
+  Global allocate 16 bytes.
+  Global allocate 32 bytes.
+  Global deallocate.
+  Global deallocate.
+
+2. In-class new/delete:
+---------
+  In-class allocate 16 bytes.
+  Global allocate 16 bytes.
+  (10, 20, 30, 40)
+  In-class deallocate.
+  Global deallocate.
+
+3. Placement new with explicit delete:
+---------
+  (0, 1, 2, 3) - object as a structure
+  (0, 1, 2, 3) - object as an array
+  (0, 1, 2, 3) - memory as an array
+
+4. Allocator:
+---------
+
+  Allocator allocate 10 elements. 
+  Allocating a new pool.
+  Global allocate 272 bytes.
+  Found space in a pool for 10 elements at index 0.
+
+  Allocator allocate 4 elements. 
+  Found space in a pool for 4 elements at index 10.
+  Allocator deallocate 10 elements. 
+  Found 10 elements in a pool.
+
+  Allocator allocate 16 elements. 
+  Did not find space in a pool.
+  Checking next available pool...
+  Allocating a new pool.
+  Global allocate 272 bytes.
+  Found space in a pool for 16 elements at index 0.
+
+  Allocator allocate 8 elements. 
+  Did not find space in a pool.
+  Checking next available pool...
+  Found space in a pool for 8 elements at index 0.
+  Allocator deallocate 8 elements. 
+  Checking next existing pool...
+  Found 8 elements in a pool.
+  Allocator deallocate 16 elements. 
+  Found 16 elements in a pool.
+  Removing an empty pool.
+  Global deallocate.
+  Allocator deallocate 4 elements. 
+  Found 4 elements in a pool.
+  Removing an empty pool.
+  Global deallocate.
+
+  Allocator allocate 32 elements. 
+
+Error: std::bad_alloc
