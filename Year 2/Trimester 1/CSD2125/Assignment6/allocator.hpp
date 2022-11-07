@@ -73,57 +73,7 @@ namespace csd2125
         allocate count number of TDataType, where count is greater than the number
         of elements in a single pool.
     *******************************************************************************/
-    auto allocate(size_type count) -> pointer
-    {
-      std::cout << std::endl;
-      std::cout << "  Allocator allocate " << count << " elements. " << std::endl;
-      if(sizeof(TFlags) * 8 < count)
-        throw std::bad_alloc();
-      // Start allocating if list is empty
-      if (!std::distance(list.begin(), list.end()))
-        return create_pool(count);
-
-      // Check each pool to see if there is enough continous pool to allocate memory
-      size_type constexpr BITS{sizeof(TFlags) * 8};
-      for (auto it{list.begin()}; it != list.end(); ++it)
-      {
-        Pool& pool = (*it);
-        size_type index{ 0 }, counter{ 0 };
-
-        for (; index < BITS; ++index)
-        {
-          if(pool.bits & (0b1 << index))
-          {
-            counter = 0;
-            continue;
-          }
-          ++counter;
-          if(counter == count)
-          {
-            index -= counter - 1;
-            break;
-          }
-        }
-
-        // found a space for count number of elements
-        if(counter == count)
-        {
-          std::cout << "  Found space in a pool for " << count << " elements at index " << index << "." << std::endl;
-
-          size_type const TOTAL_BITS = index + count;
-          for(size_type i{index}; i < TOTAL_BITS; ++i)
-            pool.bits |= (0b1 << i);
-          
-          return pool.ptr + index;
-        }
-
-        std::cout << "  Did not find space in a pool." << std::endl;
-        std::cout << "  Checking next available pool..." << std::endl;
-      }
-
-      // If it reaches here, means list no more liao and need to allocate another pool
-      return create_pool(count);
-    }
+    auto allocate(size_type count) -> pointer;
 
     /*!*****************************************************************************
         \brief Deallocate pointer from allocator
@@ -134,45 +84,7 @@ namespace csd2125
         \exception Throwing std::bad_alloc if program attempts to deallocate a 
         memory address that the allocator does not contain
     *******************************************************************************/
-    auto deallocate(pointer p, size_type count) -> void
-    {
-      std::cout << "  Allocator deallocate " << count << " elements. " << std::endl;
-
-      size_type constexpr BITS{sizeof(TFlags) * 8};
-      for (auto it{list.begin()}; it != list.end(); ++it)
-      {
-        Pool &pool = (*it);
-        size_type index{ 0 };
-        bool address_found{ false };
-        for (; index < BITS; ++index)
-        {
-          if(pool.ptr + index == p)
-          {
-            address_found = true;
-            break;
-          }
-        }
-
-        if(address_found)
-        {
-          std::cout << "  Found " << count << " elements in a pool." << std::endl;
-
-          // Removing the bits
-          size_type const TOTAL_BITS = index + count;
-          for (size_type i{index}; i < TOTAL_BITS; ++i)
-            pool.bits &= ~(0b1 << i);
-          if(pool.bits == 0)
-          {
-            std::cout << "  Removing an empty pool." << std::endl;
-            list.remove(pool);
-          }
-          return;
-        }
-
-        std::cout << "  Checking next existing pool..." << std::endl;
-      }
-      throw std::bad_alloc();
-    }
+    auto deallocate(pointer p, size_type count) -> void;
 
   private:
     struct Pool
@@ -187,10 +99,7 @@ namespace csd2125
 
           \return true if rhs and this object are the same object, else false
       *******************************************************************************/
-      auto operator==(Pool const& rhs) -> bool
-      {
-        return ptr == rhs.ptr;
-      }
+      auto operator==(Pool const &rhs) -> bool;
     };
 
     /*!*****************************************************************************
@@ -200,21 +109,8 @@ namespace csd2125
 
         \return pointer to the first element of the array
     *******************************************************************************/
-    auto create_pool(size_type count) -> pointer
-    {
-      std::cout << "  Allocating a new pool." << std::endl;
-      list.emplace_front(Pool{});
+    auto create_pool(size_type count) -> pointer;
 
-      Pool &pool = list.front();
-      memset(pool.ptr, 0, sizeof(pool.ptr));
-
-      for(size_type i{}; i < count; ++i)
-        pool.bits |= (0b1 << i);
-
-      std::cout << "  Found space in a pool for " << count << " elements at index 0." << std::endl;
-      return pool.ptr;
-    }
-    
     std::forward_list<Pool> list;
   };
 
@@ -240,20 +136,12 @@ namespace csd2125
     /*!*****************************************************************************
         \brief Overloaded member function new operator
     *******************************************************************************/
-    auto operator new(size_t size) -> void*
-    {
-      std::cout << "  In-class allocate " << size << " bytes." << std::endl;
-      return ::operator new (size);
-    }
+    auto operator new(size_t size) -> void *;
 
     /*!*****************************************************************************
         \brief Overloaded member function delete operator
     *******************************************************************************/
-    auto operator delete(void* p) noexcept -> void
-    {
-      std::cout << "  In-class deallocate." << std::endl;
-      ::operator delete(p);
-    }
+    auto operator delete(void *p) noexcept -> void;
   }; 
 
   union vertex 
@@ -279,11 +167,140 @@ namespace csd2125
     /*!*****************************************************************************
         \brief Overloaded new placement new operator
     *******************************************************************************/
-    auto operator new(size_t size, void *p) noexcept -> void *
-    {
-      (void)size;
-      return p;
-    }
+    auto operator new(size_t size, void *p) noexcept -> void *;
   };
 
+  template <typename TDataType, typename TFlags>
+  auto allocator<TDataType, TFlags>::allocate(size_type count) -> pointer
+  {
+    std::cout << std::endl;
+    std::cout << "  Allocator allocate " << count << " elements. " << std::endl;
+    if (sizeof(TFlags) * 8 < count)
+      throw std::bad_alloc();
+    // Start allocating if list is empty
+    if (!std::distance(list.begin(), list.end()))
+      return create_pool(count);
+
+    // Check each pool to see if there is enough continous pool to allocate memory
+    size_type constexpr BITS{sizeof(TFlags) * 8};
+    for (auto it{list.begin()}; it != list.end(); ++it)
+    {
+      Pool &pool = (*it);
+      size_type index{0}, counter{0};
+
+      for (; index < BITS; ++index)
+      {
+        if (pool.bits & (0b1 << index))
+        {
+          counter = 0;
+          continue;
+        }
+        ++counter;
+        if (counter == count)
+        {
+          index -= counter - 1;
+          break;
+        }
+      }
+
+      // found a space for count number of elements
+      if (counter == count)
+      {
+        std::cout << "  Found space in a pool for " << count << " elements at index " << index << "." << std::endl;
+
+        size_type const TOTAL_BITS = index + count;
+        for (size_type i{index}; i < TOTAL_BITS; ++i)
+          pool.bits |= (0b1 << i);
+
+        return pool.ptr + index;
+      }
+
+      std::cout << "  Did not find space in a pool." << std::endl;
+      std::cout << "  Checking next available pool..." << std::endl;
+    }
+
+    // If it reaches here, means list no more liao and need to allocate another pool
+    return create_pool(count);
+  }
+
+  template <typename TDataType, typename TFlags>
+  auto allocator<TDataType, TFlags>::deallocate(pointer p, size_type count) -> void
+  {
+    std::cout << "  Allocator deallocate " << count << " elements. " << std::endl;
+
+    size_type constexpr BITS{sizeof(TFlags) * 8};
+    for (auto it{list.begin()}; it != list.end(); ++it)
+    {
+      Pool &pool = (*it);
+      size_type index{0};
+      bool address_found{false};
+      for (; index < BITS; ++index)
+      {
+        if (pool.ptr + index == p)
+        {
+          address_found = true;
+          break;
+        }
+      }
+
+      if (address_found)
+      {
+        std::cout << "  Found " << count << " elements in a pool." << std::endl;
+
+        // Removing the bits
+        size_type const TOTAL_BITS = index + count;
+        for (size_type i{index}; i < TOTAL_BITS; ++i)
+          pool.bits &= ~(0b1 << i);
+        if (pool.bits == 0)
+        {
+          std::cout << "  Removing an empty pool." << std::endl;
+          list.remove(pool);
+        }
+        return;
+      }
+
+      std::cout << "  Checking next existing pool..." << std::endl;
+    }
+    throw std::bad_alloc();
+  }
+
+  template <typename TDataType, typename TFlags>
+  auto allocator<TDataType, TFlags>::Pool::operator==(Pool const& rhs) -> bool
+  {
+    return ptr == rhs.ptr;
+  }
+
+  template <typename TDataType, typename TFlags>
+  auto allocator<TDataType, TFlags>::create_pool(size_type count) -> pointer
+  {
+    std::cout << "  Allocating a new pool." << std::endl;
+    list.emplace_front(Pool{});
+
+    Pool &pool = list.front();
+    memset(pool.ptr, 0, sizeof(pool.ptr));
+
+    for (size_type i{}; i < count; ++i)
+      pool.bits |= (0b1 << i);
+
+    std::cout << "  Found space in a pool for " << count << " elements at index 0." << std::endl;
+    return pool.ptr;
+  }
+
+  auto vector::operator new(size_t size) -> void *
+  {
+    std::cout << "  In-class allocate " << size << " bytes." << std::endl;
+    return ::operator new(size);
+  }
+
+  auto vector::operator delete(void *p) noexcept -> void
+  {
+    std::cout << "  In-class deallocate." << std::endl;
+    ::operator delete(p);
+  }
+
+  auto vertex::operator new(size_t size, void *p) noexcept -> void *
+  {
+    (void)size;
+    return p;
+  }
 } // end namespace
