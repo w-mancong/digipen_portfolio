@@ -2,10 +2,13 @@
 #define INDEX_SEQUENCE_H
 
 #include <iostream>
+#include <type_traits>
 
 template <size_t... Ns>
-struct index_sequence {
-	static void print() {
+struct index_sequence 
+{
+	static void print() 
+	{
 		#ifdef CPP11
 		std::cout << "[C++11]\t";
 		#else
