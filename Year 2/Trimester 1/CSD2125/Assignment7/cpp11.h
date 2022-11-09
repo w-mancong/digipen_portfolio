@@ -1,22 +1,11 @@
-#include <iostream>
+#include "index_sequence.h"
 
-template <long N>
+template <size_t N>
 struct make_sequence
 {
+    enum : uint64_t { value = 1i64 << N };
     static void print(void)
     {
-    }
-};
-
-template <>
-struct make_sequence<0>
-{
-    enum
-    {
-        value = 1
-    };
-    static void print(void)
-    {
-        std::cout << value << std::endl;
+        index_sequence<value>::print();
     }
 };
