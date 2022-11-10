@@ -2,7 +2,6 @@
 #define INDEX_SEQUENCE_H
 
 #include <iostream>
-#include <type_traits>
 
 template <size_t... Ns>
 struct index_sequence 
