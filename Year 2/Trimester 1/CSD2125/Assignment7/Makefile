@@ -1,5 +1,5 @@
-CPP11=seq11.out
-CPP17=seq17.out
+CPP11=seq11
+CPP17=seq17
 GCC=g++
 CPP11_FLAGS=-Wall -Werror -Wextra -Wconversion -pedantic -std=c++11 -DCPP11
 CPP17_FLAGS=-Wall -Werror -Wextra -Wconversion -pedantic -std=c++17
@@ -52,4 +52,5 @@ all:
 	# ./$(CPP17)
 
 clean:
-	rm *.out actual-output.txt *.exe 
+	rm -f *.out actual-output.txt *.exe $(CPP11) $(CPP17)
+	clear
