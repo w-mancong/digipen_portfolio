@@ -37,3 +37,4 @@ x64/
 gam_150/x64
 .tmp/
 bin/Release-x64/
+*.out
