@@ -7,15 +7,11 @@ int main(void)
 	void* ptr = mm.allocate(8);
 	mm.allocate(4);
 
-	mm.deallocate(ptr);
+	//mm.deallocate(ptr);
 
-	mm.dump(); std::cout << std::endl;
+	mm.allocate(110);
+	mm.allocate(2);
+	mm.dump();
+	mm.allocate(2);
 
-	ptr = mm.allocate(3);
-	void* ptr2 = mm.allocate(8);
-	mm.dump(); std::cout << std::endl;
-
-	mm.deallocate(ptr);
-	mm.deallocate(ptr2);
-	mm.dump(); std::cout << std::endl;
 }

@@ -1,3 +1,14 @@
+/*!*****************************************************************************
+\file MemoryManager.cpp
+\author Wong Man Cong
+\par DP email: w.mancong\@digipen.edu
+\par Course: Operating System
+\par Assignment 4
+\date 24-11-2022
+\brief
+This file contains function definition for a memory manager clas that handles
+contiguous memory
+*******************************************************************************/
 #include "MemoryManager.h"
 
 MemoryManager::MemoryManager(int total_bytes)
