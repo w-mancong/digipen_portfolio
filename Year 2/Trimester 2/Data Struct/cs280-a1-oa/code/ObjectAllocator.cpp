@@ -154,21 +154,32 @@ void ObjectAllocator::AssignFreeListObjects(void)
 void ObjectAllocator::AssignByteSignatures(void)
 {
     // TODO: Set byte alignment for left align
-    GenericObject* go = FreeList_;
+    GenericObject* go = PageList_;
+    unsigned char* ptr = reinterpret_cast<unsigned char*>(go);
+
+    // Left alignment
+    memset(ptr + sizeof(void*), ALIGN_PATTERN, Config_.LeftAlignSize_);
+
     for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
     {
-        unsigned char* ptr = reinterpret_cast<unsigned char*>(go);
-
         // Setting the byte signatures
         // Padding
-        memset(ptr + Config_.HBlockInfo_.size_ + sizeof(void*), PAD_PATTERN, static_cast<size_t>(Config_.PadBytes_));
-        // Unallocated memory
-        memset(ptr + Config_.HBlockInfo_.size_ + Config_.PadBytes_ + sizeof(void*), UNALLOCATED_PATTERN, static_cast<size_t>(Stats_.ObjectSize_) - sizeof(void*));
-        // Padding
-        memset(ptr + Config_.HBlockInfo_.size_ + Config_.PadBytes_ + sizeof(void*) + Stats_.ObjectSize_, PAD_PATTERN, static_cast<size_t>(Config_.PadBytes_));
-        // Interalignment
-        memset(ptr + Config_.HBlockInfo_.size_ + (Config_.PadBytes_ * 2_z) + sizeof(void*) + Stats_.ObjectSize_, ALIGN_PATTERN, static_cast<size_t>(Config_.InterAlignSize_));
+        size_t OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + Config_.HBlockInfo_.size_ + (middleBlockSize * i);
+        memset(ptr + OFFSET, PAD_PATTERN, static_cast<size_t>(Config_.PadBytes_));
 
-        go = go->Next;
+        // Unallocated memory
+        OFFSET += Config_.PadBytes_ + sizeof(void*);
+        memset(ptr + OFFSET, UNALLOCATED_PATTERN, static_cast<size_t>(Stats_.ObjectSize_ - sizeof(void*)));
+
+        // Padding
+        OFFSET += Stats_.ObjectSize_ - sizeof(void*);
+        memset(ptr + OFFSET, PAD_PATTERN, static_cast<size_t>(Config_.PadBytes_));
+
+        // Don't do the signature for the page when it reaches the end
+        if (i + 1 >= Config_.ObjectsPerPage_) break;
+
+        // Interalignment
+        OFFSET += Config_.PadBytes_;
+        memset(ptr + OFFSET, ALIGN_PATTERN, Config_.InterAlignSize_);
     }
 }
