@@ -19,7 +19,17 @@ ObjectAllocator::~ObjectAllocator()
 // Throws an exception if the object can't be allocated. (Memory allocation problem)
 void *ObjectAllocator::Allocate(const char *label)
 {
-
+    if(Config_.UseCPPMemManager_)
+    {
+        try
+        {
+            
+        }
+        catch(std::bad_alloc const&)
+        {
+            // std::cerr << e.what() << '\n';
+        }        
+    }
 }
 
 // Returns an object to the free list for the client (simulates delete)
@@ -51,7 +61,7 @@ unsigned ObjectAllocator::FreeEmptyPages()
 // Testing/Debugging/Statistic methods
 void ObjectAllocator::SetDebugState(bool State) // true=enable, false=disable
 {
-
+    Config_.DebugOn_ = State;
 }  
 const void *ObjectAllocator::GetFreeList() const // returns a pointer to the internal free list
 {
@@ -65,12 +75,12 @@ const void *ObjectAllocator::GetPageList() const // returns a pointer to the int
 
 OAConfig ObjectAllocator::GetConfig() const      // returns the configuration parameters
 {
-
+    return Config_;
 }
 
 OAStats ObjectAllocator::GetStats() const        // returns the statistics for the allocator
 {
-
+    return Stats_;
 }
 
 void ObjectAllocator::AllocatePages(void)

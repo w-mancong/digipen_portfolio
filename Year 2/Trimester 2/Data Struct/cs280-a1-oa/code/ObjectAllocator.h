@@ -233,7 +233,7 @@ class ObjectAllocator
 
     // Take an object from the free list and give it to the client (simulates new)
     // Throws an exception if the object can't be allocated. (Memory allocation problem)
-    void *Allocate(const char *label = 0);
+    void *Allocate(const char *label = nullptr);
 
     // Returns an object to the free list for the client (simulates delete)
     // Throws an exception if the the object can't be freed. (Invalid object)
