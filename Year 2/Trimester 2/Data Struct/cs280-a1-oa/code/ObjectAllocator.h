@@ -194,7 +194,7 @@ struct OAStats
 */
 struct GenericObject
 {
-  GenericObject *Next; //!< The next object in the list
+    GenericObject* Next{ nullptr }; //!< The next object in the list
 };
 
 /*!
@@ -261,15 +261,19 @@ class ObjectAllocator
     ObjectAllocator &operator=(const ObjectAllocator &oa) = delete; //!< Do not implement!
 
   private:
-    void AllocatePages(void);
+    void AllocateNewPage(void);
+    void AssignFreeListObjects(void);
+    void AssignByteSignatures(void);
 
     // Some "suggested" members (only a suggestion!)
-    GenericObject *PageList_; //!< the beginning of the list of pages
-    GenericObject *FreeList_; //!< the beginning of the list of objects
+    GenericObject *PageList_{ nullptr }; //!< the beginning of the list of pages
+    GenericObject *FreeList_{ nullptr }; //!< the beginning of the list of objects
     
     // Lots of other private stuff...
-    OAConfig Config_;
-    OAStats  Stats_;
+    OAConfig Config_{};
+    OAStats  Stats_{};
+
+    size_t middleBlockSize{}, totalNumberOfPages{};
 };
 
 #endif
