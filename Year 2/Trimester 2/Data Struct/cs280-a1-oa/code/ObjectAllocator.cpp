@@ -7,6 +7,14 @@ namespace
     {
         return static_cast<size_t>(n);
     }
+
+    inline size_t AlignByte(size_t n, size_t align)
+    {
+        if (!align)
+            return n;
+        size_t remainder = n % align == 0 ? 0_z : 1_z;
+        return align * ((n / align) + remainder);
+    }
 }
 
 // Creates the ObjectManager per the specified values
@@ -19,6 +27,14 @@ ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config) : Co
         Pointer to the next block, left alignment, middle block
         Middle block -> Header block, Padding, Size of Object, Padding, Inter alignment
     */
+    size_t const LEFT_ALIGN = sizeof(void*) + Config_.HBlockInfo_.size_ + Config_.PadBytes_,
+                 INTER_ALIGN = Stats_.ObjectSize_ + (Config_.PadBytes_ * 2_z) + Config_.HBlockInfo_.size_;
+
+    size_t const LEFT_ALIGNMENT_OFFSET  = AlignByte(LEFT_ALIGN, Config_.Alignment_),
+                 INTER_ALIGNMENT_OFFSET = AlignByte(INTER_ALIGN, Config_.Alignment_);
+
+    Config_.LeftAlignSize_ = LEFT_ALIGNMENT_OFFSET - LEFT_ALIGN;
+    Config_.InterAlignSize_ = INTER_ALIGNMENT_OFFSET - INTER_ALIGN;
     middleBlockSize = Config_.HBlockInfo_.size_ + (Config_.PadBytes_ * 2_z) + Stats_.ObjectSize_ + Config_.InterAlignSize_;
     Stats_.PageSize_ = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * Config_.ObjectsPerPage_) - Config_.InterAlignSize_;
    
