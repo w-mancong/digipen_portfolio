@@ -264,6 +264,10 @@ class ObjectAllocator
     void AllocateNewPage(void);
     void AssignFreeListObjects(void);
     void AssignByteSignatures(void);
+    void AssignHeaderBlock(void);
+    void DefaultBlockValue(void);
+
+    unsigned char* GetHeaderAddress(void* ptr);
 
     // Some "suggested" members (only a suggestion!)
     GenericObject *PageList_{ nullptr }; //!< the beginning of the list of pages

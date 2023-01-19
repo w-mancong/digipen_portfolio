@@ -134,6 +134,7 @@ void ObjectAllocator::AllocateNewPage(void)
     ++totalNumberOfPages;
     AssignFreeListObjects();
     AssignByteSignatures();
+    DefaultBlockValue();
 }
 
 void ObjectAllocator::AssignFreeListObjects(void)
@@ -182,4 +183,45 @@ void ObjectAllocator::AssignByteSignatures(void)
         OFFSET += Config_.PadBytes_;
         memset(ptr + OFFSET, ALIGN_PATTERN, Config_.InterAlignSize_);
     }
+}
+
+void ObjectAllocator::AssignHeaderBlock(void)
+{
+
+}
+
+void ObjectAllocator::DefaultBlockValue(void)
+{
+    GenericObject* go = FreeList_;
+
+    switch (Config_.HBlockInfo_.type_)
+    {
+        case OAConfig::HBLOCK_TYPE::hbBasic:
+        case OAConfig::HBLOCK_TYPE::hbExtended:
+        {
+            while (go)
+            {
+                unsigned char* ptr = GetHeaderAddress(go);
+                memset(ptr, 0, Config_.HBlockInfo_.size_);
+                go = go->Next;
+            }
+            break;
+        }
+        case OAConfig::HBLOCK_TYPE::hbExternal:
+        {
+            while (go)
+            {
+                GenericObject** ptr = reinterpret_cast<GenericObject**>( GetHeaderAddress(go) );
+                *ptr = nullptr; 
+                go = go->Next;
+            }
+
+            break;
+        }
+    }
+}
+
+unsigned char* ObjectAllocator::GetHeaderAddress(void* ptr)
+{
+    return reinterpret_cast<unsigned char*>(ptr) - Config_.PadBytes_ - Config_.HBlockInfo_.size_;
 }
