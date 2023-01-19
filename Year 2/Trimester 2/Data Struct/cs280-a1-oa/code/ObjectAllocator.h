@@ -261,13 +261,28 @@ class ObjectAllocator
     ObjectAllocator &operator=(const ObjectAllocator &oa) = delete; //!< Do not implement!
 
   private:
+    enum class Padding
+    {
+        Left,
+        Right,
+    };
+
+    void IncrementStatsValue(void);
+
     void AllocateNewPage(void);
     void AssignFreeListObjects(void);
     void AssignByteSignatures(void);
-    void AssignHeaderBlock(void);
     void DefaultBlockValue(void);
 
+    void AddObjectToFreeList(GenericObject* obj);
+
     unsigned char* GetHeaderAddress(void* ptr);
+
+    void UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const;
+    bool WithinMemoryBoundary(unsigned char* ptr) const;
+    unsigned char* GetPadding(GenericObject* ptr, Padding p) const;
+    bool IsPaddingCorrupted(unsigned char* ptr) const;
+    bool WithinPage(unsigned char* ptr) const;
 
     // Some "suggested" members (only a suggestion!)
     GenericObject *PageList_{ nullptr }; //!< the beginning of the list of pages
@@ -277,7 +292,7 @@ class ObjectAllocator
     OAConfig Config_{};
     OAStats  Stats_{};
 
-    size_t middleBlockSize{}, totalNumberOfPages{};
+    size_t middleBlockSize{}, leftAlignSize{}, dataBlockSize{};
 };
 
 #endif
