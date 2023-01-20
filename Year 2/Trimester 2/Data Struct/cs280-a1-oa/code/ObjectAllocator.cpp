@@ -331,21 +331,41 @@ void ObjectAllocator::UpdateHeader(GenericObject* ptr) const
     {
         case OAConfig::HBLOCK_TYPE::hbBasic:
         {
-
+            BasicBlockHeader(ptr);
             break;
         }
         case OAConfig::HBLOCK_TYPE::hbExtended:
         {
-
+            ExtendedBlockHeader(ptr);
             break;
         }
         case OAConfig::HBLOCK_TYPE::hbExternal:
         {
-
+            ExternalBlockHeader(ptr);
             break;
         }
         default: break;
     }
+}
+
+void ObjectAllocator::BasicBlockHeader(GenericObject* ptr) const
+{
+    unsigned char* header = GetHeaderAddress(ptr);
+
+    unsigned int* alloc = reinterpret_cast<unsigned int*>(header);
+    unsigned char* flag = reinterpret_cast<unsigned char*>(header + sizeof(unsigned int));
+
+    *alloc = Stats_.Allocations_;
+    *flag |= 0b1;   // setting the flag to 1
+
+}
+
+void ObjectAllocator::ExtendedBlockHeader(GenericObject* ptr) const
+{
+}
+
+void ObjectAllocator::ExternalBlockHeader(GenericObject* ptr) const
+{
 }
 
 void ObjectAllocator::UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const
