@@ -105,7 +105,7 @@ void *ObjectAllocator::Allocate(const char *label)
     UpdateByteSignature(reinterpret_cast<unsigned char*>(ptr), ALLOCATED_PATTERN, Stats_.ObjectSize_);
 
     // Update the header block based on the type it is
-    UpdateHeader(ptr);
+    UpdateHeader(ptr, label);
 
     return ptr;
 }
@@ -325,7 +325,7 @@ unsigned char* ObjectAllocator::GetHeaderAddress(void* ptr) const
     return reinterpret_cast<unsigned char*>(ptr) - Config_.PadBytes_ - Config_.HBlockInfo_.size_;
 }
 
-void ObjectAllocator::UpdateHeader(GenericObject* ptr) const
+void ObjectAllocator::UpdateHeader(GenericObject* ptr, char const* label) const
 {
     switch (Config_.HBlockInfo_.type_)
     {
@@ -341,7 +341,7 @@ void ObjectAllocator::UpdateHeader(GenericObject* ptr) const
         }
         case OAConfig::HBLOCK_TYPE::hbExternal:
         {
-            ExternalBlockHeader(ptr);
+            ExternalBlockHeader(ptr, label);
             break;
         }
         default: break;
@@ -357,15 +357,65 @@ void ObjectAllocator::BasicBlockHeader(GenericObject* ptr) const
 
     *alloc = Stats_.Allocations_;
     *flag |= 0b1;   // setting the flag to 1
-
 }
 
 void ObjectAllocator::ExtendedBlockHeader(GenericObject* ptr) const
 {
+    unsigned char* header = GetHeaderAddress(ptr);
+
+    size_t OFFSET = Config_.HBlockInfo_.additional_;
+    unsigned short* useCount = reinterpret_cast<unsigned short*>(header + OFFSET);
+    ++(*useCount);
+
+    OFFSET += sizeof(short);
+    unsigned int* alloc = reinterpret_cast<unsigned int*>(header + OFFSET);
+    *alloc = Stats_.Allocations_;
+
+    OFFSET += sizeof(unsigned int);
+    unsigned char* flag = reinterpret_cast<unsigned char*>(header + OFFSET);
+    *flag |= 0b1;
 }
 
-void ObjectAllocator::ExternalBlockHeader(GenericObject* ptr) const
+void ObjectAllocator::ExternalBlockHeader(GenericObject* ptr, char const* label) const
 {
+    unsigned char* header = GetHeaderAddress(ptr);
+
+    MemBlockInfo* mbi = nullptr;
+
+    try 
+    {
+        mbi = new MemBlockInfo{};
+        size_t const LEN = strlen(label) + 1;
+        mbi->label = new char[LEN];
+        strcpy(mbi->label, label);
+        *(mbi->label + LEN) = '\0';
+    }
+    catch (std::bad_alloc const&)
+    {
+        throw OAException(OAException::E_NO_MEMORY, "No more memory!");
+    }
+    
+    MemBlockInfo** mem = reinterpret_cast<MemBlockInfo**>(header);
+    *mem = mbi;
+}
+
+void ObjectAllocator::ReleaseHeader(GenericObject* ptr) const
+{
+    switch (Config_.HBlockInfo_.type_)
+    {
+        case OAConfig::HBLOCK_TYPE::hbBasic:
+        {
+            break;
+        }
+        case OAConfig::HBLOCK_TYPE::hbExtended:
+        {
+            break;
+        }
+        case OAConfig::HBLOCK_TYPE::hbExternal: 
+        {
+            break;
+        }
+    }
 }
 
 void ObjectAllocator::UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const

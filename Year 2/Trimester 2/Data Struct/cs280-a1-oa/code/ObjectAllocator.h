@@ -277,10 +277,11 @@ class ObjectAllocator
     void AddObjectToFreeList(GenericObject* obj);
 
     unsigned char* GetHeaderAddress(void* ptr) const;
-    void UpdateHeader(GenericObject* ptr) const;
+    void UpdateHeader(GenericObject* ptr, char const* label) const;
     void BasicBlockHeader(GenericObject* ptr) const;
     void ExtendedBlockHeader(GenericObject* ptr) const;
-    void ExternalBlockHeader(GenericObject* ptr) const;
+    void ExternalBlockHeader(GenericObject* ptr, char const * label) const;
+    void ReleaseHeader(GenericObject* ptr) const;
 
     void UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const;
     bool WithinMemoryBoundary(unsigned char* ptr) const;
