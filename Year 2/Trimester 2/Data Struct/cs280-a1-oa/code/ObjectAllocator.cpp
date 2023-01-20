@@ -32,8 +32,8 @@ ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config) : Co
     size_t const LEFT_ALIGNMENT_OFFSET  = AlignByte(leftAlignSize,  static_cast<size_t>(Config_.Alignment_)),
                  INTER_ALIGNMENT_OFFSET = AlignByte(dataBlockSize, static_cast<size_t>(Config_.Alignment_));
 
-    Config_.LeftAlignSize_  = LEFT_ALIGNMENT_OFFSET  - leftAlignSize;
-    Config_.InterAlignSize_ = INTER_ALIGNMENT_OFFSET - dataBlockSize;
+    Config_.LeftAlignSize_  = static_cast<unsigned int>(LEFT_ALIGNMENT_OFFSET  - leftAlignSize);
+    Config_.InterAlignSize_ = static_cast<unsigned int>(INTER_ALIGNMENT_OFFSET - dataBlockSize);
     middleBlockSize = Config_.HBlockInfo_.size_ + (Config_.PadBytes_ * 2_z) + Stats_.ObjectSize_ + Config_.InterAlignSize_;
     Stats_.PageSize_ = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * Config_.ObjectsPerPage_) - Config_.InterAlignSize_;
    
@@ -43,7 +43,31 @@ ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config) : Co
 // Destroys the ObjectManager (never throws)
 ObjectAllocator::~ObjectAllocator()
 {
+    auto GetGeneric = [](GenericObject* ptr, size_t OFFSET)
+    {
+        return reinterpret_cast<GenericObject*>(reinterpret_cast<unsigned char*>(ptr) + OFFSET);
+    };
 
+    GenericObject* ptr = PageList_;
+
+    while (ptr)
+    {
+        GenericObject* n = ptr->Next;
+
+        // Check if the header block type is of External
+        if (Config_.HBlockInfo_.type_ == OAConfig::HBLOCK_TYPE::hbExternal)
+        {   // Free the MemBlockInfo
+            for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
+            {
+                size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
+                GenericObject* header = GetGeneric(ptr, OFFSET);
+                // call free header function here
+            }
+        }
+
+        delete[] ptr;
+        ptr = n;
+    }
 }
 
 // Take an object from the free list and give it to the client (simulates new)
@@ -72,7 +96,7 @@ void *ObjectAllocator::Allocate(const char *label)
     }
 
     // Temp ptr to store the pointer to the object to be given to client
-    void* ptr = reinterpret_cast<void*>(FreeList_);
+    GenericObject* ptr = FreeList_;
     FreeList_ = FreeList_->Next;
 
     IncrementStatsValue();
@@ -81,6 +105,7 @@ void *ObjectAllocator::Allocate(const char *label)
     UpdateByteSignature(reinterpret_cast<unsigned char*>(ptr), ALLOCATED_PATTERN, Stats_.ObjectSize_);
 
     // Update the header block based on the type it is
+    UpdateHeader(ptr);
 
     return ptr;
 }
@@ -295,9 +320,32 @@ void ObjectAllocator::AddObjectToFreeList(GenericObject* obj)
     ++Stats_.FreeObjects_;
 }
 
-unsigned char* ObjectAllocator::GetHeaderAddress(void* ptr)
+unsigned char* ObjectAllocator::GetHeaderAddress(void* ptr) const
 {
     return reinterpret_cast<unsigned char*>(ptr) - Config_.PadBytes_ - Config_.HBlockInfo_.size_;
+}
+
+void ObjectAllocator::UpdateHeader(GenericObject* ptr) const
+{
+    switch (Config_.HBlockInfo_.type_)
+    {
+        case OAConfig::HBLOCK_TYPE::hbBasic:
+        {
+
+            break;
+        }
+        case OAConfig::HBLOCK_TYPE::hbExtended:
+        {
+
+            break;
+        }
+        case OAConfig::HBLOCK_TYPE::hbExternal:
+        {
+
+            break;
+        }
+        default: break;
+    }
 }
 
 void ObjectAllocator::UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const
@@ -313,11 +361,8 @@ bool ObjectAllocator::WithinMemoryBoundary(unsigned char* ptr) const
         2) Check if ptr is an address before the first block of object
         3) Check if ptr is divisible by the data block size
     */
-
-    if (!WithinPage(ptr)) // 1) Check if ptr is within the confines of all the pages available
-        throw OAException(OAException::E_BAD_BOUNDARY, "Pointer out of boundary!");
-
-    return false;
+    GenericObject* page{ nullptr };
+    return WithinPage(ptr, page) && WithinDataSize(ptr, page) && AfterNextPointerAndLeftAlignment(ptr, page);
 }
 
 unsigned char* ObjectAllocator::GetPadding(GenericObject* ptr, Padding p) const
@@ -332,15 +377,15 @@ unsigned char* ObjectAllocator::GetPadding(GenericObject* ptr, Padding p) const
 
 bool ObjectAllocator::IsPaddingCorrupted(unsigned char* ptr) const
 {
-    // Anything other than PAD_PATTERN would means that the padding is corrupted
+    // Any value other than PAD_PATTERN would means that the padding is corrupted
     for (size_t i = 0; i < Config_.PadBytes_; ++i)
         if (*(ptr + i) != PAD_PATTERN) return true;
     return false;
 }
 
-bool ObjectAllocator::WithinPage(unsigned char* ptr) const
+bool ObjectAllocator::WithinPage(unsigned char* ptr, GenericObject*& page) const
 {
-    GenericObject* page = PageList_;
+    page = PageList_;
     while (page)
     {
         unsigned char* pagePtr = reinterpret_cast<unsigned char*>(page);
@@ -348,4 +393,18 @@ bool ObjectAllocator::WithinPage(unsigned char* ptr) const
         page = page->Next;
     }
     return false;
+}
+
+bool ObjectAllocator::WithinDataSize(unsigned char* ptr, GenericObject* const& page) const
+{
+    unsigned char* head = reinterpret_cast<unsigned char*>(page) + sizeof(void*) + Config_.LeftAlignSize_;
+    unsigned char* tail = reinterpret_cast<unsigned char*>(ptr) + Stats_.ObjectSize_ + Config_.PadBytes_ + Config_.InterAlignSize_;
+    // If the address is divisible by the middle block size, then it's definitely a block within the page
+    return !( (tail - head) % middleBlockSize );
+}
+
+bool ObjectAllocator::AfterNextPointerAndLeftAlignment(unsigned char* ptr, GenericObject* const& page) const
+{
+    unsigned char* head = reinterpret_cast<unsigned char*>(page);
+    return (ptr - head) >= sizeof(void*) + Config_.LeftAlignSize_;
 }

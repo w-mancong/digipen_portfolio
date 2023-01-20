@@ -276,13 +276,16 @@ class ObjectAllocator
 
     void AddObjectToFreeList(GenericObject* obj);
 
-    unsigned char* GetHeaderAddress(void* ptr);
+    unsigned char* GetHeaderAddress(void* ptr) const;
+    void UpdateHeader(GenericObject* ptr) const;
 
     void UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const;
     bool WithinMemoryBoundary(unsigned char* ptr) const;
     unsigned char* GetPadding(GenericObject* ptr, Padding p) const;
     bool IsPaddingCorrupted(unsigned char* ptr) const;
-    bool WithinPage(unsigned char* ptr) const;
+    bool WithinPage(unsigned char* ptr, GenericObject*& page) const;
+    bool WithinDataSize(unsigned char* ptr, GenericObject* const& page) const;
+    bool AfterNextPointerAndLeftAlignment(unsigned char* ptr, GenericObject* const& page) const;
 
     // Some "suggested" members (only a suggestion!)
     GenericObject *PageList_{ nullptr }; //!< the beginning of the list of pages
