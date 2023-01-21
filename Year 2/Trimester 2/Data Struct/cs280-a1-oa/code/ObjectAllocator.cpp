@@ -43,11 +43,6 @@ ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config) : Co
 // Destroys the ObjectManager (never throws)
 ObjectAllocator::~ObjectAllocator()
 {
-    auto GetGeneric = [](GenericObject* ptr, size_t OFFSET)
-    {
-        return reinterpret_cast<GenericObject*>(reinterpret_cast<unsigned char*>(ptr) + OFFSET);
-    };
-
     GenericObject* ptr = PageList_;
 
     while (ptr)
@@ -60,8 +55,18 @@ ObjectAllocator::~ObjectAllocator()
             for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
             {
                 size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
-                GenericObject* header = GetGeneric(ptr, OFFSET);
-                // call free header function here
+                MemBlockInfo** header = reinterpret_cast<MemBlockInfo**>(reinterpret_cast<unsigned char*>(ptr) + OFFSET);
+                if (header)
+                {
+                    if ((*header))
+                    {
+                        delete[] (*header)->label;
+                        (*header)->label = nullptr;
+                    }
+
+                    delete *header;
+                    *header = nullptr;
+                }
             }
         }
 
@@ -136,16 +141,27 @@ void ObjectAllocator::Free(void *Object)
 
     --Stats_.ObjectsInUse_;
 
+    ReleaseHeader(ptr);
     AddObjectToFreeList(ptr);
     UpdateByteSignature(reinterpret_cast<unsigned char*>(ptr), FREED_PATTERN, Stats_.ObjectSize_);
-
-    // Free the header block based on the type it is
 }
 
 // Calls the callback fn for each block still in use - returns the number of blocks in used by the client
 unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
 {
-    return 0;
+    // Empty Page
+    if (!PageList_)
+        return 0;
+
+    unsigned int numBlockMemUsed = 0;
+
+    GenericObject* page = PageList_;
+    while (page)
+    {
+
+    }
+
+    return numBlockMemUsed;
 }
 
 // Calls the callback fn for each block that is potentially corrupted
@@ -389,6 +405,8 @@ void ObjectAllocator::ExternalBlockHeader(GenericObject* ptr, char const* label)
         mbi->label = new char[LEN];
         strcpy(mbi->label, label);
         *(mbi->label + LEN) = '\0';
+        mbi->in_use = true;
+        mbi->alloc_num = Stats_.Allocations_;
     }
     catch (std::bad_alloc const&)
     {
@@ -401,18 +419,61 @@ void ObjectAllocator::ExternalBlockHeader(GenericObject* ptr, char const* label)
 
 void ObjectAllocator::ReleaseHeader(GenericObject* ptr) const
 {
+    unsigned char* header = GetHeaderAddress(ptr);
+    char const* msg = "Multiple frees deducted";
     switch (Config_.HBlockInfo_.type_)
     {
+        case OAConfig::HBLOCK_TYPE::hbNone:
+        {
+            if (Config_.DebugOn_)
+            {
+                unsigned char* c = reinterpret_cast<unsigned char*>(ptr) + sizeof(void*);
+                if (FREED_PATTERN == *c)
+                    throw OAException(OAException::E_MULTIPLE_FREE, msg);
+            }
+            break;
+        }
         case OAConfig::HBLOCK_TYPE::hbBasic:
         {
+            if (Config_.DebugOn_)
+            {
+                if( 0 == *( header + sizeof(unsigned int) ) )
+                    throw OAException(OAException::E_MULTIPLE_FREE, msg);
+            }
+            memset(header, 0, OAConfig::BASIC_HEADER_SIZE);
             break;
         }
         case OAConfig::HBLOCK_TYPE::hbExtended:
         {
+            if (Config_.DebugOn_)
+            {
+                if ( 0 == *( header + sizeof(unsigned int) + Config_.HBlockInfo_.additional_ + sizeof(unsigned short) ) )
+                    throw OAException(OAException::E_MULTIPLE_FREE, msg);
+            }
+            memset(header + Config_.HBlockInfo_.additional_ + sizeof(unsigned short), 0, OAConfig::BASIC_HEADER_SIZE);
             break;
         }
         case OAConfig::HBLOCK_TYPE::hbExternal: 
         {
+            MemBlockInfo** mem = reinterpret_cast<MemBlockInfo**>(header);
+            if (Config_.DebugOn_)
+            {
+                if (!(*mem))
+                    throw OAException(OAException::E_MULTIPLE_FREE, msg);
+            }
+
+            if (*mem)
+            {
+                if ((*mem)->label)
+                {
+                    delete[] (*mem)->label;
+                    (*mem)->label = nullptr;
+                }
+
+                delete* mem;
+                *mem = nullptr;
+            }
+
             break;
         }
     }
@@ -476,5 +537,5 @@ bool ObjectAllocator::WithinDataSize(unsigned char* ptr, GenericObject* const& p
 bool ObjectAllocator::AfterNextPointerAndLeftAlignment(unsigned char* ptr, GenericObject* const& page) const
 {
     unsigned char* head = reinterpret_cast<unsigned char*>(page);
-    return (ptr - head) >= sizeof(void*) + Config_.LeftAlignSize_;
+    return static_cast<size_t>((ptr - head)) >= sizeof(void*) + static_cast<size_t>(Config_.LeftAlignSize_);
 }
