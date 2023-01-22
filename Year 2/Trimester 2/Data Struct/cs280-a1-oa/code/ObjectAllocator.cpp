@@ -153,12 +153,26 @@ unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
     if (!PageList_)
         return 0;
 
-    unsigned int numBlockMemUsed = 0;
+    unsigned int numBlockMemUsed{};
 
     GenericObject* page = PageList_;
     while (page)
     {
+        unsigned char* header = reinterpret_cast<unsigned char*>(page);
 
+        for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
+        {
+            size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
+            GenericObject* ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
+
+            if (IsObjectInUse(ptr))
+            {
+                ++numBlockMemUsed;
+                fn(ptr, Stats_.ObjectSize_);
+            }
+        }
+
+        page = page->Next;
     }
 
     return numBlockMemUsed;
@@ -168,13 +182,44 @@ unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
 // The ValidatePages method returns the number of blocks that are corrupted. Only pad bytes are validated.
 unsigned ObjectAllocator::ValidatePages(VALIDATECALLBACK fn) const
 {
-    return 0;
+    if (!Config_.DebugOn_ || Config_.PadBytes_ == 0)
+        return 0;
+    unsigned int numBlockCorrupted{};
+
+    GenericObject* page = PageList_;
+    while (page)
+    {
+        unsigned char* header = reinterpret_cast<unsigned char*>(page);
+
+        for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
+        {
+            size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
+            GenericObject* ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
+
+            // If either left/right padding is corrupted, then run the callback function
+            if ( IsPaddingCorrupted( GetPadding(ptr, Padding::Left) ) || IsPaddingCorrupted( GetPadding(ptr, Padding::Right) ) )
+            {
+                ++numBlockCorrupted;
+                fn(ptr, Stats_.ObjectSize_);
+            }
+        }
+
+        page = page->Next;
+    }
+
+    return numBlockCorrupted;
 }
 
 // Frees all empty page - returns the number of pages freed
 unsigned ObjectAllocator::FreeEmptyPages()
 {
-    return 0;
+    // If page list is empty, return 0
+    if (!PageList_)
+        return 0;
+
+    unsigned int numPagesFreed{};
+
+
 }
 
 // Testing/Debugging/Statistic methods
@@ -322,7 +367,6 @@ void ObjectAllocator::DefaultBlockValue(void)
                 *ptr = nullptr; 
                 go = go->Next;
             }
-
             break;
         }
     }
@@ -538,4 +582,38 @@ bool ObjectAllocator::AfterNextPointerAndLeftAlignment(unsigned char* ptr, Gener
 {
     unsigned char* head = reinterpret_cast<unsigned char*>(page);
     return static_cast<size_t>((ptr - head)) >= sizeof(void*) + static_cast<size_t>(Config_.LeftAlignSize_);
+}
+
+bool ObjectAllocator::IsObjectInUse(GenericObject* ptr) const
+{
+    switch (Config_.HBlockInfo_.type_)
+    {
+        case OAConfig::HBLOCK_TYPE::hbNone:
+        {   // Search the entire FreeList_ to make sure the address of ptr is not part of it
+            GenericObject* obj = FreeList_;
+            unsigned char* header = reinterpret_cast<unsigned char*>(ptr) + Config_.HBlockInfo_.size_ + Config_.PadBytes_;
+
+            // If ptr is found inside the FreeList_, means that the object is not in use
+            while (obj)
+            {
+                if (reinterpret_cast<void*>(obj) == header) return false;
+                obj = obj->Next;
+            }
+
+            return true;
+        }
+        case OAConfig::HBLOCK_TYPE::hbBasic:
+        case OAConfig::HBLOCK_TYPE::hbExtended:
+        {   // For both basic and extended, return the value of the flag bit
+            unsigned char* flag = reinterpret_cast<unsigned char*>(ptr) + Config_.HBlockInfo_.size_ - 1_z;
+            return *flag;
+        }
+        case OAConfig::HBLOCK_TYPE::hbExternal:
+        {
+            MemBlockInfo** mem = reinterpret_cast<MemBlockInfo**>(ptr);
+            // if mem is not nullptr means this block of memory is in use
+            return static_cast<bool>(*mem);
+        }
+    }
+    return false;
 }
