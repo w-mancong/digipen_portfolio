@@ -292,6 +292,7 @@ class ObjectAllocator
     bool AfterNextPointerAndLeftAlignment(unsigned char* ptr, GenericObject* const& page) const;
 
     bool IsObjectInUse(GenericObject* ptr) const;
+    void RemoveFromFreeList(GenericObject* page);
 
     // Some "suggested" members (only a suggestion!)
     GenericObject *PageList_{ nullptr }; //!< the beginning of the list of pages

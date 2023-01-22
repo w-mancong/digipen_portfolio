@@ -3,15 +3,10 @@
 
 namespace
 {
-    size_t constexpr operator "" _z(size_t n)
-    {
-        return static_cast<size_t>(n);
-    }
-
     inline size_t AlignByte(size_t n, size_t align)
     {
         if (!align) return n;
-        size_t r = n % align != 0 ? 1_z : 0_z;  // Getting the remainer
+        size_t r = n % align != 0 ? 1ULL : 0ULL;  // Getting the remainer
         return align * ((n / align) + r);
     }
 }
@@ -27,14 +22,14 @@ ObjectAllocator::ObjectAllocator(size_t ObjectSize, const OAConfig &config) : Co
         Middle block -> Header block, Padding, Size of Object, Padding, Inter alignment
     */
     leftAlignSize = sizeof(void*) + Config_.HBlockInfo_.size_ + Config_.PadBytes_;
-    dataBlockSize = Stats_.ObjectSize_ + (Config_.PadBytes_ * 2_z) + Config_.HBlockInfo_.size_;
+    dataBlockSize = Stats_.ObjectSize_ + (Config_.PadBytes_ * 2ULL) + Config_.HBlockInfo_.size_;
 
     size_t const LEFT_ALIGNMENT_OFFSET  = AlignByte(leftAlignSize,  static_cast<size_t>(Config_.Alignment_)),
                  INTER_ALIGNMENT_OFFSET = AlignByte(dataBlockSize, static_cast<size_t>(Config_.Alignment_));
 
     Config_.LeftAlignSize_  = static_cast<unsigned int>(LEFT_ALIGNMENT_OFFSET  - leftAlignSize);
     Config_.InterAlignSize_ = static_cast<unsigned int>(INTER_ALIGNMENT_OFFSET - dataBlockSize);
-    middleBlockSize = Config_.HBlockInfo_.size_ + (Config_.PadBytes_ * 2_z) + Stats_.ObjectSize_ + Config_.InterAlignSize_;
+    middleBlockSize = Config_.HBlockInfo_.size_ + (Config_.PadBytes_ * 2ULL) + Stats_.ObjectSize_ + Config_.InterAlignSize_;
     Stats_.PageSize_ = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * Config_.ObjectsPerPage_) - Config_.InterAlignSize_;
    
     AllocateNewPage();
@@ -70,7 +65,7 @@ ObjectAllocator::~ObjectAllocator()
             }
         }
 
-        delete[] ptr;
+        delete[] reinterpret_cast<unsigned char*>(ptr);
         ptr = n;
     }
 }
@@ -128,7 +123,7 @@ void ObjectAllocator::Free(void *Object)
     }
 
     GenericObject* ptr = reinterpret_cast<GenericObject*>(Object);
-    ptr->Next = nullptr;
+    //ptr->Next = nullptr;
 
     // Check if Object is within the memory boundary and if the data was corrupted in any way
     if (Config_.DebugOn_)
@@ -143,7 +138,7 @@ void ObjectAllocator::Free(void *Object)
 
     ReleaseHeader(ptr);
     AddObjectToFreeList(ptr);
-    UpdateByteSignature(reinterpret_cast<unsigned char*>(ptr), FREED_PATTERN, Stats_.ObjectSize_);
+    UpdateByteSignature(reinterpret_cast<unsigned char*>(ptr) + sizeof(void*), FREED_PATTERN, Stats_.ObjectSize_ - sizeof(void*));
 }
 
 // Calls the callback fn for each block still in use - returns the number of blocks in used by the client
@@ -163,11 +158,13 @@ unsigned ObjectAllocator::DumpMemoryInUse(DUMPCALLBACK fn) const
         for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
         {
             size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
+            //size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + Config_.HBlockInfo_.size_ + Config_.PadBytes_ + (middleBlockSize * i);
             GenericObject* ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
 
             if (IsObjectInUse(ptr))
             {
                 ++numBlockMemUsed;
+                ptr = reinterpret_cast<GenericObject*>(header + OFFSET + Config_.HBlockInfo_.size_ + Config_.PadBytes_);
                 fn(ptr, Stats_.ObjectSize_);
             }
         }
@@ -193,8 +190,8 @@ unsigned ObjectAllocator::ValidatePages(VALIDATECALLBACK fn) const
 
         for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
         {
-            size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
-            GenericObject* ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
+            size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + Config_.HBlockInfo_.size_ + Config_.PadBytes_ + (middleBlockSize * i);
+            GenericObject* const ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
 
             // If either left/right padding is corrupted, then run the callback function
             if ( IsPaddingCorrupted( GetPadding(ptr, Padding::Left) ) || IsPaddingCorrupted( GetPadding(ptr, Padding::Right) ) )
@@ -219,7 +216,64 @@ unsigned ObjectAllocator::FreeEmptyPages()
 
     unsigned int numPagesFreed{};
 
+    /*
+        1) Loop through each page and see if the object is in the free list
+        -> if all $(ObjectsPerPage_) are in the FreeList_ means this page should be freed
+        2) Remove the objects in the page from the FreeList_
+        3) Remove the empty page from PageList_
+        4) Return the number of page freed
+    */
 
+    GenericObject* page = PageList_, *prevPage{ nullptr };
+
+    while (page)
+    {
+        unsigned char* header = reinterpret_cast<unsigned char*>(page);
+
+        size_t unusedObjects{};
+
+        for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
+        {
+            size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + (middleBlockSize * i);
+            GenericObject* const ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
+
+            if (!IsObjectInUse(ptr))
+                ++unusedObjects;
+        }
+
+        // the number of unused objects is the same as the number of objects per page
+        if (unusedObjects == Config_.ObjectsPerPage_)
+        {   // This is the page that is to be freed
+            ++numPagesFreed;
+
+            /*
+                Then remove this page from PageList_
+                1) if prevPage is nullptr, means im removing the head
+                2) else need to relink prevPage's Next ptr to page's Next ptr
+            */ 
+            if (prevPage)   // removing a page that is between two other
+                prevPage->Next = page->Next;
+            else    // removing a page which is the head
+                PageList_ = PageList_->Next;
+
+            // Remove all the objects in this page from the free list
+            RemoveFromFreeList(page);
+
+            GenericObject* tmp = page->Next;
+
+            // After re-arranging the PageList_, now delete this page
+            delete[] reinterpret_cast<unsigned char*>(page);
+            page = tmp;
+        }
+
+        if (unusedObjects < Config_.ObjectsPerPage_)
+        {
+            prevPage = page;
+            page = page->Next;
+        }
+    }
+
+    return numPagesFreed;
 }
 
 // Testing/Debugging/Statistic methods
@@ -264,19 +318,19 @@ void ObjectAllocator::AllocateNewPage(void)
     unsigned char *ptr = nullptr;
     try
     {
-        ptr = new unsigned char[Stats_.PageSize_];
+        ptr = new unsigned char[Stats_.PageSize_]{};
             
         // Allocating spaces for page
-        if (!PageList_)
-        {   // PageList_ is nullptr, so this very first page will be the head
-            PageList_ = reinterpret_cast<GenericObject*>(ptr);
-            PageList_->Next = nullptr;
-        }
-        else
-        {
+        if (PageList_)
+        {   
             GenericObject* head = reinterpret_cast<GenericObject*>(ptr);
             head->Next = PageList_;
             PageList_ = head;
+        }
+        else
+        {   // PageList_ is nullptr, so this very first page will be the head
+            PageList_ = reinterpret_cast<GenericObject*>(ptr);
+            PageList_->Next = nullptr;
         }
     }
     catch (std::bad_alloc const&)
@@ -294,14 +348,11 @@ void ObjectAllocator::AllocateNewPage(void)
 void ObjectAllocator::AssignFreeListObjects(void)
 {
     unsigned char* head = reinterpret_cast<unsigned char*>( PageList_ );
-    size_t const FRONT_OFFSET = sizeof(void*) + static_cast<size_t>(Config_.LeftAlignSize_) + static_cast<size_t>(Config_.HBlockInfo_.size_) + static_cast<size_t>(Config_.PadBytes_);
-    FreeList_ = reinterpret_cast<GenericObject*>( head + FRONT_OFFSET );
-    FreeList_->Next = nullptr;
-    ++Stats_.FreeObjects_;
+    size_t const OFFSET = sizeof(void*) + static_cast<size_t>(Config_.LeftAlignSize_) + static_cast<size_t>(Config_.HBlockInfo_.size_) + static_cast<size_t>(Config_.PadBytes_);
 
-    for (size_t i = 1; i < Config_.ObjectsPerPage_; ++i)
+    for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
     {
-        GenericObject* ptr = reinterpret_cast<GenericObject*>(head + FRONT_OFFSET + (middleBlockSize * i));
+        GenericObject* ptr = reinterpret_cast<GenericObject*>(head + OFFSET + (middleBlockSize * i));
         AddObjectToFreeList(ptr);
     }
 }
@@ -369,15 +420,24 @@ void ObjectAllocator::DefaultBlockValue(void)
             }
             break;
         }
+        default: break;
     }
 }
 
 void ObjectAllocator::AddObjectToFreeList(GenericObject* obj)
 {
+    ++Stats_.FreeObjects_;
+
+    if (!FreeList_)
+    {
+        FreeList_ = obj;
+        FreeList_->Next = nullptr;
+        return;
+    }
+
     GenericObject* ptr = FreeList_;
     FreeList_ = obj;
     obj->Next = ptr;
-    ++Stats_.FreeObjects_;
 }
 
 unsigned char* ObjectAllocator::GetHeaderAddress(void* ptr) const
@@ -445,10 +505,15 @@ void ObjectAllocator::ExternalBlockHeader(GenericObject* ptr, char const* label)
     try 
     {
         mbi = new MemBlockInfo{};
-        size_t const LEN = strlen(label) + 1;
-        mbi->label = new char[LEN];
-        strcpy(mbi->label, label);
-        *(mbi->label + LEN) = '\0';
+
+        if (label)
+        {
+            size_t const LEN = strlen(label) + 1;
+            mbi->label = new char[LEN];
+            strcpy(mbi->label, label);
+            *(mbi->label + LEN) = '\0';
+        }
+
         mbi->in_use = true;
         mbi->alloc_num = Stats_.Allocations_;
     }
@@ -554,7 +619,10 @@ bool ObjectAllocator::IsPaddingCorrupted(unsigned char* ptr) const
 {
     // Any value other than PAD_PATTERN would means that the padding is corrupted
     for (size_t i = 0; i < Config_.PadBytes_; ++i)
-        if (*(ptr + i) != PAD_PATTERN) return true;
+    {
+        if (*(ptr + i) != PAD_PATTERN) 
+            return true;
+    }
     return false;
 }
 
@@ -591,12 +659,14 @@ bool ObjectAllocator::IsObjectInUse(GenericObject* ptr) const
         case OAConfig::HBLOCK_TYPE::hbNone:
         {   // Search the entire FreeList_ to make sure the address of ptr is not part of it
             GenericObject* obj = FreeList_;
-            unsigned char* header = reinterpret_cast<unsigned char*>(ptr) + Config_.HBlockInfo_.size_ + Config_.PadBytes_;
+            unsigned char* header = reinterpret_cast<unsigned char*>(ptr) + Config_.PadBytes_;
 
             // If ptr is found inside the FreeList_, means that the object is not in use
             while (obj)
             {
-                if (reinterpret_cast<void*>(obj) == header) return false;
+                // checking the address to see if it matches
+                if (reinterpret_cast<void*>(obj) == reinterpret_cast<void*>(header))
+                    return false;
                 obj = obj->Next;
             }
 
@@ -605,7 +675,7 @@ bool ObjectAllocator::IsObjectInUse(GenericObject* ptr) const
         case OAConfig::HBLOCK_TYPE::hbBasic:
         case OAConfig::HBLOCK_TYPE::hbExtended:
         {   // For both basic and extended, return the value of the flag bit
-            unsigned char* flag = reinterpret_cast<unsigned char*>(ptr) + Config_.HBlockInfo_.size_ - 1_z;
+            unsigned char* flag = reinterpret_cast<unsigned char*>(ptr) + Config_.HBlockInfo_.size_ - 1ULL;
             return *flag;
         }
         case OAConfig::HBLOCK_TYPE::hbExternal:
@@ -616,4 +686,36 @@ bool ObjectAllocator::IsObjectInUse(GenericObject* ptr) const
         }
     }
     return false;
+}
+
+void ObjectAllocator::RemoveFromFreeList(GenericObject* page)
+{
+    unsigned char* header = reinterpret_cast<unsigned char*>(page);
+
+    for (size_t i = 0; i < Config_.ObjectsPerPage_; ++i)
+    {
+        size_t const OFFSET = sizeof(void*) + Config_.LeftAlignSize_ + Config_.HBlockInfo_.size_ + Config_.PadBytes_ + (middleBlockSize * i);
+        GenericObject* ptr = reinterpret_cast<GenericObject*>(header + OFFSET);
+
+        GenericObject* list = FreeList_, *prev{ nullptr };
+        while (list)
+        {
+            // The current list object is the one we're removing from the list
+            if (ptr == list)
+            {
+                if (prev)
+                    prev->Next = list->Next;
+                else
+                    FreeList_ = FreeList_->Next;
+
+                --Stats_.FreeObjects_;
+
+                break;
+            }
+
+            prev = list;
+            list = list->Next;
+        }
+    }
+    --Stats_.PagesInUse_;
 }
