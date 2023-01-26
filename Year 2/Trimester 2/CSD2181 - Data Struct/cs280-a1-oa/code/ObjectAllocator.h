@@ -1,3 +1,25 @@
+/*!*****************************************************************************
+\file   ObjectAllocator.cpp
+\author Wong Man Cong
+\par DP email: w.mancong\@digipen.edu
+\par Course: Data Structure
+\par Section: A
+\par Assignment 1
+\date 26/01/2023
+\brief
+This file contains function declarations for ObjectAllocator class
+
+A standard page of 3 objects for this assignment will look like this:
+Page: NP|AL|H|P|S|P|AI|H|P|S|P|AI|H|P|S|P|
+            ^          ^          ^
+
+NP: Pointer to the next Page
+AL: Left alignment bytes
+H:  Header block => Basic, Extended, External
+P:  PadBytes => Used to check for any corruption in the page
+S:  Size of object => if the object is an int, this value will be 4 bytes (64 bit computer)
+AI: Inter alignment bytes
+*******************************************************************************/
 //---------------------------------------------------------------------------
 #ifndef OBJECTALLOCATORH
 #define OBJECTALLOCATORH
@@ -224,36 +246,95 @@ class ObjectAllocator
     static const unsigned char PAD_PATTERN         = 0xDD; //!< Pad signature to detect buffer over/under flow
     static const unsigned char ALIGN_PATTERN       = 0xEE; //!< For the alignment bytes
 
-    // Creates the ObjectManager per the specified values
-    // Throws an exception if the construction fails. (Memory allocation problem)
+    /*!*****************************************************************************
+        \brief ObjectAllocator's constructor
+
+        \param [in] ObjecttSize: Size of the object
+        \param [in] config: Configuration to construct this ObjectAllocator
+    *******************************************************************************/
     ObjectAllocator(size_t ObjectSize, const OAConfig& config);
 
-    // Destroys the ObjectManager (never throws)
+    /*!*****************************************************************************
+        \brief Destructor for ObjectAllocator
+    *******************************************************************************/
     ~ObjectAllocator();
 
-    // Take an object from the free list and give it to the client (simulates new)
-    // Throws an exception if the object can't be allocated. (Memory allocation problem)
+    /*!*****************************************************************************
+        \brief Allocate and return a free block of memory back to the Client.
+               If UseCPPMemManager_ is true, the allocator will create a new pointer
+               for the client using the new operator
+
+        \param [in] label: If the Header is of External type, the allocator will
+                create a pointer to store the string in label
+
+        \return Pointer to the head of the first available address in the Page
+             OR Pointer to the address allocated by the OS with the new operator
+    *******************************************************************************/
     void *Allocate(const char *label = nullptr);
 
-    // Returns an object to the free list for the client (simulates delete)
-    // Throws an exception if the the object can't be freed. (Invalid object)
+    /*!*****************************************************************************
+        \brief Allow the address stored in Object be used as a free object for future
+            OR release the memory allocated back to the OS (UseCPPMemManager_ => true)
+
+        \param [in] Object: Pointer to an address in the page OR an address given
+                by the OS when using the new operator
+    *******************************************************************************/
     void Free(void *Object);
 
-    // Calls the callback fn for each block still in use - returns the number of blocks in used by the client
+    /*!*****************************************************************************
+        \brief Report the use of the memory if the block of memory in the page is
+               allocated for the client based on the fn function
+
+        \param [in] fn: Call back function specified by the user to report the
+                memory usage
+
+        \return The total number of memory block in use
+    *******************************************************************************/
     unsigned DumpMemoryInUse(DUMPCALLBACK fn) const;
 
-    // Calls the callback fn for each block that is potentially corrupted
-    // The ValidatePages method returns the number of blocks that are corrupted. Only pad bytes are validated.
+    /*!*****************************************************************************
+        \brief Check and validate if any of the pages are corrupted. A page is corrupted
+               when PadBytes allocated for padding are used
+
+        \param [in] fn: Call back function specified by the user to validate the page
+
+        \return The total number of blocks that are corrupted
+    *******************************************************************************/
     unsigned ValidatePages(VALIDATECALLBACK fn) const;
 
-    // Frees all empty page - returns the number of pages freed
+    /*!*****************************************************************************
+        \brief Free all pages that are not in use by the the client
+
+        \return Total number of pages that have been freed
+    *******************************************************************************/
     unsigned FreeEmptyPages();
 
-    // Testing/Debugging/Statistic methods
+    /*!*****************************************************************************
+        \brief Setter function for OAConfig's DebugOn_
+
+        \param [in] State: True=>Enable DebugOn_
+                           False=>Disable DebugOn_
+    *******************************************************************************/
     void SetDebugState(bool State);   // true=enable, false=disable
+
+    /*!*****************************************************************************
+        \brief Return the pointer to the first available object in the free list
+    *******************************************************************************/
     const void *GetFreeList() const;  // returns a pointer to the internal free list
+
+    /*!*****************************************************************************
+        \brief Return the pointer to the head of the page list
+    *******************************************************************************/
     const void *GetPageList() const;  // returns a pointer to the internal page list
+
+    /*!*****************************************************************************
+        \brief Return the configuration parameters
+    *******************************************************************************/
     OAConfig GetConfig() const;       // returns the configuration parameters
+
+    /*!*****************************************************************************
+        \brief Return the statistics for the allocator
+    *******************************************************************************/
     OAStats GetStats() const;         // returns the statistics for the allocator
 
     // Prevent copy construction and assignment
@@ -267,31 +348,185 @@ class ObjectAllocator
         Right,
     };
 
+    /*!*****************************************************************************
+        \brief Helper function to increment the stats value when Allocate function
+               is called
+    *******************************************************************************/
     void IncrementStatsValue(void);
 
+    /*!*****************************************************************************
+        \brief Helper function to allocate a new page
+    *******************************************************************************/
     void AllocateNewPage(void);
-    void AssignFreeListObjects(void);
-    void AssignByteSignatures(void);
-    void DefaultBlockValue(void);
 
+    /*!*****************************************************************************
+        \brief Helper function that is called inside AllocateNewPage. This function
+               assign the free objects into the FreeList_ for newly allocated pages
+    *******************************************************************************/
+    void AssignFreeListObjects(void);
+
+    /*!*****************************************************************************
+        \brief Helper function that is called inside AllocateNewPage. This function
+               assign the byte signatures for the newly allocated pages.
+    *******************************************************************************/
+    void AssignByteSignatures(void);
+
+    /*!*****************************************************************************
+        \brief Helper function that is called inside AllocateNewPages. When new pages
+               are allocated, this function set a default value for the header block
+               based on the type
+    *******************************************************************************/
+    void DefaultHeaderBlockValue(void);
+
+    /*!*****************************************************************************
+        \brief Helper function to insert a free object into the the front of the FreeList_
+
+        \param [in] obj: Pointer to address of the free object in the page
+    *******************************************************************************/
     void AddObjectToFreeList(GenericObject* obj);
 
+    /*!*****************************************************************************
+        \brief Helper function to get the pointer to the head of where the Header
+               block address is
+
+        \param [in] ptr: Pointer to the head of the address to the object
+
+        \return Pointer to the head of the Header block address
+    *******************************************************************************/
     unsigned char* GetHeaderAddress(void* ptr) const;
+
+    /*!*****************************************************************************
+        \brief Helper function that is called inside Allocate. This function update
+               the value for the different type of Header Block
+
+        \param [in] ptr: Pointer to the address of the free object
+        \param [in] label: Only used for HBLOCK_TYPE::hbExternal
+    *******************************************************************************/
     void UpdateHeader(GenericObject* ptr, char const* label) const;
+
+    /*!*****************************************************************************
+        \brief Updates the value for pages that are Basic header block
+
+        \param [in] ptr: Pointer to the address of the free object
+    *******************************************************************************/
     void BasicBlockHeader(GenericObject* ptr) const;
+
+    /*!*****************************************************************************
+        \brief Updates the value for pages that are Extended header block
+
+        \param [in] ptr: Pointer to the address of the free object
+    *******************************************************************************/
     void ExtendedBlockHeader(GenericObject* ptr) const;
+
+    /*!*****************************************************************************
+        \brief Updates the value for pages that are External header block
+
+        \param [in] ptr: Pointer to the address of the free object
+        \param [in] label: Pointer to a string that will be stored inside MemBlockInfo
+
+        \exception OAException::E_NO_MEMORY if new fails to allocate memory
+    *******************************************************************************/
     void ExternalBlockHeader(GenericObject* ptr, char const * label) const;
+
+    /*!*****************************************************************************
+        \brief Helper function that will be called inside Free. This function will
+               check for multiple frees if OAConfig::DebugOn_ is true. It also resets
+               the value for Basic and Extended block, and releases the memory for
+               External block.
+
+        \param [in] ptr: Pointer to the address of the free object
+
+        \exception OAException::E_MULTIPLE_FREE when OAConfig::DebugOn_ is true and
+                   a free call was called on ptr
+    *******************************************************************************/
     void ReleaseHeader(GenericObject* ptr) const;
 
+    /*!*****************************************************************************
+        \brief Helper function to set the byte signature for ptr
+
+        \param [in] ptr: Pointer the the head of the address to assign the value of c to
+        \param [in] c: Byte signature for the pointer
+        \param [in] size: Total number of c to set
+    *******************************************************************************/
     void UpdateByteSignature(unsigned char* ptr, unsigned char c, size_t size) const;
+
+    /*!*****************************************************************************
+        \brief Check if the address of ptr is within the boundary of the page
+
+        \param [in] ptr: Pointer to the address to be checked with
+
+        \return True: ptr is within the boundary of the page
+                False: ptr is not within the boundary of the page
+    *******************************************************************************/
     bool WithinMemoryBoundary(unsigned char* ptr) const;
+
+    /*!*****************************************************************************
+        \brief Get the pointer to the head of where the address of PadBytes_ is
+
+        \param [in] ptr: Pointer to the address of the free object/address to be check with (for boundary checking)
+        \param [in] p: Type of padding, left/right side
+
+        \return Pointer to the head of where PadBytes_ is
+    *******************************************************************************/
     unsigned char* GetPadding(GenericObject* ptr, Padding p) const;
+
+    /*!*****************************************************************************
+        \brief Check if the padding is corrupted. Padding is corrupted when the PadBytes_
+               do not have the byte signature of PAD_PATTERN
+
+        \param [in] ptr: Pointer to the address of where the paddings are
+
+        \return True if padding is corrupted, else false
+    *******************************************************************************/
     bool IsPaddingCorrupted(unsigned char* ptr) const;
+
+    /*!*****************************************************************************
+        \brief Check if ptr is an address within PageList_
+
+        \param [in] ptr: Pointer to be check if is an address within PageList_
+        \param [in, out] page: Store the address of the page if ptr is found to be within it
+
+        \return True if ptr is within any of the PageList_, else false
+    *******************************************************************************/
     bool WithinPage(unsigned char* ptr, GenericObject*& page) const;
+
+    /*!*****************************************************************************
+        \brief Check if ptr stores the exact size of the Middle Block
+
+        \param [in] ptr: Pointer to be check with
+        \param [in] page: Pointer that stores the address of the page that contains ptr
+
+        \return True if the data block is divisible by middleBlockSize, else false
+    *******************************************************************************/
     bool WithinDataSize(unsigned char* ptr, GenericObject* const& page) const;
+
+    /*!*****************************************************************************
+        \brief Check to make sure that ptr is an address after NextPointer and left
+               alignment bytes
+
+        \param [in] ptr: Pointer to be check with
+        \param [in] page: Pointer that stores the address of the page that contain ptr
+
+        \return True if ptr is after NextPointer and left alignment bytes, else false
+    *******************************************************************************/
     bool AfterNextPointerAndLeftAlignment(unsigned char* ptr, GenericObject* const& page) const;
 
+    /*!*****************************************************************************
+        \brief Check if an object is in use
+
+        \param [in] ptr: Pointer to the address of the free object
+
+        \return True if ptr is in use, else false
+    *******************************************************************************/
     bool IsObjectInUse(GenericObject* ptr) const;
+
+    /*!*****************************************************************************
+        \brief Helper function that is called inside FreeEmptyPages. Remove all free
+               objects inside page from the FreeList_
+
+        \param [in] page: Pointer to the page that contains all the objects
+               that are not in used, and to be removed from the FreeList_
+    *******************************************************************************/
     void RemoveFromFreeList(GenericObject* page);
 
     // Some "suggested" members (only a suggestion!)
