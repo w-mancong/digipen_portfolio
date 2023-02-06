@@ -16,8 +16,8 @@ int nServerPort = 5050;					// The server port that will be used by
 
 bool InitWinSock2_0();
 BOOL WINAPI ClientThread(LPVOID lpData);
-void SendMessageToClient(char* pBuffer, CLIENT_INFO const* pClientInfo);
-void SendMessageToAllClient(char* pBuffer);
+void SendMessageToClient(char const* pBuffer, CLIENT_INFO const* pClientInfo);
+void SendMessageToAllClient(char const* pBuffer);
 void SetMessage(char* pBuffer, char const* message);
 void SetNullTerminator(char* pBuffer, size_t max);
 void wait(void);
@@ -202,7 +202,7 @@ BOOL WINAPI ClientThread(LPVOID lpData)
 
 			if (!strcmp(buffer, "@quit")) 
 			{	// the received string buffer is @quit, hence we close the client
-				std::cout << pClientInfo->userName << " has terminated their program!" << std::endl;	
+				std::cout << pClientInfo->userName << " has terminated their program! (" << inet_ntoa(pClientInfo->clientAddr.sin_addr) << ")" << std::endl;
 
 				memset(buffer, 0, BUFFER_SIZE);
 				sprintf(buffer, "[%s exited]", pClientInfo->userName.c_str());
@@ -247,7 +247,7 @@ BOOL WINAPI ClientThread(LPVOID lpData)
 	return TRUE;
 }
 
-void SendMessageToClient(char* pBuffer, CLIENT_INFO const* pClientInfo)
+void SendMessageToClient(char const* pBuffer, CLIENT_INFO const* pClientInfo)
 {
 	/*
 		send() may not be able to send the complete data in one go.
@@ -272,7 +272,7 @@ void SendMessageToClient(char* pBuffer, CLIENT_INFO const* pClientInfo)
 	}
 }
 
-void SendMessageToAllClient(char* pBuffer)
+void SendMessageToAllClient(char const* pBuffer)
 {
 	for (auto const& it : users)
 	{

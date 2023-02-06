@@ -9,7 +9,7 @@ int nServerPort = 5050;
 bool InitWinSock2_0();
 void ReceieveMessageFromServer(void);
 int CreateThreadToReceieveMessage(void);
-void SendMessageToServer(char* pBuffer);
+void SendMessageToServer(char const* pBuffer);
 void SetNullTerminator(char* pBuffer, size_t max);
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 
@@ -25,6 +25,7 @@ size_t constexpr BUFFER_SIZE = 1024;
 */
 std::atomic<int> appStatus = 1, keyboardStatus = 1;
 SOCKET hClientSocket;
+std::string username{};
 
 int main(void)
 {
@@ -70,20 +71,21 @@ int main(void)
 			return -1;
 		}
 
-		char szBuffer[BUFFER_SIZE] = {}; // creating a buffer to store the messages from client and send over to server
+		char buffer[BUFFER_SIZE] = {}; // creating a buffer to store the messages from client and send over to server
 		// At this point, client have yet to join the chat room
 		while (true)
 		{	// Will loop till server confirms that there is no duplicate usernames
-			memset(szBuffer, 0, BUFFER_SIZE);
+			//memset(buffer, 0, BUFFER_SIZE);
 			std::cout << "Enter username: ";
-			std::cin >> szBuffer;
+			std::cin >> username;
 
 			// Send message to server
-			SendMessageToServer(szBuffer);
+			SendMessageToServer(username.c_str());
 
 			// After sending message to server, receieve confirmation for user name
 			int nLength = 0;
-			nLength = recv(hClientSocket, szBuffer, sizeof(szBuffer), 0);
+			nLength = recv(hClientSocket, buffer, sizeof(buffer), 0);	// recv returns the length of the received msg, -1 if error receiving message
+			SetNullTerminator(buffer, nLength);
 			if (nLength > 0)
 			{
 				/*
@@ -91,9 +93,9 @@ int main(void)
 					1) [Username has already been used. Please enter another name.]
 					2) [Welcome %s!]
 				*/
-				std::cout << szBuffer << std::endl;
-				if (szBuffer[1] == 'U')   continue;
-				else if (szBuffer[1] == 'W') break;
+				std::cout << buffer << std::endl;
+				if (buffer[1] == 'U')   continue;
+				else if (buffer[1] == 'W') break;
 			}
 		}
 
@@ -101,23 +103,23 @@ int main(void)
 		if (CreateThreadToReceieveMessage() == -1)
 			return -1;	// failed to create thread
 
-		// Infinite loop
+		std::cout << "Enter the string to send (type @quit to exit): ";
+		// Infinite loop to send message
 		while (true)
 		{
 			keyboardStatus = 0;
 
-			std::cout << "Enter the string to send (type @quit to exit): ";
-			std::cin >> szBuffer;	// To receive the user input
+			std::cin >> buffer;	// To receive the user input
 
 			keyboardStatus = 1;
 
-			SendMessageToServer(szBuffer);
+			SendMessageToServer(buffer);
 
 			/*
 				if user enters @quit, the commend to leave the app then
 				break out of the loop to close the client socket
 			*/
-			if (!strcmp(szBuffer, "@quit"))
+			if (!strcmp(buffer, "@quit"))
 			{	// Since the client application will also be threaded (so that it can receive message even when waiting for input from user)
 				appStatus = 0;	// set the variable appStatus to 0 when user type in the command @quit
 				break;
@@ -146,20 +148,27 @@ bool InitWinSock2_0()
 void ReceieveMessageFromServer(void)
 {
 	// Thread to receive message from server will always be running as long as appStatus is 1
-	char szBuffer[BUFFER_SIZE] = "";
+	char buffer[BUFFER_SIZE] = "";
+	// Infinite loop to receive message
 	while (appStatus)
 	{
 		int nLength = 0;
-		nLength = recv(hClientSocket, szBuffer, sizeof(szBuffer), 0);
-		SetNullTerminator(szBuffer, nLength);
+		nLength = recv(hClientSocket, buffer, sizeof(buffer), 0);
+		SetNullTerminator(buffer, nLength);
 		if (nLength > 0)
 		{	
 			if (keyboardStatus)
-				std::cout << szBuffer << std::endl;
+				std::cout << buffer << std::endl;
 			else
-				std::cout << std::endl << szBuffer << std::endl << "Enter the string to send (type @quit to exit): ";
+			{	// This code segment here is just for pretty printing onto the console
+				// The user that is receiving this message is also the one who sent this message
+				if(std::string(buffer).find(username.c_str()) != std::string::npos)
+					std::cout << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
+				else
+					std::cout << std::endl << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
+			}
 		}
-		memset(szBuffer, 0, BUFFER_SIZE);
+		memset(buffer, 0, BUFFER_SIZE);
 	}
 }
 
@@ -179,7 +188,7 @@ int CreateThreadToReceieveMessage(void)
 		CloseHandle(hClientThread);
 }
 
-void SendMessageToServer(char* pBuffer)
+void SendMessageToServer(char const* pBuffer)
 {
 	/*
 		send() may not be able to send the complete data in one go.
@@ -217,6 +226,7 @@ BOOL __stdcall CtrlHandler(DWORD fdwCtrlType)
 	{
 		// When window console x button is pressed
 	case CTRL_CLOSE_EVENT:
+		appStatus = 0;
 		SendMessageToServer(buffer);
 		return TRUE;
 	default:
