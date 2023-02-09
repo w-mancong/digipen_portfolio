@@ -23,7 +23,7 @@ size_t constexpr BUFFER_SIZE = 1024;
 	1: After the cin line
 	0: Before the cin line
 */
-std::atomic<int> appStatus = 1, keyboardStatus = 1;
+std::atomic<int> appStatus = 1;
 SOCKET hClientSocket;
 std::string username{};
 
@@ -107,11 +107,7 @@ int main(void)
 		// Infinite loop to send message
 		while (true)
 		{
-			keyboardStatus = 0;
-
-			std::cin >> buffer;	// To receive the user input
-
-			keyboardStatus = 1;
+			std::cin.getline(buffer, BUFFER_SIZE);	// To receive the user input
 
 			SendMessageToServer(buffer);
 
@@ -125,8 +121,8 @@ int main(void)
 				break;
 			}
 
-			//// Let main thread sleep for 5000 microseconds before asking user for input
-			//std::this_thread::sleep_for(std::chrono::microseconds(5000));
+			// Let main thread sleep for 5000 microseconds before asking user for input
+			std::this_thread::sleep_for(std::chrono::microseconds(5000));
 		}
 	}
 
@@ -157,16 +153,12 @@ void ReceieveMessageFromServer(void)
 		SetNullTerminator(buffer, nLength);
 		if (nLength > 0)
 		{	
-			if (keyboardStatus)
-				std::cout << buffer << std::endl;
+			// This code segment here is just for pretty printing onto the console
+			// The user that is receiving this message is also the one who sent this message
+			if(std::string(buffer).find(username.c_str()) != std::string::npos)
+				std::cout << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
 			else
-			{	// This code segment here is just for pretty printing onto the console
-				// The user that is receiving this message is also the one who sent this message
-				if(std::string(buffer).find(username.c_str()) != std::string::npos)
-					std::cout << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
-				else
-					std::cout << std::endl << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
-			}
+				std::cout << std::endl << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
 		}
 		memset(buffer, 0, BUFFER_SIZE);
 	}
@@ -186,6 +178,7 @@ int CreateThreadToReceieveMessage(void)
 	}
 	else
 		CloseHandle(hClientThread);
+	return 1;
 }
 
 void SendMessageToServer(char const* pBuffer)
