@@ -1,3 +1,13 @@
+/*!
+file:	MinChatClient.cpp
+author:	Wong Man Cong
+email:	w.mancong\@digipen.edu
+brief:	This file contain function definition to for a client to communicate with the server.
+		The server will then send the message key in by this client and send to all other
+		connected clients
+
+		All content © 2023 DigiPen Institute of Technology Singapore. All rights reserved.
+*//*__________________________________________________________________________________*/
 #include <WinSock2.h>
 #include <iostream>
 #include <chrono>
@@ -6,11 +16,43 @@
 char szServerIPAddr[] = "127.0.0.1";	// Put here the IP Address of the server
 int nServerPort = 5050;
 
+/*!*********************************************************************************
+	\brief Initialize WSA
+
+	\return True if successful, else false
+***********************************************************************************/
 bool InitWinSock2_0();
+
+/*!*********************************************************************************
+	\brief Function dedicated to just receiving the message from the server. This
+	function will be used on another thread
+***********************************************************************************/
 void ReceieveMessageFromServer(void);
+
+/*!*********************************************************************************
+	\brief Helper function to create a new thread to receive message from the server
+***********************************************************************************/
 int CreateThreadToReceieveMessage(void);
+
+/*!*********************************************************************************
+	\brief Helper function to send a message from the client to the server
+
+	\param [in] pBuffer: Message to be send to the server
+***********************************************************************************/
 void SendMessageToServer(char const* pBuffer);
+
+/*!*********************************************************************************
+	\brief Helper function to set a null character at the end of the char buffer
+
+	\param [in] pBuffer: Buffer to have it be null terminated
+	\param [in] max: Maximum length of the string where the null character will be placed
+***********************************************************************************/
 void SetNullTerminator(char* pBuffer, size_t max);
+
+/*!*********************************************************************************
+	\brief Event handler function for when the user press the cross button and closes
+	the app instead of typing the command "@quit".
+***********************************************************************************/
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 
 size_t constexpr BUFFER_SIZE = 1024;
@@ -18,12 +60,8 @@ size_t constexpr BUFFER_SIZE = 1024;
 	appStatus: Used to terminate ReceieveMessageFromServer thread when the program ends
 	1: Client program is still running
 	0: User typed "@quit", prompting to end the program
-
-	keyboardStatus: Used to check if there is any activity of the keyboard (used for pretty printing onto the console on client side
-	1: After the cin line
-	0: Before the cin line
 */
-std::atomic<int> appStatus = 1, keyboardStatus = 1;
+std::atomic<int> appStatus = 1;
 SOCKET hClientSocket;
 std::string username{};
 
@@ -107,11 +145,7 @@ int main(void)
 		// Infinite loop to send message
 		while (true)
 		{
-			keyboardStatus = 0;
-
-			std::cin >> buffer;	// To receive the user input
-
-			keyboardStatus = 1;
+			std::cin.getline(buffer, BUFFER_SIZE);	// To receive the user input
 
 			SendMessageToServer(buffer);
 
@@ -125,8 +159,8 @@ int main(void)
 				break;
 			}
 
-			//// Let main thread sleep for 5000 microseconds before asking user for input
-			//std::this_thread::sleep_for(std::chrono::microseconds(5000));
+			// Let main thread sleep for 5000 microseconds before asking user for input
+			std::this_thread::sleep_for(std::chrono::microseconds(5000));
 		}
 	}
 
@@ -157,16 +191,12 @@ void ReceieveMessageFromServer(void)
 		SetNullTerminator(buffer, nLength);
 		if (nLength > 0)
 		{	
-			if (keyboardStatus)
-				std::cout << buffer << std::endl;
+			// This code segment here is just for pretty printing onto the console
+			// The user that is receiving this message is also the one who sent this message
+			if(std::string(buffer).find(username.c_str()) != std::string::npos)
+				std::cout << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
 			else
-			{	// This code segment here is just for pretty printing onto the console
-				// The user that is receiving this message is also the one who sent this message
-				if(std::string(buffer).find(username.c_str()) != std::string::npos)
-					std::cout << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
-				else
-					std::cout << std::endl << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
-			}
+				std::cout << std::endl << buffer << std::endl << "Enter the string to send (type @quit to exit): ";
 		}
 		memset(buffer, 0, BUFFER_SIZE);
 	}
@@ -186,6 +216,7 @@ int CreateThreadToReceieveMessage(void)
 	}
 	else
 		CloseHandle(hClientThread);
+	return 1;
 }
 
 void SendMessageToServer(char const* pBuffer)

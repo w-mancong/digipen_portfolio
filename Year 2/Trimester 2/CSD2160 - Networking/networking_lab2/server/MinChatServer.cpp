@@ -1,3 +1,12 @@
+/*!
+file:	MinChatServer.cpp
+author:	Wong Man Cong
+email:	w.mancong\@digipen.edu
+brief:	This file contains function definition for a server that accepts connections of
+		new clients. This server performs a basic chat room service
+
+		All content © 2023 DigiPen Institute of Technology Singapore. All rights reserved.
+*//*__________________________________________________________________________________*/
 #include <WinSock2.h>
 #include <iostream>
 #include <string>
@@ -14,13 +23,66 @@ char szServerIPAddr[] = "127.0.0.1";	// Put here the IP address of the server
 int nServerPort = 5050;					// The server port that will be used by
                                         // clients to talk with the server
 
+/*!*********************************************************************************
+	\brief Initialize WSA
+
+	\return true if successful, else false
+***********************************************************************************/
 bool InitWinSock2_0();
+
+/*!*********************************************************************************
+	\brief When the server receive a message from a particular client, perform the 
+		task according to the command
+
+	\param [in] lpData: pointer to the memory address of CLIENT_INFO when server
+		accepts a new client
+
+	\return	TRUE if the thread terminates
+***********************************************************************************/
 BOOL WINAPI ClientThread(LPVOID lpData);
+
+/*!*********************************************************************************
+	\brief Helper function to send message to a specific client
+
+	\param [in] pBuffer: Message to send
+	\param [in] pClientInfo: Pointer to the specific client the message will be sent
+***********************************************************************************/
 void SendMessageToClient(char const* pBuffer, CLIENT_INFO const* pClientInfo);
+
+/*!*********************************************************************************
+	\brief Send message to all connected clients
+
+	\param [in] pBuffer: Message to send
+***********************************************************************************/
 void SendMessageToAllClient(char const* pBuffer);
+
+/*!*********************************************************************************
+	\brief Helper function to set message. Function will reset pBuffer and copy
+		   the string from message into pBuffer
+
+	\param [in] pBuffer: Pointer to the message to be reset and placed message into
+	\param [in] message: A default message without any formating
+***********************************************************************************/
 void SetMessage(char* pBuffer, char const* message);
+
+/*!*********************************************************************************
+	\brief Helper function to set a null character at the end of the char buffer
+
+	\param [in] pBuffer: Buffer to have it be null terminated
+	\param [in] max: Maximum length of the string where the null character will be placed
+***********************************************************************************/
 void SetNullTerminator(char* pBuffer, size_t max);
+
+/*!*********************************************************************************
+	\brief Using the concept of semaphore to guard the resource "users"
+	Lock the resource user, and do not allow anyone to retrieve it
+***********************************************************************************/
 void wait(void);
+
+/*!*********************************************************************************
+	\brief Using the concept of semaphore to guard the resource "users"
+	When the thread finishes it's operation, the resource will be released for other threads
+***********************************************************************************/
 void signal(void);
 
 size_t constexpr BUFFER_SIZE = 1024;
