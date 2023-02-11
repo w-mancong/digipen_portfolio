@@ -93,60 +93,75 @@ struct BListStats
 /*!
   The BList class
 */
-template <typename T, unsigned Size = 1>
+template <typename T, unsigned N = 1>
 class BList
 {
- 
   public:
-    /*!
-      Node struct for the BList
-    */
-    struct BNode
-    {
-      BNode *next;    //!< pointer to next BNode
-      BNode *prev;    //!< pointer to previous BNode
-      int count;      //!< number of items currently in the node
-      T values[Size]; //!< array of items in the node
+  using value_type      = T;
+  using reference       = value_type&;
+  using const_reference = value_type const&;
+  using pointer         = value_type*;
+  using const_pointer   = value_type const*;
+  using size_type       = unsigned;
 
-      //!< Default constructor
-      BNode() : next(0), prev(0), count(0) {}
-    };
+  /*!
+    Node struct for the BList
+  */
+  struct BNode
+  {
+    BNode *next;    //!< pointer to next BNode
+    BNode *prev;    //!< pointer to previous BNode
+    int count;      //!< number of items currently in the node
+    T values[N];    //!< array of items in the node
 
-    BList();                            // default constructor
-    BList(const BList &rhs);            // copy constructor
-    ~BList();                           // destructor
-    BList& operator=(const BList &rhs); // assign operator
+    //!< Default constructor
+    BNode() : next(nullptr), prev(nullptr), count(0) {}
+  };
 
-      // arrays will be unsorted, if calling either of these
-    void push_back(const T& value);
-    void push_front(const T& value);
+  BList();                            // default constructor
+  BList(const BList &rhs);            // copy constructor
+  ~BList();                           // destructor
+  BList& operator=(const BList &rhs); // assign operator
 
-      // arrays will be sorted, if calling this
-    void insert(const T& value);
+  // arrays will be unsorted, if calling either of these
+  void push_back(const T& value);
+  void push_front(const T& value);
 
-    void remove(int index);
-    void remove_by_value(const T& value);
+    // arrays will be sorted, if calling this
+  void insert(T const& value);
 
-    int find(const T& value) const;       // returns index, -1 if not found
+  void remove(int index);
+  void remove_by_value(const T& value);
 
-    T& operator[](int index);             // for l-values
-    const T& operator[](int index) const; // for r-values
+  int find(const T& value) const;       // returns index, -1 if not found
 
-    size_t size() const;   // total number of items (not nodes)
-    void clear();          // delete all nodes
+  T& operator[](int index);             // for l-values
+  const T& operator[](int index) const; // for r-values
 
-    static size_t nodesize(); // so the allocator knows the size
+  size_t size() const;   // total number of items (not nodes)
+  void clear();          // delete all nodes
 
-      // For debugging
-    const BNode *GetHead() const;
-    BListStats GetStats() const;
+  static size_t nodesize(); // so the allocator knows the size
 
-  private:
-    BNode *head_; //!< points to the first node
-    BNode *tail_; //!< points to the last node
+    // For debugging
+  const BNode *GetHead() const;
+  BListStats GetStats() const;
 
-    // Other private data and methods you may need ...
+private:
+  BNode *head_; //!< points to the first node
+  BNode *tail_; //!< points to the last node
+  bool isSorted;
+  BListStats stats_;
 
+  bool IsEmpty() const;
+  void PlaceItem(BNode *node, size_t pos, value_type const& value);
+  void SortArray(BNode *node);
+  void ArraySizeIsOne(value_type const &value);
+  void HeadTailSame(value_type const& value);
+  void HeadTailNotSame(value_type const &value);
+  BNode *CreateNode(BNode *prev = nullptr, BNode *next = nullptr);
+  BNode *SplitNode(BNode *prev, BNode *next);
+  void Swap(BList& tmp);
 };
 
 #include "BList.cpp"
