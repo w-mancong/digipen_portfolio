@@ -236,7 +236,6 @@ void BList<T, N>::HeadTailSame(value_type const& value)
   if(head_->count == N)
   {
     tail_ = SplitNode(head_, nullptr);
-    head_->next = tail_;
 
     if(value < *tail_->values)
     { // put in the left node
@@ -262,20 +261,83 @@ void BList<T, N>::HeadTailNotSame(value_type const &value)
   if(head_ == tail_) return;
 
   // Find the node where value is < the first element in that arr
-  BNode *node{head_};
+  BNode *node{ head_ };
   while (node->next && *node->values < value)
     node = node->next;
 
+  /*
+    4 Cases when inserting 15 into the list
+    1) When both nodes have empty slots : 10 _ -- 20 _
+      -> Insert 15 on the left node
+      Result: 10 15 -- 20 _
+
+    2) When both nodes are full : 10 12 -- 20 22
+      -> Split left node
+      Result: 10 _ -- 12 _ -- 20 22
+      -> Insert 15 into right node
+      Result: 10 _ -- 12 15 -- 20 22
+      If the list is 10 18 -- 20 22 instead then
+      -> Split left node and insert 15 into the left node
+      Result: 10 15 -- 18 _ -- 20 22
+
+    3) When left node is full and right node has slot : 10 12 -- 20 _
+      -> Insert 15 into the right node
+      Result: 10 12 -- 15 20
+
+    4) When right node is full and left node has slot : 10 _ -- 20 22
+      -> Insert 15 into left node
+      Result: 10 15 -- 20 22
+  */
   if(value < *node->values)
   {
-    
+    // Inserting into head node
+    if (node == head_ && node->count >= N)
+    { // Current node is full
+      head_ = SplitNode(node->prev, node);
+      if(value < *head_->values)
+      {
+        PlaceItem(head_, head_->count, value);
+        SortArray(head_);
+      }
+      else
+      {
+        PlaceItem(node, node->count, value);
+        SortArray(node);
+      }
+      return;
+    }
+
+    BNode *prev = node->prev;
+    if(prev->count < N)
+    { // Case 1 and 4
+      PlaceItem(prev, prev->count, value);
+      SortArray(prev);
+    }
+    else if(prev->count >= N && node->count < N)
+    { // Case 3
+      PlaceItem(node, node->count, value);
+      SortArray(node);
+    }
+    else if(prev->count >= N && node->count >= N)
+    { // case 2
+      node = SplitNode(prev, node);
+      if (value < *node->values)
+      {
+        PlaceItem(prev, prev->count, value);
+        SortArray(prev);
+      }
+      else
+      {
+        PlaceItem(node, node->count, value);
+        SortArray(node);
+      }
+    }
   }
   else
   { // If the value to be inserted is greater than the first element of the node's array, this node is definitely the tail
     if(node->count >= N)
     {
       tail_ = SplitNode(node, node->next);
-      node->next = tail_;
       if(value < *tail_->values)
       {
         PlaceItem(node, node->count, value);
@@ -345,7 +407,7 @@ typename BList<T, N>::BNode *BList<T,N>::SplitNode(BNode *prev, BNode *next)
 {
   BNode *ptr = CreateNode(prev, next);
   if(next) next->prev = ptr;
-  prev->next = ptr;
+  if(prev) prev->next = ptr;
 
   prev->count = ptr->count = N >> 0b1;
   for (size_type i = 0, j = prev->count; i < static_cast<size_type>(prev->count); ++i, ++j)
