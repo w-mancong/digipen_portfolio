@@ -150,18 +150,20 @@ class BList
 private:
   BNode *head_; //!< points to the first node
   BNode *tail_; //!< points to the last node
-  bool isSorted;
-  BListStats stats_;
+  bool isSorted{}, inserted{};
+  BListStats stats_{};
 
   bool IsEmpty() const;
-  void PlaceItem(BNode *node, size_t pos, value_type const& value);
+  void PlaceItem(BNode *node, size_t pos, value_type const &value);
   void SortArray(BNode *node);
   void ArraySizeIsOne(value_type const &value);
-  void HeadTailSame(value_type const& value);
+  void HeadTailSame(value_type const &value);
   void HeadTailNotSame(value_type const &value);
   BNode *CreateNode(BNode *prev = nullptr, BNode *next = nullptr);
   BNode *SplitNode(BNode *prev, BNode *next);
-  void Swap(BList& tmp);
+  void DeleteNode(BNode *&ptr);
+  BNode *GetNodeByIndex(int &index) const;
+  void Swap(BList &tmp);
 };
 
 #include "BList.cpp"
