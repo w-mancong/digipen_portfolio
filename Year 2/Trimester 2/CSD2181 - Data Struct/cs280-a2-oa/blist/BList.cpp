@@ -1,5 +1,3 @@
-#include "BList.h"
-
 namespace
 {
   template <typename T>
@@ -37,7 +35,7 @@ BList<T, N>::BList(BList const &rhs) : head_(nullptr), tail_(nullptr), isSorted(
 
   // Copy the content of rhs into this BList
   BNode const *it{rhs.head_}; // using it to iterate thru rhs's link list
-  BNode *curr{nullptr}, *prev{nullptr};
+  BNode *curr{nullptr};
   curr = head_ = CreateNode();
 
   // Infinite loop to copy all the node data in rhs into this BList
@@ -52,7 +50,6 @@ BList<T, N>::BList(BList const &rhs) : head_(nullptr), tail_(nullptr), isSorted(
       break; // If next node is nullptr, break out of the loop
 
     curr->next = CreateNode(curr, nullptr);
-    prev = curr;
     curr = curr->next;
   }
   tail_ = curr;
@@ -75,11 +72,43 @@ BList<T, N> &BList<T, N>::operator=(const BList &rhs)
 template <typename T, unsigned N>
 void BList<T, N>::push_back(const T &value)
 {
+  if (IsEmpty())
+  {
+    head_ = tail_ = CreateNode();
+    PlaceItem(head_, 0, value);
+    return;
+  }
+
+  if (static_cast<size_type>(tail_->count) >= N)
+  {
+    BNode *node{tail_};
+    tail_ = CreateNode(tail_, tail_->next);
+    node->next = tail_;
+  }
+
+  PlaceItem(tail_, tail_->count, value);
 }
 
 template <typename T, unsigned N>
 void BList<T, N>::push_front(const T &value)
 {
+  if (IsEmpty())
+  {
+    head_ = tail_ = CreateNode();
+    PlaceItem(head_, 0, value);
+    return;
+  }
+
+  if (static_cast<size_type>(head_->count) >= N)
+  {
+    BNode *node{head_};
+    head_ = CreateNode(head_->prev, head_);
+    node->prev = head_;
+  }
+
+  for (int i{head_->count}; i >= 1; --i)
+    *(head_->values + i) = *(head_->values + i - 1);
+  PlaceItem(head_, 0, value);
 }
 
 template <typename T, unsigned N>
@@ -109,26 +138,45 @@ void BList<T, N>::remove(int index)
 {
   BNode *node = GetNodeByIndex(index);
   --node->count;
+  --stats_.ItemCount;
   for (int i{index}; i < node->count; ++i)
     *(node->values + i) = *(node->values + i + 1);
   if (node->count)
     return;
   // current node is empty, remove this node
-  if (node->prev)
-    node->prev->next = node->next;
-  if (node->next)
-    node->next->prev = node->prev;
+  DeleteNode(node);
 }
 
 template <typename T, unsigned N>
 void BList<T, N>::remove_by_value(const T &value)
 {
+  int index{-1};
+  if ((index = find(value)) < 0)
+    return;
+  remove(index);
 }
 
 template <typename T, unsigned N>
 int BList<T, N>::find(const T &value) const
 {
-  return 0;
+  int index{};
+
+  BNode *node{head_};
+  while (node)
+  {
+    for (int i{}; i < node->count; ++i)
+    {
+      if (*(node->values + i) == value)
+      {
+        index += i;
+        return index;
+      }
+    }
+    index += node->count;
+    node = node->next;
+  }
+
+  return -1;
 }
 
 template <typename T, unsigned N>
@@ -147,14 +195,14 @@ const T &BList<T, N>::operator[](int index) const
 template <typename T, unsigned N>
 size_t BList<T, N>::size() const
 {
-  size_t items{};
+  int items{};
   BNode *node{head_};
   while (node)
   {
-    items += static_cast<size_t>(node->count);
+    items += node->count;
     node = node->next;
   }
-  return items;
+  return static_cast<size_t>(items);
 }
 
 template <typename T, unsigned N>
@@ -200,7 +248,7 @@ void BList<T, N>::ArraySizeIsOne(value_type const &value)
 {
   if (head_ == tail_)
   {
-    if (*head_->values < value)
+    if (value < *head_->values)
     {
       head_ = CreateNode(nullptr, tail_);
       tail_->prev = head_;
@@ -227,19 +275,30 @@ void BList<T, N>::ArraySizeIsOne(value_type const &value)
       newNode = CreateNode(node->prev, node);
     PlaceItem(newNode, 0, value);
 
+    bool rearranged{false};
+
     // Rearrange the links
     if (node == head_)
     {
-      head_ = newNode;
-      node->prev = head_;
+      if (value < *node->values)
+      {
+        head_ = newNode;
+        node->prev = head_;
+        rearranged = true;
+      }
     }
     else if (node == tail_)
     {
-      tail_ = newNode;
-      node->next = tail_;
+      if (*node->values < value)
+      {
+        tail_ = newNode;
+        node->next = tail_;
+        rearranged = true;
+      }
     }
-    else
-    { // inserting a new node in between
+    if (!rearranged)
+    {
+      // inserting a new node in between
       node->prev->next = newNode;
       node->prev = newNode;
     }
@@ -310,35 +369,42 @@ void BList<T, N>::HeadTailNotSame(value_type const &value)
   */
   if (value < *node->values)
   {
-    // Inserting into head node
-    if (node == head_ && node->count >= N)
-    { // Current node is full
-      head_ = SplitNode(node->prev, node);
-      if (value < *head_->values)
+    BNode *prev{node->prev};
+    if (!prev)
+    { // current node is head
+      prev = node;
+      node = node->next;
+    }
+
+    if (static_cast<size_type>(prev->count) < N)
+    { // Case 1 and 4
+      PlaceItem(prev, prev->count, value);
+      SortArray(prev);
+    }
+    else if (static_cast<size_type>(prev->count) >= N && static_cast<size_type>(node->count) < N)
+    { // Case 3
+      // Before adding to the right node, need to check if current value is lesser than left node's largest number
+      if (value < *(prev->values + prev->count - 1))
       {
-        PlaceItem(head_, head_->count, value);
-        SortArray(head_);
+        node = SplitNode(prev, node);
+        if (value < *node->values)
+        {
+          PlaceItem(prev, prev->count, value);
+          SortArray(prev);
+        }
+        else
+        {
+          PlaceItem(node, node->count, value);
+          SortArray(node);
+        }
       }
       else
       {
         PlaceItem(node, node->count, value);
         SortArray(node);
       }
-      return;
     }
-
-    BNode *prev = node->prev;
-    if (prev->count < N)
-    { // Case 1 and 4
-      PlaceItem(prev, prev->count, value);
-      SortArray(prev);
-    }
-    else if (prev->count >= N && node->count < N)
-    { // Case 3
-      PlaceItem(node, node->count, value);
-      SortArray(node);
-    }
-    else if (prev->count >= N && node->count >= N)
+    else if (static_cast<size_type>(prev->count) >= N && static_cast<size_type>(node->count) >= N)
     { // case 2
       node = SplitNode(prev, node);
       if (value < *node->values)
@@ -355,7 +421,7 @@ void BList<T, N>::HeadTailNotSame(value_type const &value)
   }
   else
   { // If the value to be inserted is greater than the first element of the node's array, this node is definitely the tail
-    if (node->count >= N)
+    if (static_cast<size_type>(node->count) >= N)
     {
       tail_ = SplitNode(node, node->next);
       if (value < *tail_->values)
@@ -397,7 +463,7 @@ void BList<T, N>::SortArray(BNode *node)
   for (size_type i = 0; i < static_cast<size_type>(node->count - 1); ++i)
   {
     size_type min = i, j{};
-    for (j = i + 1; j < N; ++j)
+    for (j = i + 1; j < static_cast<size_type>(node->count); ++j)
       if (arr[j] < arr[min])
         min = j;
     swap(arr + min, arr + i);
@@ -430,10 +496,9 @@ typename BList<T, N>::BNode *BList<T, N>::SplitNode(BNode *prev, BNode *next)
   BNode *ptr = CreateNode(prev, next);
   if (next)
     next->prev = ptr;
-  if (prev)
-    prev->next = ptr;
+  prev->next = ptr;
 
-  prev->count = ptr->count = N >> 0b1;
+  prev->count = ptr->count = N >> 1;
   for (size_type i = 0, j = prev->count; i < static_cast<size_type>(prev->count); ++i, ++j)
     *(ptr->values + i) = *(prev->values + j);
 
@@ -443,6 +508,11 @@ typename BList<T, N>::BNode *BList<T, N>::SplitNode(BNode *prev, BNode *next)
 template <typename T, unsigned N>
 void BList<T, N>::DeleteNode(BNode *&ptr)
 {
+  if (ptr->prev)
+    ptr->prev->next = ptr->next;
+  if (ptr->next)
+    ptr->next->prev = ptr->prev;
+
   delete ptr;
   ptr = nullptr;
   --stats_.NodeCount;
@@ -452,7 +522,7 @@ template <typename T, unsigned N>
 typename BList<T, N>::BNode *BList<T, N>::GetNodeByIndex(int &index) const
 {
   int const tmp{index};
-  if ((stats_.ArraySize * stats_.NodeCount) <= tmp)
+  if ((stats_.ArraySize * stats_.NodeCount) <= tmp || 0 > tmp)
     throw BListException(BListException::BLIST_EXCEPTION::E_BAD_INDEX, "Invalid index: " + tmp);
 
   BNode *node{head_};

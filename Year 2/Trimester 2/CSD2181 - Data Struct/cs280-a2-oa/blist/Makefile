@@ -1,6 +1,6 @@
 PRG = ass4.out
 GCC = g++
-GCC_FLAGS =-Wall -Wextra -Wconversion -std=c++14 -pedantic -Wno-deprecated #-Werror
+GCC_FLAGS =-Wall -Wextra -Wconversion -std=c++14 -pedantic -Wno-deprecated -Werror
 
 VALGRIND_OPTIONS=-q --leak-check=full
 DIFF_OPTIONS=-y --strip-trailing-cr --suppress-common-lines
