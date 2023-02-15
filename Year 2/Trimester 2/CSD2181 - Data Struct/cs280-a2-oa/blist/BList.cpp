@@ -9,11 +9,11 @@ namespace
   }
 
   template <typename T>
-  void swap(T *lhs, T *rhs)
+  void swap(T *&lhs, T *&rhs)
   {
-    T tmp{*lhs};
-    *lhs = *rhs;
-    *rhs = tmp;
+    T *tmp{lhs};
+    lhs = rhs;
+    rhs = tmp;
   }
 }
 
@@ -27,9 +27,9 @@ BList<T, N>::BList() : head_(nullptr), tail_(nullptr), isSorted(false), inserted
 }
 
 template <typename T, unsigned N>
-BList<T, N>::BList(BList const &rhs) : head_(nullptr), tail_(nullptr), isSorted(false), inserted(false)
+BList<T, N>::BList(BList const &rhs) : head_(nullptr), tail_(nullptr), isSorted(false), inserted(false), stats_(rhs.stats_)
 {
-  stats_ = rhs.stats_;
+  stats_.NodeCount = 0;
   if (!rhs.head_)
     return;
 
@@ -143,6 +143,9 @@ void BList<T, N>::remove(int index)
     *(node->values + i) = *(node->values + i + 1);
   if (node->count)
     return;
+
+  if (node == head_)
+    head_ = node->next;
   // current node is empty, remove this node
   DeleteNode(node);
 }
@@ -195,14 +198,7 @@ const T &BList<T, N>::operator[](int index) const
 template <typename T, unsigned N>
 size_t BList<T, N>::size() const
 {
-  int items{};
-  BNode *node{head_};
-  while (node)
-  {
-    items += node->count;
-    node = node->next;
-  }
-  return static_cast<size_t>(items);
+  return stats_.ItemCount;
 }
 
 template <typename T, unsigned N>
@@ -213,6 +209,7 @@ void BList<T, N>::clear()
   while (curr)
   {
     BNode *next = curr->next;
+    stats_.ItemCount -= curr->count;
     DeleteNode(curr);
     curr = next;
   }
@@ -464,9 +461,9 @@ void BList<T, N>::SortArray(BNode *node)
   {
     size_type min = i, j{};
     for (j = i + 1; j < static_cast<size_type>(node->count); ++j)
-      if (arr[j] < arr[min])
+      if (*(arr + j) < *(arr + min))
         min = j;
-    swap(arr + min, arr + i);
+    swap(*(arr + min), *(arr + i));
   }
 }
 
