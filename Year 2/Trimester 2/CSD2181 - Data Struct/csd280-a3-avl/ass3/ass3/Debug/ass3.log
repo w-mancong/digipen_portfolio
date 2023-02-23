@@ -1,0 +1,12 @@
+﻿  driver-sample.cpp
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a3-avl\ass3\ass3\driver-sample.cpp(128,7): error C4996: 'strncpy': This function or variable may be unsafe. Consider using strncpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a3-avl\ass3\ass3\driver-sample.cpp(209): message : see reference to function template instantiation 'void PrintBST<T>(const BSTree<T> &)' being compiled
+          with
+          [
+              T=int
+          ]
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a3-avl\ass3\ass3\driver-sample.cpp(900): message : see reference to function template instantiation 'void Test1<BSTree<T>>(void)' being compiled
+          with
+          [
+              T=int
+          ]
