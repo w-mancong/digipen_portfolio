@@ -899,9 +899,30 @@ int main(void)
 
 	};
 
-	Tests[2].test();
+	BSTree<int> tree;
+	tree.insert(6949);
+	tree.insert(6126);
+	tree.insert(2204);
+	tree.insert(6277);
+	tree.insert(6815);
+	tree.insert(6031);
+	tree.insert(206);
+	tree.insert(9691);
+	tree.insert(9079);
+	tree.insert(9980);
 
-	//size_t test_case = 0;
+	//PrintBST(tree);
+	BSTree<int> t2;
+
+	t2 = tree;
+	PrintBST(t2);
+
+	//std::cout << "Height: " << tree.height() << std::endl;
+
+
+	//size_t test_case = 2;
+	//Tests[test_case].test();
+
 	//ExecuteTest(Tests[test_case].test, Tests[test_case].maxwait, Tests[test_case].safewait);
 
 	//int num = sizeof(Tests) / sizeof(*Tests);

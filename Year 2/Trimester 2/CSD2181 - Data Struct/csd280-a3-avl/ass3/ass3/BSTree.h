@@ -74,10 +74,10 @@ public:
 		unsigned count;     //!< nodes in this subtree for efficient indexing
 
 		//! Default constructor
-		BinTreeNode() : left(0), right(0), data(0), balance_factor(0), count(1) {};
+		BinTreeNode() : left(nullptr), right(nullptr), data(nullptr), balance_factor(0), count(1) {};
 
 		//! Conversion constructor
-		BinTreeNode(const T& value) : left(0), right(0), data(value), balance_factor(0), count(1) {};
+		BinTreeNode(const T& value) : left(nullptr), right(nullptr), data(value), balance_factor(0), count(1) {};
 	};
 
 	//! shorthand
@@ -103,16 +103,22 @@ protected:
 	void free_node(BinTree node);
 	int tree_height(BinTree tree) const;
 	void find_predecessor(BinTree tree, BinTree& predecessor) const;
+	BinTree find(BinTree node, T const& value) const;
 
 private:
+	unsigned int size(BinTree node) const;
+	bool find(BinTree node, T const& value, unsigned& compares) const;
+	BinTree insert(BinTree node, T const& value);
+	BinTree remove(BinTree node, T const& value);
 	int Height(BinTree node, int height) const;
+	int CalculateCount(BinTree node) const;
 	void swap(BSTree& tmp);
-	
+	void CopyTree(BinTree node);
+	void ClearTree(BinTree node);
+
 	ObjectAllocator* m_pOA{ nullptr };
 
 	BinTree m_pRoot{ nullptr };
-
-	unsigned int m_totalNodes{ 0 };
 
 	bool m_ShareOA{ false };
 	bool m_FreeOA{ false };
@@ -125,7 +131,7 @@ namespace
 	template <typename T>
 	T max(T a, T b)
 	{
-		return  a < b  ?  b : a;
+		return  a < b ? b : a;
 	}
 
 	template <typename T>
@@ -133,7 +139,7 @@ namespace
 	{
 		T tmp{ lhs };
 		lhs = rhs;
-		rhs = lhs;
+		rhs = tmp;
 	}
 
 	template <typename T>
@@ -141,7 +147,7 @@ namespace
 	{
 		T* tmp{ lhs };
 		lhs = rhs;
-		rhs = lhs;
+		rhs = tmp;
 	}
 }
 
@@ -156,7 +162,7 @@ BSTree<T>::BSTree(ObjectAllocator* oa, bool ShareOA) : m_pOA{ oa }, m_ShareOA{ S
 }
 
 template <typename T>
-BSTree<T>::BSTree(BSTree const& rhs) : m_totalNodes{ rhs.m_totalNodes }
+BSTree<T>::BSTree(BSTree const& rhs)
 {
 	if (rhs.m_ShareOA)
 	{
@@ -173,12 +179,14 @@ BSTree<T>::BSTree(BSTree const& rhs) : m_totalNodes{ rhs.m_totalNodes }
 		m_ShareOA = false;
 	}
 
-
+	// Do a preorder insert here
+	CopyTree(rhs.m_pRoot);
 }
 
 template <typename T>
 BSTree<T>::~BSTree(void)
 {
+	clear();
 	if (m_FreeOA)
 	{
 		delete m_pOA;
@@ -203,25 +211,28 @@ typename BSTree<T>::BinTreeNode const* BSTree<T>::operator[](int index) const
 template <typename T>
 void BSTree<T>::insert(T const& value)
 {
-
+	m_pRoot = insert(m_pRoot, value);
+	m_pRoot->count = CalculateCount(m_pRoot) - 1;
 }
 
 template <typename T>
 void BSTree<T>::remove(T const& value)
 {
-
+	m_pRoot = remove(m_pRoot, value);
+	if(m_pRoot)
+		m_pRoot->count = CalculateCount(m_pRoot) - 1;
 }
 
 template <typename T>
 void BSTree<T>::clear(void)
 {
-
+	ClearTree(m_pRoot);
 }
 
 template <typename T>
 bool BSTree<T>::find(const T& value, unsigned& compares) const
 {
-	return false;
+	return find(m_pRoot, value, compares);
 }
 
 template <typename T>
@@ -233,13 +244,13 @@ bool BSTree<T>::empty() const
 template <typename T>
 unsigned int BSTree<T>::size() const
 {
-	return m_totalNodes;
+	return size(m_pRoot);
 }
 
 template <typename T>
 int BSTree<T>::height() const
 {
-	return Height(m_pRoot, 0);
+	return Height(m_pRoot, -1);
 }
 
 template <typename T>
@@ -261,14 +272,16 @@ typename BSTree<T>::BinTree BSTree<T>::make_node(T const& value) const
 
 	try
 	{
-		ptr = m_pOA->Allocate();
+		ptr = reinterpret_cast<BinTree>(m_pOA->Allocate());
+		ptr->left = ptr->right = nullptr;
+		ptr->data = value;
+		ptr->balance_factor = 0;
+		ptr->count = 1;
 	}
 	catch (OAException const& e)
 	{
 		throw BSTException(BSTException::BST_EXCEPTION::E_NO_MEMORY, "No more memory!");
 	}
-
-	++m_totalNodes;
 	return ptr;
 }
 
@@ -276,35 +289,140 @@ template <typename T>
 void BSTree<T>::free_node(BinTree node)
 {
 	m_pOA->Free(node);
-	--m_totalNodes;
 }
 
 template <typename T>
 int BSTree<T>::tree_height(BinTree tree) const
 {
-	return Height(tree, 0);
+	return Height(tree, -1);
 }
 
 template <typename T>
 void BSTree<T>::find_predecessor(BinTree tree, BinTree& predecessor) const
 {
+	BinTree leftSubTree = tree->left;
+	while (leftSubTree->right) leftSubTree = leftSubTree->right;
+	predecessor = leftSubTree;
+}
 
+template <typename T>
+typename BSTree<T>::BinTree BSTree<T>::find(BinTree node, T const& value) const
+{
+	if (!node) return nullptr;
+	if (value < node->data) // go to left subtree
+		find(node->left, value);
+	else if (node->data < value) // go to right subtree
+		find(node->right, value);
+	return value;
+}
+
+template <typename T>
+unsigned int BSTree<T>::size(BinTree node) const
+{
+	if (!node) return 0;
+	return size(node->left) + 1 + size(node->right);
+}
+
+template <typename T>
+bool BSTree<T>::find(BinTree node, T const& value, unsigned& compares) const
+{
+	++compares;
+	if (!node) return false;
+	if (value < node->data) // go to left subtree
+		find(node->left, value, compares);
+	else
+		find(node->right, value, compares);
+	return true;
+}
+
+template <typename T>
+typename BSTree<T>::BinTree BSTree<T>::insert(BinTree node, T const& value)
+{
+	if (!node) return make_node(value);
+	else if (value < node->data)
+		node->left = insert(node->left, value);
+	else
+		node->right = insert(node->right, value);
+	return node;
+}
+
+template <typename T>
+typename BSTree<T>::BinTree BSTree<T>::remove(BinTree node, T const& value)
+{
+	if (!node) return node;
+
+	if (value < node->data)
+		node->left = remove(node->left, value);
+	else if (node->data < value)
+		node->right = remove(node->right, value);
+	else
+	{
+		BinTree tmp{ node };
+		if (!node->left && !node->right)
+		{	// This is a leaf node, no children so can just remove
+			node = nullptr;
+		}
+		else if (node->left && !node->right)
+		{	// Only the left node has child
+			node = node->left;
+		}
+		else if (!node->left && node->right)
+		{	// Only the right node has child
+			node = node->right;
+		}
+		else if (node->left && node->right)
+		{	// This node have two children, find it's predeccesor and promote it to be the "root"
+			find_predecessor(node, tmp);
+			node->data = tmp->data;
+			node->left = remove(node->left, tmp->data);
+			return node;
+		}
+		free_node(tmp);
+	}
+
+	return node;
 }
 
 template<typename T>
 int BSTree<T>::Height(BinTree node, int height) const
 {
-	if (!node) return height;	
+	if (!node) return height;
 	return max(Height(node->left, height + 1), Height(node->right, height + 1));
+}
+
+template <typename T>
+int BSTree<T>::CalculateCount(BinTree node) const
+{
+	if (!node) return 1;
+	node->count = CalculateCount(node->left) + CalculateCount(node->right) - 1;
+	return node->count + 1;
 }
 
 template <typename T>
 void BSTree<T>::swap(BSTree& tmp)
 {
-	::swap(m_pOA, tmp.m_pOA);
-	::swap(m_pRoot, tmp.m_pRoot);
+	::swap(m_pOA,	  tmp.m_pOA);
+	::swap(m_pRoot,	  tmp.m_pRoot);
 	::swap(m_ShareOA, tmp.m_ShareOA);
-	::swap(m_FreeOA, tmp.m_FreeOA);
+	::swap(m_FreeOA,  tmp.m_FreeOA);
+}
+
+template <typename T>
+void BSTree<T>::CopyTree(BinTree node)
+{
+	if (!node) return;
+	insert(node->data);
+	CopyTree(node->left );
+	CopyTree(node->right);
+}
+
+template <typename T>
+void BSTree<T>::ClearTree(BinTree node)
+{
+	if (!node) return;
+	ClearTree(node->left);
+	ClearTree(node->right);
+	remove(node->data);
 }
 
 #endif
