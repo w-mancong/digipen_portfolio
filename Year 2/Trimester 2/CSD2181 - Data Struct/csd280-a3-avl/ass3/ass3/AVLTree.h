@@ -26,6 +26,7 @@ private:
 	// private stuff
 	int BalanceFactor(BinTree node);
 	BinTree insert(BinTree node, T const& value);
+	BinTree remove(BinTree node, T const& value);
 	BinTree Balance(BinTree node);
 	BinTree LLRotation(BinTree node);
 	BinTree LRRotation(BinTree node);
@@ -52,7 +53,10 @@ void AVLTree<T>::insert(T const& value)
 template <typename T>
 void AVLTree<T>::remove(T const& value)
 {
-
+	BinTree& root = this->get_root();
+	root = remove(root, value);
+	if (root)
+		root->count = this->CalculateCount(root) - 1;
 }
 
 template <typename T>
@@ -64,6 +68,7 @@ bool AVLTree<T>::ImplementedBalanceFactor(void)
 template<typename T>
 int AVLTree<T>::BalanceFactor(BinTree node)
 {
+	if (!node) return 0;
 	return this->tree_height(node->left) - this->tree_height(node->right);
 }
 
@@ -81,8 +86,48 @@ typename AVLTree<T>::BinTree AVLTree<T>::insert(BinTree node, T const& value)
 }
 
 template <typename T>
+typename AVLTree<T>::BinTree AVLTree<T>::remove(BinTree node, T const& value)
+{
+	if (!node) return node;
+
+	if (value < node->data)
+		node->left = remove(node->left, value);
+	else if (node->data < value)
+		node->right = remove(node->right, value);
+	else
+	{
+		BinTree tmp{ node };
+		if (!node->left && !node->right)
+		{	// This is a leaf node, no children so can just remove
+			node = nullptr;
+		}
+		else if (node->left && !node->right)
+		{	// Only the left node has child
+			node = node->left;
+		}
+		else if (!node->left && node->right)
+		{	// Only the right node has child
+			node = node->right;
+		}
+		else if (node->left && node->right)
+		{	// This node have two children, find it's predeccesor and promote it to be the "root"
+			this->find_predecessor(node, tmp);
+			node->data = tmp->data;
+			node->left = remove(node->left, tmp->data);
+			return node;
+		}
+		this->free_node(tmp);
+	}
+
+	if(node)
+		node->balance_factor = BalanceFactor(node);
+	return Balance(node);
+}
+
+template <typename T>
 typename AVLTree<T>::BinTree AVLTree<T>::Balance(BinTree node)
 {
+	if (!node) return nullptr;
 	if (node->balance_factor == 2)
 	{
 		if (node->left->balance_factor >= 0)
@@ -114,8 +159,12 @@ typename AVLTree<T>::BinTree AVLTree<T>::LLRotation(BinTree node)
 	BinTree pivot{ node };
 
 	node = node->left;
-	pivot->left = node->right;
-	node->right = pivot;
+
+	if (node)
+	{
+		pivot->left = node->right;
+		node->right = pivot;
+	}
 
 	return node;
 }
@@ -133,8 +182,12 @@ typename AVLTree<T>::BinTree AVLTree<T>::RRRotation(BinTree node)
 	BinTree pivot{ node };
 
 	node = node->right;
-	pivot->right = node->left;
-	node->left = pivot;
+
+	if (node)
+	{
+		pivot->right = node->left;
+		node->left = pivot;
+	}
 
 	return node;
 }

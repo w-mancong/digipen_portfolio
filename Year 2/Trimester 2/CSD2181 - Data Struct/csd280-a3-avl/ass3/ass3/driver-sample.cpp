@@ -952,7 +952,7 @@ int main(void)
 	//std::cout << "Height: " << tree.height() << std::endl;
 
 
-	size_t test_case = 7;
+	size_t test_case = 14;
 	Tests[test_case].test();
 
 	//ExecuteTest(Tests[test_case].test, Tests[test_case].maxwait, Tests[test_case].safewait);
