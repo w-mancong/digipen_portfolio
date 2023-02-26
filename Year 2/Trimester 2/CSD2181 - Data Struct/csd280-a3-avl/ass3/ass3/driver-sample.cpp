@@ -899,6 +899,20 @@ int main(void)
 
 	};
 
+	//AVLTree<int> tree;
+	//tree.insert(70);
+	//tree.insert(40);
+	//tree.insert(10);
+	//tree.insert(25);
+	//tree.insert(30);
+	//tree.insert(60);
+	//tree.insert(27);
+	//tree.insert(50);
+	//tree.insert(28);
+	//tree.insert(20);
+
+	//PrintBST(tree);
+
 	//BSTree<int> tree;
 	//tree.insert(5);
 	//tree.insert(2);
@@ -915,19 +929,19 @@ int main(void)
 
 	//std::cout << tree[9]->data << std::endl;
 
-	BSTree<int> tree;
-	tree.insert(6949);
-	tree.insert(6126);
-	tree.insert(2204);
-	tree.insert(6277);
-	tree.insert(6815);
-	tree.insert(6031);
-	tree.insert(206);
-	tree.insert(9691);
-	tree.insert(9079);
-	tree.insert(9980);
+	//BSTree<int> tree;
+	//tree.insert(6949);
+	//tree.insert(6126);
+	//tree.insert(2204);
+	//tree.insert(6277);
+	//tree.insert(6815);
+	//tree.insert(6031);
+	//tree.insert(206);
+	//tree.insert(9691);
+	//tree.insert(9079);
+	//tree.insert(9980);
 
-	std::cout << tree.size() << std::endl;
+	//std::cout << tree.size() << std::endl;
 
 	////PrintBST(tree);
 	//BSTree<int> t2;
@@ -938,8 +952,8 @@ int main(void)
 	//std::cout << "Height: " << tree.height() << std::endl;
 
 
-	//size_t test_case = 5;
-	//Tests[test_case].test();
+	size_t test_case = 7;
+	Tests[test_case].test();
 
 	//ExecuteTest(Tests[test_case].test, Tests[test_case].maxwait, Tests[test_case].safewait);
 

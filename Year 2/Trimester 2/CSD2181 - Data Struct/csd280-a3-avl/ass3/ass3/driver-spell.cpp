@@ -446,16 +446,21 @@ int main(int argc, char **argv)
                        {TestSpellCheck2<AVLTree<U> >, 10000, 5000}, 
                       };
 
-  int num = sizeof(Tests) / sizeof(*Tests);
-  if (test_num == 0)
-  {
-    for (int i = 0; i < num; i++)
-      ExecuteTest(Tests[i].test, Tests[i].maxwait, Tests[i].safewait);
-  }
-  else if (test_num > 0 && test_num <= num)
-  {
-    ExecuteTest(Tests[test_num - 1].test, Tests[test_num - 1].maxwait, Tests[test_num - 1].safewait);
-  }
+  size_t test_case = 0;
+  Tests[test_case].test();
+
+  //ExecuteTest(Tests[test_case].test, Tests[test_case].maxwait, Tests[test_case].safewait);
+
+  //int num = sizeof(Tests) / sizeof(*Tests);
+  //if (test_num == 0)
+  //{
+  //  for (int i = 0; i < num; i++)
+  //    ExecuteTest(Tests[i].test, Tests[i].maxwait, Tests[i].safewait);
+  //}
+  //else if (test_num > 0 && test_num <= num)
+  //{
+  //  ExecuteTest(Tests[test_num - 1].test, Tests[test_num - 1].maxwait, Tests[test_num - 1].safewait);
+  //}
 
   return 0;
 }

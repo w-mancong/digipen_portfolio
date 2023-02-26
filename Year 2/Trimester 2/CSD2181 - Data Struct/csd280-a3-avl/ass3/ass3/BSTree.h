@@ -104,6 +104,7 @@ protected:
 	int tree_height(BinTree tree) const;
 	void find_predecessor(BinTree tree, BinTree& predecessor) const;
 	BinTree find(BinTree node, T const& value) const;
+	int CalculateCount(BinTree node) const;
 
 private:
 	unsigned int size(BinTree node) const;
@@ -111,7 +112,6 @@ private:
 	BinTree insert(BinTree node, T const& value);
 	BinTree remove(BinTree node, T const& value);
 	int Height(BinTree node, int height) const;
-	int CalculateCount(BinTree node) const;
 	void swap(BSTree& tmp);
 	void CopyTree(BinTree node);
 	void ClearTree(BinTree node);
@@ -264,7 +264,7 @@ typename BSTree<T>::BinTree BSTree<T>::root() const
 template <typename T>
 typename BSTree<T>::BinTree& BSTree<T>::get_root()
 {
-	return static_cast<const BSTree<T>>(*this).root();
+	return m_pRoot;
 }
 
 template <typename T>
@@ -316,6 +316,14 @@ typename BSTree<T>::BinTree BSTree<T>::find(BinTree node, T const& value) const
 	else if (node->data < value) // go to right subtree
 		find(node->right, value);
 	return value;
+}
+
+template <typename T>
+int BSTree<T>::CalculateCount(BinTree node) const
+{
+	if (!node) return 1;
+	node->count = CalculateCount(node->left) + CalculateCount(node->right) - 1;
+	return node->count + 1;
 }
 
 template <typename T>
@@ -391,14 +399,6 @@ int BSTree<T>::Height(BinTree node, int height) const
 {
 	if (!node) return height;
 	return max(Height(node->left, height + 1), Height(node->right, height + 1));
-}
-
-template <typename T>
-int BSTree<T>::CalculateCount(BinTree node) const
-{
-	if (!node) return 1;
-	node->count = CalculateCount(node->left) + CalculateCount(node->right) - 1;
-	return node->count + 1;
 }
 
 template <typename T>
