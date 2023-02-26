@@ -88,8 +88,8 @@ public:
 	virtual ~BSTree();
 	BSTree& operator=(const BSTree& rhs);
 	const BinTreeNode* operator[](int index) const; // for r-values (Extra Credit)
-	virtual void insert(const T& value);
-	virtual void remove(const T& value);
+	virtual void insert(T const& value);
+	virtual void remove(T const& value);
 	void clear();
 	bool find(const T& value, unsigned& compares) const;
 	bool empty() const;
@@ -115,6 +115,7 @@ private:
 	void swap(BSTree& tmp);
 	void CopyTree(BinTree node);
 	void ClearTree(BinTree node);
+	BinTree const GetBinTreeAtIndex(BinTree node, int index) const;
 
 	ObjectAllocator* m_pOA{ nullptr };
 
@@ -152,12 +153,13 @@ namespace
 }
 
 template <typename T>
-BSTree<T>::BSTree(ObjectAllocator* oa, bool ShareOA) : m_pOA{ oa }, m_ShareOA{ ShareOA }, m_FreeOA{ ShareOA }
+BSTree<T>::BSTree(ObjectAllocator* oa, bool ShareOA) : m_pOA{ oa }, m_ShareOA{ ShareOA }, m_FreeOA{ false }
 {
 	if (!oa)
 	{
 		OAConfig config{ true };
 		m_pOA = new ObjectAllocator(sizeof(BinTreeNode), config);
+		m_FreeOA = true;
 	}
 }
 
@@ -205,7 +207,7 @@ BSTree<T>& BSTree<T>::operator=(BSTree const& rhs)
 template <typename T>
 typename BSTree<T>::BinTreeNode const* BSTree<T>::operator[](int index) const
 {
-	return nullptr;
+	return GetBinTreeAtIndex(m_pRoot, index);
 }
 
 template <typename T>
@@ -327,12 +329,13 @@ template <typename T>
 bool BSTree<T>::find(BinTree node, T const& value, unsigned& compares) const
 {
 	++compares;
-	if (!node) return false;
+	if (!node) 
+		return false;
 	if (value < node->data) // go to left subtree
 		find(node->left, value, compares);
-	else
+	else if (node->data < value) // go to right subtree
 		find(node->right, value, compares);
-	return true;
+	else return true;
 }
 
 template <typename T>
@@ -423,6 +426,19 @@ void BSTree<T>::ClearTree(BinTree node)
 	ClearTree(node->left);
 	ClearTree(node->right);
 	remove(node->data);
+}
+
+template <typename T>
+typename BSTree<T>::BinTree const BSTree<T>::GetBinTreeAtIndex(BinTree node, int index) const
+{
+	if (!node) return nullptr;
+	int const L = node->left ? node->left->count : 0;
+	if (L > index)
+		GetBinTreeAtIndex(node->left, index);
+	else if (L < index)
+		GetBinTreeAtIndex(node->right, index - L - 1);
+	else
+		return node;
 }
 
 #endif
