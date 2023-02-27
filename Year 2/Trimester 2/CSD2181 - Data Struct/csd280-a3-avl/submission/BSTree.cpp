@@ -1,132 +1,14 @@
-//---------------------------------------------------------------------------
-#ifndef BSTREE_H
-#define BSTREE_H
-//---------------------------------------------------------------------------
-#include <string>    // std::string
-#include <stdexcept> // std::exception
-
-#include "ObjectAllocator.h"
-
-/*!
-  The exception class for the AVL/BST classes
-*/
-class BSTException : public std::exception
-{
-public:
-	/*!
-	  Non-default constructor
-
-	  \param ErrCode
-		The kind of exception (only one currently)
-
-	  \param Message
-		The human-readable reason for the exception.
-	*/
-	BSTException(int ErrCode, const std::string& Message) :
-		error_code_(ErrCode), message_(Message) {
-	};
-
-	/*!
-	  Retrieve the exception code.
-
-	  \return
-		E_NO_MEMORY
-	*/
-	virtual int code() const {
-		return error_code_;
-	}
-
-	/*!
-	  Retrieve the message string
-
-	  \return
-		The human-readable message.
-	*/
-	virtual const char* what() const throw() {
-		return message_.c_str();
-	}
-
-	//! Destructor
-	virtual ~BSTException() {}
-
-	//! The kinds of exceptions (only one currently)
-	enum BST_EXCEPTION { E_NO_MEMORY };
-
-private:
-	int error_code_;      //!< The code of the exception
-	std::string message_; //!< Readable message text
-};
-
-/*!
-  The definition of the BST
-*/
-template <typename T>
-class BSTree
-{
-public:
-	//! The node structure
-	struct BinTreeNode
-	{
-		BinTreeNode* left;  //!< The left child
-		BinTreeNode* right; //!< The right child
-		T data;             //!< The data
-		int balance_factor; //!< optional for efficient balancing
-		unsigned count;     //!< nodes in this subtree for efficient indexing
-
-		//! Default constructor
-		BinTreeNode() : left(nullptr), right(nullptr), data(nullptr), balance_factor(0), count(1) {};
-
-		//! Conversion constructor
-		BinTreeNode(const T& value) : left(nullptr), right(nullptr), data(value), balance_factor(0), count(1) {};
-	};
-
-	//! shorthand
-	using BinTree = BinTreeNode*;
-
-	BSTree(ObjectAllocator* oa = nullptr, bool ShareOA = false);
-	BSTree(const BSTree& rhs);
-	virtual ~BSTree();
-	BSTree& operator=(const BSTree& rhs);
-	const BinTreeNode* operator[](int index) const; // for r-values (Extra Credit)
-	virtual void insert(T const& value);
-	virtual void remove(T const& value);
-	void clear();
-	bool find(const T& value, unsigned& compares) const;
-	bool empty() const;
-	unsigned int size() const;
-	int height() const;
-	BinTree root() const;
-
-protected:
-	BinTree& get_root();
-	BinTree make_node(const T& value) const;
-	void free_node(BinTree node);
-	int tree_height(BinTree tree) const;
-	void find_predecessor(BinTree tree, BinTree& predecessor) const;
-	int CalculateCount(BinTree node) const;
-
-private:
-	unsigned int size(BinTree node) const;
-	BinTree find(BinTree node, T const& value) const;
-	bool find(BinTree node, T const& value, unsigned& compares) const;
-	BinTree insert(BinTree node, T const& value);
-	BinTree remove(BinTree node, T const& value);
-	int Height(BinTree node, int height) const;
-	void swap(BSTree& tmp);
-	void CopyTree(BinTree node);
-	void ClearTree(BinTree node);
-	BinTree GetBinTreeAtIndex(BinTree node, int index) const;
-
-	ObjectAllocator* m_pOA{ nullptr };
-
-	BinTree m_pRoot{ nullptr };
-
-	bool m_ShareOA{ false };
-	bool m_FreeOA{ false };
-};
-
-//#include "BSTree.cpp"
-
+/*!*****************************************************************************
+\file   BSTree.cpp
+\author Wong Man Cong
+\par DP email: w.mancong\@digipen.edu
+\par Course: CSD2181
+\par Section: A
+\par Assignment 3 - AVL Tree 
+\date 27/02/2023
+\brief
+This file contains functon definition for a binary search tree (BST) 
+*******************************************************************************/
 namespace
 {
 	template <typename T>
@@ -221,7 +103,7 @@ template <typename T>
 void BSTree<T>::remove(T const& value)
 {
 	m_pRoot = remove(m_pRoot, value);
-	if (m_pRoot)
+	if(m_pRoot)
 		m_pRoot->count = CalculateCount(m_pRoot) - 1;
 }
 
@@ -337,7 +219,7 @@ template <typename T>
 bool BSTree<T>::find(BinTree node, T const& value, unsigned& compares) const
 {
 	++compares;
-	if (!node)
+	if (!node) 
 		return false;
 	if (value < node->data) // go to left subtree
 		return find(node->left, value, compares);
@@ -404,10 +286,10 @@ int BSTree<T>::Height(BinTree node, int height) const
 template <typename T>
 void BSTree<T>::swap(BSTree& tmp)
 {
-	::swap(m_pOA, tmp.m_pOA);
-	::swap(m_pRoot, tmp.m_pRoot);
+	::swap(m_pOA,	  tmp.m_pOA);
+	::swap(m_pRoot,	  tmp.m_pRoot);
 	::swap(m_ShareOA, tmp.m_ShareOA);
-	::swap(m_FreeOA, tmp.m_FreeOA);
+	::swap(m_FreeOA,  tmp.m_FreeOA);
 }
 
 template <typename T>
@@ -415,7 +297,7 @@ void BSTree<T>::CopyTree(BinTree node)
 {
 	if (!node) return;
 	insert(node->data);
-	CopyTree(node->left);
+	CopyTree(node->left );
 	CopyTree(node->right);
 }
 
@@ -440,6 +322,3 @@ typename BSTree<T>::BinTree BSTree<T>::GetBinTreeAtIndex(BinTree node, int index
 	else
 		return node;
 }
-
-#endif
-//---------------------------------------------------------------------------
