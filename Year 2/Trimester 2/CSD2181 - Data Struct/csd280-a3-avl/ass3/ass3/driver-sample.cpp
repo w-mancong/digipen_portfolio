@@ -952,8 +952,8 @@ int main(void)
 	//std::cout << "Height: " << tree.height() << std::endl;
 
 
-	size_t test_case = 14;
-	Tests[test_case].test();
+	size_t test_case = 8;
+	Tests[test_case - 1].test();
 
 	//ExecuteTest(Tests[test_case].test, Tests[test_case].maxwait, Tests[test_case].safewait);
 

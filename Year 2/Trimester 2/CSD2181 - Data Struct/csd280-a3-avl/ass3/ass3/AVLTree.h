@@ -47,7 +47,7 @@ void AVLTree<T>::insert(T const& value)
 {
 	BinTree& root = this->get_root();
 	root = insert(root, value);
-	root->count = this->CalculateCount(root) - 1;
+	root->count = this->CalculateCount(root);
 }
 
 template <typename T>
@@ -56,7 +56,7 @@ void AVLTree<T>::remove(T const& value)
 	BinTree& root = this->get_root();
 	root = remove(root, value);
 	if (root)
-		root->count = this->CalculateCount(root) - 1;
+		root->count = this->CalculateCount(root);
 }
 
 template <typename T>

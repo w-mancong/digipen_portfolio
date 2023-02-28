@@ -214,7 +214,7 @@ template <typename T>
 void BSTree<T>::insert(T const& value)
 {
 	m_pRoot = insert(m_pRoot, value);
-	m_pRoot->count = CalculateCount(m_pRoot) - 1;
+	m_pRoot->count = CalculateCount(m_pRoot);
 }
 
 template <typename T>
@@ -222,7 +222,7 @@ void BSTree<T>::remove(T const& value)
 {
 	m_pRoot = remove(m_pRoot, value);
 	if (m_pRoot)
-		m_pRoot->count = CalculateCount(m_pRoot) - 1;
+		m_pRoot->count = CalculateCount(m_pRoot);
 }
 
 template <typename T>
@@ -310,9 +310,9 @@ void BSTree<T>::find_predecessor(BinTree tree, BinTree& predecessor) const
 template <typename T>
 int BSTree<T>::CalculateCount(BinTree node) const
 {
-	if (!node) return 1;
-	node->count = CalculateCount(node->left) + CalculateCount(node->right) - 1;
-	return node->count + 1;
+	if (!node) return 0;
+	node->count = CalculateCount(node->left) + CalculateCount(node->right) + 1;
+	return node->count;
 }
 
 template <typename T>
