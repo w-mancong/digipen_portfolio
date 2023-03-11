@@ -64,11 +64,13 @@ public:
 	SudokuStats GetStats() const;
 
 private:
-	// Other private data members or methods...
+	size_t GetIndex(size_t x, size_t y);
+
 	SudokuStats m_Stats{};
-	SUDOKU_CALLBACK m_Callback{ nullptr };
-	char* m_Board{ nullptr };
-	size_t m_Size{}, m_BoardLen{};
+	SUDOKU_CALLBACK m_Callback{ nullptr };		// Callback function provided by the client
+	char* m_Board{ nullptr };					// Pointer to store the sudoku board
+	bool* m_OriginalCell{ nullptr };			// Used to keep track of which cells are original
+	size_t m_Size{}, m_BoardLen{};				// 
 };
 
 #endif  // SUDOKUH
