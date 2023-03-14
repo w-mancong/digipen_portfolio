@@ -401,7 +401,7 @@ int main()//int argc, char **argv)
 	   std::exit(1);
 	 }*/
 
-	char test[FILENAME_MAX]{ "input\\board3-3.txt" };
+	char test[FILENAME_MAX]{ "input\\board3-1.txt" };
 	 // updating BASESIZE
 	char* search = std::strchr(test, '4');
 	if (search != NULL)

@@ -1,6 +1,9 @@
 #include "Sudoku.h"
 
-Sudoku::Sudoku(int basesize, SymbolType stype, SUDOKU_CALLBACK callback) : m_Callback{ callback }, m_SymbolType{ stype }, m_BoardLen{ static_cast<size_t>(basesize) * static_cast<size_t>(basesize) }
+Sudoku::Sudoku(int basesize, SymbolType stype, SUDOKU_CALLBACK callback) : 
+	m_Callback{ callback }, 
+	m_BoardLen{ static_cast<size_t>(basesize) * static_cast<size_t>(basesize) },
+	m_SymbolType{ stype }
 {
 	m_Stats.basesize = basesize;
 	m_Board			 = new char[m_BoardLen * m_BoardLen];
@@ -11,9 +14,9 @@ Sudoku::~Sudoku()
 	delete[] m_Board;
 }
 
-void Sudoku::SetupBoard(char const* values, int size)
+void Sudoku::SetupBoard(char const* values, size_t size)
 {
-	for (size_t i{}; i < static_cast<size_t>(size); ++i)
+	for (size_t i{}; i < size; ++i)
 		*(m_Board + i) = *(values + i) == '.' ? ' ' : *(values + i);
 }
 
@@ -47,10 +50,11 @@ bool Sudoku::PlaceValue(size_t x, size_t y)
 	if ( m_BoardLen == y )
 		return true;
 
-	size_t index = GetIndex(x, y);
+	size_t const index = GetIndex(x, y);
+	unsigned const uIdx = static_cast<unsigned>(index);
 	char val = m_SymbolType == SymbolType::SYM_NUMBER ? '1' : 'A';
 
-	auto Verification = [x, y, this](void)
+	auto Place = [x, y, this](void)
 	{
 		if (m_BoardLen - 1 != x)
 		{
@@ -66,19 +70,67 @@ bool Sudoku::PlaceValue(size_t x, size_t y)
 	};
 
 	if (*(m_Board + index) != ' ')
-		return Verification();
+		return Place();
 
 	for (size_t i{}; i < m_BoardLen; ++i)
 	{
-		if ( m_Callback(*this, m_Board, MessageType::MSG_ABORT_CHECK, m_Stats.moves, m_Stats.basesize, index, val) )
+		if ( m_Callback(*this, m_Board, MessageType::MSG_ABORT_CHECK, m_Stats.moves, m_Stats.basesize, uIdx, val) )
 			return false;
 
-		m_Callback(*this, m_Board, MessageType::MSG_PLACING, m_Stats.moves, m_Stats.basesize, index, val);
+		m_Callback(*this, m_Board, MessageType::MSG_PLACING, m_Stats.moves, m_Stats.basesize, uIdx, val);
 		*(m_Board + index) = val;
 		++m_Stats.moves, ++m_Stats.placed;
 
+		if (IsValid(x, y, val))
+		{
+			if (Place())
+				return true;
 
+			++m_Stats.backtracks;
+			m_Callback(*this, m_Board, MessageType::MSG_REMOVING, m_Stats.moves, m_Stats.basesize, uIdx, val);
+		}
+
+		--m_Stats.placed, ++val;
+		*(m_Board + index) = ' ';
+		m_Callback(*this, m_Board, MessageType::MSG_REMOVING, m_Stats.moves, m_Stats.basesize, uIdx, val);
 	}
 
 	return false;
+}
+
+bool Sudoku::IsValid(size_t x, size_t y, char val) const
+{
+	size_t const index = GetIndex(x, y);
+	{	// Check if m_BoardLen x m_BoardLen grid contains the same value
+		size_t const min_x = (x / m_Stats.basesize) * m_Stats.basesize,
+					 min_y = (y / m_Stats.basesize) * m_Stats.basesize,
+					 max_x = (x / m_Stats.basesize + 1ULL) * m_Stats.basesize,
+					 max_y = (y / m_Stats.basesize + 1ULL) * m_Stats.basesize;
+
+		for (size_t j{ min_y }; j < max_y; ++j)
+		{
+			for (size_t i{ min_x }; i < max_x; ++i)
+			{
+				size_t const currIdx = GetIndex(i, j);
+				if (*(m_Board + currIdx) == val && currIdx != index)
+					return false;
+			}
+		}
+	}
+
+	{	// Check if vertical/horizontal contains the same value
+		for (size_t i{}; i < m_BoardLen; ++i)
+		{
+			size_t const rowIdx = GetIndex(i, y),
+						 colIdx = GetIndex(x, i);
+
+			if (index != rowIdx && *(m_Board + rowIdx) == val)
+				return false;
+
+			if (index != colIdx && *(m_Board + colIdx) == val)
+				return false;
+		}
+	}
+	
+	return true;
 }

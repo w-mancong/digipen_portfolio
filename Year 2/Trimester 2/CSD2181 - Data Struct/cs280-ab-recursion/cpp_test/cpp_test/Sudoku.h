@@ -54,7 +54,7 @@ public:
 	~Sudoku();
 
 	// The client (driver) passed the board in the values parameter
-	void SetupBoard(char const* values, int size);
+	void SetupBoard(char const* values, size_t size);
 
 	// Once the board is setup, this will start the search for the solution
 	void Solve();
@@ -66,12 +66,13 @@ public:
 private:
 	size_t GetIndex(size_t x, size_t y) const;
 	bool PlaceValue(size_t x, size_t y);
+	bool IsValid(size_t x, size_t y, char val) const;
 
 	SudokuStats m_Stats{};
-	SUDOKU_CALLBACK m_Callback{ nullptr };		// Callback function provided by the client
-	char* m_Board{ nullptr };					// Pointer to store the sudoku board
-	size_t const m_BoardLen{};					// Length of the board
-	SymbolType m_SymbolType{ SYM_NUMBER };
+	SUDOKU_CALLBACK const m_Callback{ nullptr }; // Callback function provided by the client
+	char* m_Board{ nullptr };					 // Pointer to store the sudoku board
+	size_t const m_BoardLen{};					 // Length of the board
+	SymbolType const m_SymbolType{ SYM_NUMBER };
 };
 
 #endif  // SUDOKUH
