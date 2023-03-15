@@ -1,3 +1,11 @@
+/*!
+file:	Sudoku.h
+author:	Wong Man Cong
+email:	w.mancong\@digipen.edu
+brief:	This file contains function declarations for solving a sudoku
+
+		All content © 2022 DigiPen Institute of Technology Singapore. All rights reserved.
+*//*__________________________________________________________________________________*/
 //---------------------------------------------------------------------------
 #ifndef SUDOKUH
 #define SUDOKUH
@@ -23,7 +31,7 @@ public:
 	enum SymbolType { SYM_NUMBER, SYM_LETTER };
 
 	//! Represents an empty cell (the driver will use a . instead)
-	const static char EMPTY_CHAR = ' ';
+	constexpr static char EMPTY_CHAR = ' ';
 
 	//! Implemented in the client and called during the search for a solution
 	using SUDOKU_CALLBACK = bool(*) (Sudoku const& sudoku, // the gameboard object itself
@@ -47,25 +55,68 @@ public:
 		SudokuStats() : basesize(0), placed(0), moves(0), backtracks(0) {}
 	};
 
-	// Constructor
+	/*!*********************************************************************************
+		\brief Constructor for Sudoku
+
+		\param [in] basesize: Determines if the board is 3x3, 4x4 or 5x5
+		\param [in] stype: Type of character used for printing the board
+		\param [in] callback: Callback function provided by client
+	***********************************************************************************/
 	Sudoku(int basesize, SymbolType stype = SYM_NUMBER, SUDOKU_CALLBACK callback = nullptr);
 
-	// Destructor
+	/*!*********************************************************************************
+		\brief Destructor for Sudoku
+	***********************************************************************************/
 	~Sudoku();
 
-	// The client (driver) passed the board in the values parameter
+	/*!*********************************************************************************
+		\brief Initializes the sudoku board
+
+		\param [in] values: Pointer containing the values of the board
+		\param [in] size: Size of the entire board
+	***********************************************************************************/
 	void SetupBoard(char const* values, size_t size);
 
-	// Once the board is setup, this will start the search for the solution
+	/*!*********************************************************************************
+		\brief Calling the recursive function to find a solution to the sudoku puzzle
+	***********************************************************************************/
 	void Solve();
 
-	// For debugging with the driver
+	/*!*********************************************************************************
+		\brief Accessor function to retrieve the board data
+	***********************************************************************************/
 	const char* GetBoard() const;
+
+	/*!*********************************************************************************
+		\brief Accessor function to retrieve the stats of sudoku data
+	***********************************************************************************/
 	SudokuStats GetStats() const;
 
 private:
+	/*!*********************************************************************************
+		\brief Helper function to calculate the index of a 1D dynamic array
+
+		\param [in] x, y: X/Y coordinate of the board
+	***********************************************************************************/
 	size_t GetIndex(size_t x, size_t y) const;
+
+	/*!*********************************************************************************
+		\brief Recursive function to place a valid value onto the board
+
+		\param [in] x, y: X/Y coordinate of the board
+
+		\return true if value is placed on board successfull, else false
+	***********************************************************************************/
 	bool PlaceValue(size_t x, size_t y);
+
+	/*!*********************************************************************************
+		\brief Check if the position at x and y is a valid placement on the sudoku board
+
+		\param [in] x, y: X/Y coordinate of the board
+		\param [in] val: Value to be checked with on the board
+
+		\return true if x and y is a valid placement for val, else false
+	***********************************************************************************/
 	bool IsValid(size_t x, size_t y, char val) const;
 
 	SudokuStats m_Stats{};

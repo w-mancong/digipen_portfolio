@@ -1,3 +1,11 @@
+/*!
+file:	Sudoku.cpp
+author:	Wong Man Cong
+email:	w.mancong\@digipen.edu
+brief:	This file contains function definition for solving a sudoku
+
+		All content © 2022 DigiPen Institute of Technology Singapore. All rights reserved.
+*//*__________________________________________________________________________________*/
 #include "Sudoku.h"
 
 Sudoku::Sudoku(int basesize, SymbolType stype, SUDOKU_CALLBACK callback) : 
@@ -17,17 +25,15 @@ Sudoku::~Sudoku()
 void Sudoku::SetupBoard(char const* values, size_t size)
 {
 	for (size_t i{}; i < size; ++i)
-		*(m_Board + i) = *(values + i) == '.' ? ' ' : *(values + i);
+		*(m_Board + i) = *(values + i) == '.' ? EMPTY_CHAR : *(values + i);
 }
 
 void Sudoku::Solve()
 {
 	m_Callback(*this, m_Board, MessageType::MSG_STARTING, m_Stats.moves, m_Stats.basesize, -1, 0);
 
-	if( PlaceValue(0, 0) )
-		m_Callback(*this, m_Board, MessageType::MSG_FINISHED_OK, m_Stats.moves, m_Stats.basesize, -1, 0);
-	else
-		m_Callback(*this, m_Board, MessageType::MSG_FINISHED_FAIL, m_Stats.moves, m_Stats.basesize, -1, 0);
+	MessageType const msg = PlaceValue(0, 0) ? MessageType::MSG_FINISHED_OK : MessageType::MSG_FINISHED_FAIL;
+	m_Callback(*this, m_Board, msg, m_Stats.moves, m_Stats.basesize, -1, 0);
 }
 
 const char* Sudoku::GetBoard() const
@@ -69,7 +75,8 @@ bool Sudoku::PlaceValue(size_t x, size_t y)
 		return false;
 	};
 
-	if (*(m_Board + index) != ' ')
+	// if current index is already occupied, skip and place to the next cell
+	if (*(m_Board + index) != EMPTY_CHAR)
 		return Place();
 
 	for (size_t i{}; i < m_BoardLen; ++i)
@@ -81,8 +88,9 @@ bool Sudoku::PlaceValue(size_t x, size_t y)
 		*(m_Board + index) = val;
 		++m_Stats.moves, ++m_Stats.placed;
 
+		// Check the current index is valid
 		if (IsValid(x, y, val))
-		{
+		{	// Place item in the next avaliable cell
 			if (Place())
 				return true;
 
@@ -91,7 +99,7 @@ bool Sudoku::PlaceValue(size_t x, size_t y)
 		}
 
 		--m_Stats.placed, ++val;
-		*(m_Board + index) = ' ';
+		*(m_Board + index) = EMPTY_CHAR;
 		m_Callback(*this, m_Board, MessageType::MSG_REMOVING, m_Stats.moves, m_Stats.basesize, uIdx, val);
 	}
 
