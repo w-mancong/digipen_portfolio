@@ -1,0 +1,7 @@
+﻿  ALGraph.cpp
+  driver-sample.cpp
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a4-graph\csd280-a4-graph\driver-sample.cpp(658,7): error C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  Generating Code...
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a4-graph\csd280-a4-graph\ALGraph.cpp(30): error C4716: 'ALGraph::Dijkstra': must return a value
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a4-graph\csd280-a4-graph\ALGraph.cpp(45): error C4716: 'ALGraph::AdjInfo::operator<': must return a value
+C:\sandbox\digipen_portfolio\Year 2\Trimester 2\CSD2181 - Data Struct\csd280-a4-graph\csd280-a4-graph\ALGraph.cpp(50): error C4716: 'ALGraph::AdjInfo::operator>': must return a value
