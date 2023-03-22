@@ -42,7 +42,7 @@ std::vector<DijkstraInfo> ALGraph::Dijkstra(unsigned start_node) const
 	for(size_t i{}; i < nodes.size(); ++i)
 		Q.emplace(&nodes[i]);
 
-	while (!Q.empty())
+ 	while (!Q.empty())
 	{
 		AdjInfo* u = Q.top();
 		for (AdjacencyInfo const& v : list[u->id - 1])
@@ -80,5 +80,7 @@ ALIST ALGraph::GetAList(void) const
 
 bool ALGraph::AdjInfo::operator()(AdjInfo const* lhs, AdjInfo const* rhs) const
 {
+	if (lhs->cost == rhs->cost)
+		return lhs->id > rhs->id;
 	return lhs->cost > rhs->cost;
 }

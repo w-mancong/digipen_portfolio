@@ -703,31 +703,31 @@ int main(int argc, char** argv)
 		//TestDijkstra1(1);
 	//	break;
 	//case 3:   
-		TestDijkstra4(1);
+		//TestDijkstra4(1);
 	//	break;
 	//case 4:   
-	//	TestDijkstra4a(1);
+		//TestDijkstra4a(1);
 	//	break;
 	//case 5:   
-	//	TestDijkstra5(1);
+		//TestDijkstra5(1);
 	//	break;
 	//case 6:   
-	//	TestDijkstra9(1);
+		//TestDijkstra9(1);
 	//	break;
 	//case 7:  
-	//	TestDijkstra10(1);
+		//TestDijkstra10(1);
 	//	break;
 	//case 8:   
-	//	TestDijkstra10(14);
+		//TestDijkstra10(14);
 	//	break;
 	//case 9: 
-		//TestAllDijkstra();
+		//TestAllDijkstra(); 
 	//	break;
 	//case 10:    
-	//	TestBig(10, 100);
+		//TestBig(10, 100);
 	//	break;
 	//case 11:   //// ********** Stress tests ********** 
-		//TestBig(30, 10);
+		TestBig(30, 10);
 	//	break;
 	//}
 
