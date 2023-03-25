@@ -843,7 +843,7 @@ int main(int argc, char** argv)
 	//    break;
 
 	//  case 3:
-		Test3(&HashingFuncs[hf]);  // insert/grow
+		//Test3(&HashingFuncs[hf]);  // insert/grow
 	//    break;
 
 	//  case 4:
@@ -863,7 +863,7 @@ int main(int argc, char** argv)
 	//    break;
 
 	//  case 8:
-	//Test8(&HashingFuncs[hf]); // stress
+	Test8(&HashingFuncs[hf]); // stress
 //    break;
 
 //  default:

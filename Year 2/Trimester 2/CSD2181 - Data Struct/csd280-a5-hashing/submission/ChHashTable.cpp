@@ -162,10 +162,9 @@ void ChHashTable<T>::InsertItem(char const *key, T const &data, bool reinserting
         head.Nodes = newNode;
         ++head.Count;
 
+        ++m_Stats.Probes_;
         if (!reinserting)
-        {
             ++m_Stats.Count_;
-        }
     }
     catch (...)
     {
@@ -205,12 +204,6 @@ typename ChHashTable<T>::HashNode ChHashTable<T>::Search(char const *key) const
     size_t const index = GetIndex(key);
     HashHeadNode const &head = *(m_Head + index);
 
-    if (head.Count == 0)
-    {
-        ++m_Stats.Probes_;
-        return nullptr;
-    }
-
     HashNode ptr = head.Nodes;
     while (ptr)
     {
@@ -219,6 +212,5 @@ typename ChHashTable<T>::HashNode ChHashTable<T>::Search(char const *key) const
             return ptr;
         ptr = ptr->Next;
     }
-    ++m_Stats.Probes_;
-    return ptr;
+    return nullptr;
 }
