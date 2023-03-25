@@ -101,6 +101,8 @@ public:
 		int Count; // For testing
 	};
 
+	using HashNode = ChHTHeadNode*;
+
 	// ObjectAllocator: the usual.
 	// Config: the configuration for the hash table.
 	ChHashTable(HTConfig const& Config, ObjectAllocator* allocator = nullptr);
@@ -125,24 +127,37 @@ public:
 	// information on the status of the table for debugging and testing. 
 	// The struct is defined in the header file.
 	HTStats GetStats() const;
-	const ChHTHeadNode* GetTable() const;
+	ChHTHeadNode const* GetTable() const;
 
 private:
-
 	// Private fields and methods...
+
+	HTConfig m_Config{};
+	HTStats m_Stats{};
+	HashNode m_Head{ nullptr };
+	bool m_OwnAllocator{ false };
 };
 
 //#include "ChHashTable.cpp"
 template <typename T>
-ChHashTable<T>::ChHashTable(HTConfig const& Config, ObjectAllocator* allocator)
+ChHashTable<T>::ChHashTable(HTConfig const& Config, ObjectAllocator* allocator) : m_Config{ Config }
 {
-
+	m_Stats.Allocator_ = allocator;
+	if (!allocator)
+	{
+		m_Stats.Allocator_ = new ObjectAllocator(sizeof(T), OAConfig());
+		m_OwnAllocator = true;
+	}
 }
 
 template <typename T>
 ChHashTable<T>::~ChHashTable(void)
 {
-
+	if (m_OwnAllocator)
+	{
+		delete m_Stats.Allocator_;
+		m_Stats.Allocator_ = nullptr;
+	}
 }
 
 template <typename T>
@@ -160,7 +175,7 @@ void ChHashTable<T>::remove(char const* Key)
 template <typename T>
 const T& ChHashTable<T>::find(char const* Key) const
 {
-
+	return {};
 }
 
 template <typename T>
@@ -172,13 +187,13 @@ void ChHashTable<T>::clear()
 template <typename T>
 HTStats ChHashTable<T>::GetStats() const
 {
-
+	return m_Stats;
 }
 
 template <typename T>
-const ChHashTable<T>::ChHTHeadNode* ChHashTable<T>::GetTable() const
+typename ChHashTable<T>::ChHTHeadNode const* ChHashTable<T>::GetTable() const
 {
-
+	return m_Head;
 }
 
 #endif
