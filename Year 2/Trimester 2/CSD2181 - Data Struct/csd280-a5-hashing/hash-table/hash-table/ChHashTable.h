@@ -1,4 +1,12 @@
-﻿//---------------------------------------------------------------------------
+﻿/*!
+file:   ChHashTable.h
+author:	Wong Man Cong
+email:	w.mancong\@digipen.edu
+brief:  This file contains function declaration for 
+
+        All content © 2023 DigiPen Institute of Technology Singapore. All rights reserved.
+*//*__________________________________________________________________________________*/
+//---------------------------------------------------------------------------
 #ifndef CHHASHTABLEH
 #define CHHASHTABLEH
 //---------------------------------------------------------------------------
@@ -245,6 +253,8 @@ void ChHashTable<T>::ExpandTable(void)
         n -> number of stored keys
         m -> number of slots in hash table
     */
+    // m_Stats.Count + 1.0 because ExpandTable is called inside the insert function, we need to account for 
+    // the current item that we are adding into the HashTable
     double load_factor = (m_Stats.Count_ + 1.0) / static_cast<double>(m_Stats.TableSize_);
     if (load_factor <= m_Config.MaxLoadFactor_)
         return;
@@ -273,7 +283,7 @@ void ChHashTable<T>::ExpandTable(void)
         }
     }
 
-    { // clearing of previous hash table
+    {   // clearing of previous hash table
         for (size_t i{}; i < tmp.TableSize; ++i)
         {
             HashHeadNode& head = *(tmp.head + i);
