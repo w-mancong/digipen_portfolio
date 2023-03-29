@@ -2,7 +2,8 @@
 file:   ChHashTable.h
 author:	Wong Man Cong
 email:	w.mancong\@digipen.edu
-brief:  This file contains function declaration for 
+brief:  This file contains function declaration for a templated Hash Table where the 
+        collision resolution is solved by chaining (linked-list)
 
         All content © 2023 DigiPen Institute of Technology Singapore. All rights reserved.
 *//*__________________________________________________________________________________*/
@@ -60,13 +61,19 @@ struct HTStats
 	ObjectAllocator* Allocator_; // The allocator in use (may be 0)
 };
 
+/*!*********************************************************************************
+    \brief Declaration of a templated chained hash table
+***********************************************************************************/
 template <typename T>
 class ChHashTable
 {
 public:
 	using FREEPROC = void (*)(T);
 
-	struct HTConfig
+    /*!*********************************************************************************
+        \brief Struct containing the configuration for HashTable
+    ***********************************************************************************/
+    struct HTConfig
 	{
 		HTConfig(unsigned InitialTableSize,
 			HASHFUNC HashFunc,
@@ -93,8 +100,10 @@ public:
 		FREEPROC FreeProc_{};
 	};
 
-	// Nodes that will hold the key/data pairs
-	struct ChHTNode
+    /*!*********************************************************************************
+        \brief Node structure that is used to contain all the node data
+    ***********************************************************************************/
+    struct ChHTNode
 	{
 		char Key[MAX_KEYLEN]{}; // Key is a string
 		T Data{};               // Client data
@@ -115,39 +124,103 @@ public:
 	using HashHeadNode = ChHTHeadNode;
 	using HashTable    = HashHeadNode*;
 
-	// ObjectAllocator: the usual.
-	// Config: the configuration for the hash table.
-	ChHashTable(HTConfig const& config, ObjectAllocator* allocator = nullptr);
-	~ChHashTable();
+    /*!*********************************************************************************
+        \brief Constructor for ChHashTable
 
-	// Insert a key/data pair into table. Throws an exception if the
-	// insertion is unsuccessful.(E_DUPLICATE, E_NO_MEMORY)
-	void insert(char const* key, T const& data);
+        \param [in] config: Configuration settings used for hash table
+        \param [in] allocator: Memory allocator
+    ***********************************************************************************/
+    ChHashTable(HTConfig const& config, ObjectAllocator* allocator = nullptr);
 
-	// Delete an item by key. Throws an exception if the key doesn't exist.
-	// (E_ITEM_NOT_FOUND)
-	void remove(char const* key);
+    /*!*********************************************************************************
+        \brief Destructor
+    ***********************************************************************************/
+    ~ChHashTable();
 
-	// Find and return data by key. throws exception if key doesn't exist.
-	// (E_ITEM_NOT_FOUND)
-	const T& find(char const* key) const;
+    /*!*********************************************************************************
+        \brief Insert a node into the hash table based on it's key
 
-	// Removes all items from the table (Doesn't deallocate table)
-	void clear();
+        \param [in] key: Used as an identifier for the associative array
+        \param [in] data: The data stored along with the key
 
-	// Allow the client to peer into the data. Returns a struct that contains 
-	// information on the status of the table for debugging and testing. 
-	// The struct is defined in the header file.
-	HTStats GetStats() const;
-	ChHTHeadNode const* GetTable() const;
+        \exception
+        E_DUPLICATE is thrown if there is a duplicate key already existing
+        E_NO_MEMORY is thrown if allocator fails to allocate memory
+    ***********************************************************************************/
+    void insert(char const* key, T const& data);
+
+    /*!*********************************************************************************
+    \brief Remove a node based on it's key
+
+    \param [in] key: Used as an identifier for the associative array
+
+    \exception
+        E_ITEM_NOT_FOUND is thrown if key does not exist
+    ***********************************************************************************/
+    void remove(char const* key);
+
+    /*!*********************************************************************************
+        \brief Find and return the data by the key
+
+        \param [in] key: Used as an identifier for the associative array
+
+        \exception
+        E_ITEM_NOT_FOUND is thrown if key does no exist
+    ***********************************************************************************/
+    const T& find(char const* key) const;
+
+    /*!*********************************************************************************
+        \brief Remove all item from the hash table. Hash table will not be deallocated
+    ***********************************************************************************/
+    void clear();
+
+    /*!*********************************************************************************
+        \brief Return the current stats of the HashTable
+    ***********************************************************************************/
+    HTStats GetStats() const;
+
+    /*!*********************************************************************************
+        \brief Return a pointer to the table
+    ***********************************************************************************/
+    ChHTHeadNode const* GetTable() const;
 
 private:
-	// Private fields and methods...
-	unsigned GetIndex(char const* key) const;
-	void ExpandTable(void);
-	void InsertItem(char const* key, T const& data, bool reinserting = false) const;
-	void RemoveItem(char const* key) const;
-	HashNode Search(char const* key) const;
+    /*!*********************************************************************************
+        \brief Helper function to retrieve the index based on the key
+
+        \param [in] key: Key that will be used with a hash function to be converted into an index
+
+        \return Index of where key lies
+    ***********************************************************************************/
+    unsigned GetIndex(char const* key) const;
+
+    /*!*********************************************************************************
+        \brief Helper function to expand the table if the table exceeds the max load factor
+    ***********************************************************************************/
+    void ExpandTable(void);
+
+    /*!*********************************************************************************
+        \brief Helper function to insert an item into the table
+
+        \param [in] key: Key that will be used with a hash function to be converted into an index
+        \param [in] data: Data to be inserted
+        \param [in] reinserting: This variable will be true when the table expands and stats will not be updated
+    ***********************************************************************************/
+    void InsertItem(char const* key, T const& data, bool reinserting = false) const;
+
+    /*!*********************************************************************************
+        \brief Helper function to remove an item from the table
+
+        \param [in] key: Key that will be used with a hash function to be converted into an index
+    ***********************************************************************************/
+    void RemoveItem(char const* key) const;
+
+    /*!*********************************************************************************
+        \brief Helper function to find the node based on the key
+
+        \param [in] key: Key that will be used with a hash function to be converted into an index
+    ***********************************************************************************/
+    HashNode Search(char const* key) const;
 
 	HTConfig m_Config{};
 	mutable HTStats m_Stats{};

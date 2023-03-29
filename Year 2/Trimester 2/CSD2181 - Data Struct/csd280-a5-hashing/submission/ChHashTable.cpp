@@ -1,3 +1,13 @@
+/*!
+file:   ChHashTable.cpp
+author:	Wong Man Cong
+email:	w.mancong\@digipen.edu
+brief:  This file contains function definition for a templated Hash Table where the
+        collision resolution is solved by chaining (linked-list)
+
+        All content © 2023 DigiPen Institute of Technology Singapore. All rights reserved.
+*/
+/*__________________________________________________________________________________*/
 template <typename T>
 ChHashTable<T>::ChHashTable(HTConfig const &config, ObjectAllocator *allocator) : m_Config{config}
 {
