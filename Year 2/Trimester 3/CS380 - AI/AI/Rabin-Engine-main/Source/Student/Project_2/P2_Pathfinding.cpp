@@ -2,6 +2,20 @@
 #include "Projects/ProjectTwo.h"
 #include "P2_Pathfinding.h"
 
+class AStarPather::OpenList
+{
+    OpenList();
+    ~OpenList();
+
+    struct Bucket
+    {
+        Node** node{ nullptr };  // List of pointers to nodes
+        size_t size{ 0 };        // store the total number of items in this bucket
+    };
+
+    Bucket* list;
+};
+
 #pragma region Extra Credit
 bool ProjectTwo::implemented_floyd_warshall()
 {
@@ -114,10 +128,59 @@ void AStarPather::ComputeNeighbours(void)
     size_t const WIDTH  = static_cast<size_t>( terrain->get_map_width() ),
                  HEIGHT = static_cast<size_t>( terrain->get_map_height() );
 
-    auto GetNeighbours = [this](int i, int j)
+    auto IsDiagonal = [](unsigned char relativePosition)
+    {
+        return relativePosition & TOP_LEFT  ||
+               relativePosition & TOP_RIGHT ||
+               relativePosition & BTM_LEFT  ||
+               relativePosition & BTM_RIGHT;
+    };
+
+    auto ShouldBeNeighbour = [](unsigned char relativePosition, GridPos pos)
+    {
+        static size_t constexpr const TOP{ 0 }, LEFT{ 1 }, RIGHT{ 2 }, BTM{ 3 };
+        GridPos wall[4]{ { pos.row + 1, pos.col },      // Top
+                         { pos.row, pos.col - 1 },      // Left
+                         { pos.row, pos.col + 1 },      // Right
+                         { pos.row - 1, pos.col } };    // Btm
+
+        auto IsWall = [](GridPos pos)
+        {
+            return terrain->is_valid_grid_position(pos) && terrain->is_wall(pos);
+        };
+
+        if (relativePosition & TOP_LEFT)
+        {
+            if ( IsWall(wall[TOP]) || IsWall(wall[LEFT]) )
+                return false;
+        }
+
+        if (relativePosition & TOP_RIGHT)
+        {
+            if (IsWall(wall[TOP]) || IsWall(wall[RIGHT]))
+                return false;
+        }
+
+        if (relativePosition & BTM_LEFT)
+        {
+            if (IsWall(wall[BTM]) || IsWall(wall[LEFT]))
+                return false;
+        }
+
+        if (relativePosition & BTM_RIGHT)
+        {
+            if (IsWall(wall[BTM]) || IsWall(wall[RIGHT]))
+                return false;
+        }
+
+        return true;
+    };
+
+    auto GetNeighbours = [this, IsDiagonal, ShouldBeNeighbour](int i, int j)
     {
         size_t index = 0; unsigned char relativePosition = 0;
         int const nodeIndex = static_cast<int>( GetArrayPosition( i, j ) );
+
         for (int row{ 1 }; row >= -1; --row)
         {
             for (int col{ -1 }; col <= 1; ++col)
@@ -130,7 +193,10 @@ void AStarPather::ComputeNeighbours(void)
                 if ( !terrain->is_valid_grid_position( pos ) || terrain->is_wall(pos) )
                     continue;
 
-                neighbours[nodeIndex][index].neighbour = relativePosition - 1;
+                if ( IsDiagonal( 0b1 << (relativePosition - 1) ) && !ShouldBeNeighbour( 0b1 << (relativePosition - 1), { i , j } ) )
+                        continue;
+
+                neighbours[nodeIndex][index].neighbour = 0b1 << (relativePosition - 1);
                 neighbours[nodeIndex][index++].node = &map[ GetArrayPosition(i + row, j + col) ];
             }
         }
@@ -225,4 +291,15 @@ AStarPather::Node const& AStarPather::GetNode(size_t id) const
 size_t AStarPather::GetArrayPosition(int row, int col) const
 {
     return static_cast<size_t>(row) * terrain->get_map_width() + static_cast<size_t>(col);
+}
+
+AStarPather::OpenList::OpenList()
+{
+    list = new Bucket[ (MAX_SIZE << 1) ];
+
+}
+
+AStarPather::OpenList::~OpenList()
+{
+    delete[] list;
 }

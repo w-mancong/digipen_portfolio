@@ -31,14 +31,14 @@ private:
         OPEN_LIST   = 0b01, 
         CLOSE_LIST  = 0b10;     // variables used to check if node is on the list
     static unsigned char constexpr const
-        TOP_LEFT    = 0b000,
-        TOP         = 0b001,
-        TOP_RIGHT   = 0b010,
-        LEFT        = 0b011,
-        RIGHT       = 0b100,
-        BTM_LEFT    = 0b101,
-        BTM         = 0b110,
-        BTM_RIGHT   = 0b111;    // variables used to check neighbour's position relative to current cell
+        TOP_LEFT    = 0b00000001,
+        TOP         = 0b00000010,
+        TOP_RIGHT   = 0b00000100,
+        LEFT        = 0b00001000,
+        RIGHT       = 0b00010000,
+        BTM_LEFT    = 0b00100000,
+        BTM         = 0b01000000,
+        BTM_RIGHT   = 0b10000000;    // variables used to check neighbour's position relative to current cell
     static float constexpr const
         SQRT_2 = 1.41421356237f;
 
@@ -56,10 +56,10 @@ private:
 
     struct Node
     {
-        Node* parent;               // Node's parent
-        float finalCost;            // Node's final cost
-        float givenCost;            // Node's given cost
-        NodeInfo info;              // Contains grid position and a value to check if node is on list
+        Node* parent{};               // Node's parent
+        float finalCost{};            // Node's final cost
+        float givenCost{};            // Node's given cost
+        NodeInfo info{};              // Contains grid position and a value to check if node is on list
     };
 
     struct Neighbour
@@ -67,6 +67,8 @@ private:
         Node const* node;
         unsigned char neighbour;    // Position of node relative to node
     };
+
+    class OpenList;
 
     void MapChange(void);
     void ComputeNeighbours(void);
