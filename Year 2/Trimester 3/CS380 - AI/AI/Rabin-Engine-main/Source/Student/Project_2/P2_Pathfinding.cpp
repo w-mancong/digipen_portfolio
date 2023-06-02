@@ -84,11 +84,63 @@ PathResult AStarPather::compute_path(PathRequest &request)
 
     
     // Just sample code, safe to delete
-    GridPos start = terrain->get_grid_position(request.start);
-    GridPos goal = terrain->get_grid_position(request.goal);
-    terrain->set_color(start, Colors::Orange);
-    terrain->set_color(goal, Colors::Orange);
-    request.path.push_back(request.start);
-    request.path.push_back(request.goal);
+    //GridPos start = terrain->get_grid_position(request.start);
+    //GridPos goal = terrain->get_grid_position(request.goal);
+    //terrain->set_color(start, Colors::Orange);
+    //terrain->set_color(goal, Colors::Orange);
+    //request.path.push_back(request.start);
+    //request.path.push_back(request.goal);
     return PathResult::COMPLETE;
+}
+
+float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal)
+{
+    float dx = static_cast<float>(curr.row - goal.row),
+          dy = static_cast<float>(curr.col - goal.col);
+
+    switch (heu)
+    {
+        case Heuristic::OCTILE:
+        {
+            float constexpr const SQRT2 = 1.41421356237f;
+            float min = std::fmin(dx, dy), max = std::fmax(dx, dy);
+            return min * SQRT2 + (max - min);
+        }
+
+        case Heuristic::CHEBYSHEV:
+            return std::fmax(dx, dy);
+
+        case Heuristic::INCONSISTENT:
+        {
+            if ( !(curr.row + curr.col) % 2 )
+                return sqrtf(dx * dx + dy * dy);
+            return 0.0f;
+        }
+
+        case Heuristic::MANHATTAN:
+            return dx + dy; break;
+
+        case Heuristic::EUCLIDEAN:
+            return sqrtf( dx * dx + dy * dy );
+
+        default:
+            break;
+    }
+
+    return 0.0f;
+}
+
+bool AStarPather::Check(Node const& node, unsigned char list)
+{
+    return node.info.onList & list;
+}
+
+void AStarPather::SetListStatus(Node& node, unsigned char list)
+{
+    node.info.onList = list;
+}
+
+GridPos AStarPather::MakeGrid(Node const& node)
+{
+    return { static_cast<int>(node.info.x), static_cast<int>(node.info.y) };
 }

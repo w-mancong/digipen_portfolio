@@ -68,7 +68,7 @@ struct GridPos
 
     bool operator!=(const GridPos &rhs) const
     {
-        return row != rhs.row || col != rhs.col;
+        return !(*this == rhs);
     }
 };
 
