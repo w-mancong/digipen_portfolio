@@ -35,6 +35,9 @@ bool AStarPather::initialize()
         object that std::function can wrap will suffice.
     */
 
+    Callback cb = std::bind(&AStarPather::MapChange, this);
+    Messenger::listen_for_message(Messages::MAP_CHANGE, cb);
+
     return true; // return false if any errors actually occur, to stop engine initialization
 }
 
@@ -78,22 +81,77 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 single step mode until a path is found
             COMPLETE - a path to the goal was found and has been built in request.path
             IMPOSSIBLE - a path from start to goal does not exist, do not add start position to path
+
+        // Just sample code, safe to delete
+        //GridPos start = terrain->get_grid_position(request.start);
+        //GridPos goal = terrain->get_grid_position(request.goal);
+        //terrain->set_color(start, Colors::Orange);
+        //terrain->set_color(goal, Colors::Orange);
+        //request.path.push_back(request.start);
+        //request.path.push_back(request.goal);
     */
 
     // WRITE YOUR CODE HERE
-
+    if (request.newRequest)
+    {
+        ResetMap();
+        // clear open list
+        // push start node into the open list with cost f(x) = g(x) + h(x) * weight
+    }
     
-    // Just sample code, safe to delete
-    //GridPos start = terrain->get_grid_position(request.start);
-    //GridPos goal = terrain->get_grid_position(request.goal);
-    //terrain->set_color(start, Colors::Orange);
-    //terrain->set_color(goal, Colors::Orange);
-    //request.path.push_back(request.start);
-    //request.path.push_back(request.goal);
     return PathResult::COMPLETE;
 }
 
-float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal)
+void AStarPather::MapChange(void)
+{
+    // get each node's neighbour
+    memset(neighbours, 0, sizeof(neighbours));
+    ComputeNeighbours();
+}
+
+void AStarPather::ComputeNeighbours(void)
+{
+    size_t const WIDTH  = static_cast<size_t>( terrain->get_map_width() ),
+                 HEIGHT = static_cast<size_t>( terrain->get_map_height() );
+
+    auto GetNeighbours = [this](int i, int j)
+    {
+        size_t index = 0; unsigned char relativePosition = 0;
+        int const nodeIndex = static_cast<int>( GetArrayPosition( i, j ) );
+        for (int row{ 1 }; row >= -1; --row)
+        {
+            for (int col{ -1 }; col <= 1; ++col)
+            {
+                if (row == 0 && col == 0)
+                    continue;
+
+                ++relativePosition;
+                GridPos pos{ i + row, j + col };
+                if ( !terrain->is_valid_grid_position( pos ) || terrain->is_wall(pos) )
+                    continue;
+
+                neighbours[nodeIndex][index].neighbour = relativePosition - 1;
+                neighbours[nodeIndex][index++].node = &map[ GetArrayPosition(i + row, j + col) ];
+            }
+        }
+    };
+
+    for (int i{}; i < HEIGHT; ++i)
+    {
+        for (int j{}; j < WIDTH; ++j)
+            GetNeighbours(i, j);
+    }
+}
+
+void AStarPather::ResetMap(void)
+{
+    memset(map, 0, sizeof(map));
+    for (size_t i{}; i < MAX_SIZE; ++i)
+        (map + i)->info.id = i;
+
+}
+
+float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal) const
 {
     float dx = static_cast<float>(curr.row - goal.row),
           dy = static_cast<float>(curr.col - goal.col);
@@ -102,9 +160,8 @@ float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal)
     {
         case Heuristic::OCTILE:
         {
-            float constexpr const SQRT2 = 1.41421356237f;
             float min = std::fmin(dx, dy), max = std::fmax(dx, dy);
-            return min * SQRT2 + (max - min);
+            return min * SQRT_2 + (max - min);
         }
 
         case Heuristic::CHEBYSHEV:
@@ -112,13 +169,13 @@ float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal)
 
         case Heuristic::INCONSISTENT:
         {
-            if ( !(curr.row + curr.col) % 2 )
+            if ( ! ( (curr.row + curr.col) % 2 ) )
                 return sqrtf(dx * dx + dy * dy);
             return 0.0f;
         }
 
         case Heuristic::MANHATTAN:
-            return dx + dy; break;
+            return dx + dy;
 
         case Heuristic::EUCLIDEAN:
             return sqrtf( dx * dx + dy * dy );
@@ -130,7 +187,7 @@ float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal)
     return 0.0f;
 }
 
-bool AStarPather::Check(Node const& node, unsigned char list)
+bool AStarPather::Check(Node const& node, unsigned char list) const
 {
     return node.info.onList & list;
 }
@@ -140,7 +197,32 @@ void AStarPather::SetListStatus(Node& node, unsigned char list)
     node.info.onList = list;
 }
 
-GridPos AStarPather::MakeGrid(Node const& node)
+GridPos AStarPather::MakeGrid(Node const& node) const
 {
-    return { static_cast<int>(node.info.x), static_cast<int>(node.info.y) };
+    return { static_cast<int>(node.info.row), static_cast<int>(node.info.col) };
+}
+
+AStarPather::Node& AStarPather::GetNode(int row, int col)
+{
+    return const_cast<Node&>( const_cast<AStarPather const&>(*this).GetNode(row, col) );
+}
+
+AStarPather::Node const& AStarPather::GetNode(int row, int col) const
+{
+    return *( map + GetArrayPosition(row, col) );
+}
+
+AStarPather::Node& AStarPather::GetNode(size_t id)
+{
+    return const_cast<Node&>( const_cast<AStarPather const&>(*this).GetNode(id) );
+}
+
+AStarPather::Node const& AStarPather::GetNode(size_t id) const
+{
+    return *(map + id);
+}
+
+size_t AStarPather::GetArrayPosition(int row, int col) const
+{
+    return static_cast<size_t>(row) * terrain->get_map_width() + static_cast<size_t>(col);
 }
