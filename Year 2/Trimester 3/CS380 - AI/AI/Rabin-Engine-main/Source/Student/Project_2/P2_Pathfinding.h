@@ -85,4 +85,5 @@ private:
 
     Node map[MAX_SIZE];
     Neighbour neighbours[MAX_SIZE][8];
+    OpenList* list;
 };

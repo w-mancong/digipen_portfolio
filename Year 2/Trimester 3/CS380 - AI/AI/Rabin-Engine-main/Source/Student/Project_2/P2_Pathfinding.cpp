@@ -5,35 +5,47 @@
 class AStarPather::OpenList
 {
 public:
-    OpenList(float sub_divisions = 5.0f);
+    OpenList(size_t subDivisions = 5);
     ~OpenList();
+
+    void Insert(Node const* node);
+    void Clear();
 
 private:
     static size_t constexpr const DEFAULT_SIZE{ 128 };
 
     struct SubBucket
     {
-        Node** nodes{ nullptr };  // List of pointers to nodes
-        size_t size{ 0 };         // store the total number of items in this bucket
+        SubBucket();
+        ~SubBucket() = default;
+         
         size_t capacity{ 0 };     // store the capacity for this SubBucket
 
-        SubBucket();
-        ~SubBucket();
+        void Init(Node const** node);
+        void Insert(Node const* node);
+
+        Node const ** nodes{ nullptr };  // List of pointers to nodes
+        size_t size{ 0 };                // store the total number of items in this bucket
     };
 
     struct Bucket
     {
-        Bucket() = default;
-        ~Bucket();
-
-        void Init(float divisions);
+        void Init(SubBucket* bucket);
+        void Insert(Node const* node, size_t index);
+        void Clear(size_t subDivisions);
 
         SubBucket* buckets{ nullptr };
     };
 
-    Bucket* list{};
-    size_t smallestIndex{}; // Used to store the index to the smallest f(x)
-    float divisions{};
+    Bucket* buckets{};
+    SubBucket* subBuckets{};
+    Node const** subBucketNodes{};
+    // Used to store the index to the smallest f(x). 
+    //Index: 0: current smallest 1: next smallest
+    size_t smallestIndex[2]{ std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max() }; 
+    size_t const subDivisions;
+    float const divisions;
+
 };
 
 #pragma region Extra Credit
@@ -72,6 +84,8 @@ bool AStarPather::initialize()
     Callback cb = std::bind(&AStarPather::MapChange, this);
     Messenger::listen_for_message(Messages::MAP_CHANGE, cb);
 
+    list = new OpenList{};
+
     return true; // return false if any errors actually occur, to stop engine initialization
 }
 
@@ -81,6 +95,7 @@ void AStarPather::shutdown()
         Free any dynamically allocated memory or any other general house-
         keeping you need to do during shutdown.
     */
+    delete list;
 }
 
 PathResult AStarPather::compute_path(PathRequest &request)
@@ -234,7 +249,6 @@ void AStarPather::ResetMap(void)
     memset(map, 0, sizeof(map));
     for (size_t i{}; i < MAX_SIZE; ++i)
         (map + i)->info.id = i;
-
 }
 
 float AStarPather::GetHx(Heuristic heu, GridPos curr, GridPos goal) const
@@ -313,35 +327,82 @@ size_t AStarPather::GetArrayPosition(int row, int col) const
     return static_cast<size_t>(row) * terrain->get_map_width() + static_cast<size_t>(col);
 }
 
-AStarPather::OpenList::OpenList(float sub_divisions) : divisions{ sub_divisions }
+AStarPather::OpenList::OpenList(size_t subDivisions) : subDivisions{ subDivisions }, divisions { 1.0f / static_cast<float>(subDivisions) }
 {
-    list = new Bucket[(MAX_SIZE << 1)];
-    for (size_t i{}; i < (MAX_SIZE << 1); ++i)
-        (list + i)->Init(sub_divisions);
+    size_t const LIST_SIZE = MAX_SIZE << 1,
+                 SUB_SIZE  = subDivisions;
+
+    buckets         = new Bucket[LIST_SIZE]{};
+    subBuckets      = new SubBucket[LIST_SIZE * SUB_SIZE] {};
+    subBucketNodes  = const_cast<Node const**>( new Node * [LIST_SIZE * SUB_SIZE * DEFAULT_SIZE]{} );
+
+    for (size_t i{}; i < LIST_SIZE; ++i)
+        (buckets + i)->Init( subBuckets + i * SUB_SIZE );
+
+    for (size_t i{}; i < LIST_SIZE * SUB_SIZE; ++i)
+        (subBuckets + i)->Init( subBucketNodes + i * DEFAULT_SIZE );
 }
 
 AStarPather::OpenList::~OpenList()
 {
-    delete[] list;
-}
-
-AStarPather::OpenList::SubBucket::SubBucket()
-{
-    nodes = new Node *[DEFAULT_SIZE];
-    memset(nodes, 0, sizeof(Node*) * DEFAULT_SIZE);
-}
-
-AStarPather::OpenList::SubBucket::~SubBucket()
-{
-    delete[] nodes;
-}
-
-AStarPather::OpenList::Bucket::~Bucket()
-{
     delete[] buckets;
+    delete[] subBuckets;
+    delete[] subBucketNodes;
 }
 
-void AStarPather::OpenList::Bucket::Init(float _divisions)
+void AStarPather::OpenList::Insert(Node const* node)
+{                                              // x.abcd -> 2.7643 
+    float whole = std::floor(node->finalCost), // Stores 2.0
+          decimals = node->finalCost - whole;  // Stores 0.7643
+
+    size_t const bucketIndex    = static_cast<size_t>(whole), 
+                 subBucketIndex = static_cast<size_t>(decimals / divisions);
+
+    (buckets + bucketIndex)->Insert(node, subBucketIndex);
+    if (bucketIndex < *smallestIndex)
+    {
+        *(smallestIndex + 1) = *(smallestIndex + 0);
+        *(smallestIndex + 0) = bucketIndex;
+    }
+}
+
+void AStarPather::OpenList::Bucket::Clear(size_t subDivisions)
 {
-    buckets = new SubBucket[static_cast<size_t>(_divisions)];
+
+}
+
+AStarPather::OpenList::SubBucket::SubBucket() : capacity{ DEFAULT_SIZE }
+{
+
+}
+
+void AStarPather::OpenList::SubBucket::Init(Node const** node)
+{
+    nodes = node;
+}
+
+void AStarPather::OpenList::SubBucket::Insert(Node const* node)
+{
+#ifdef _DEBUG
+    assert(size < capacity && "Increase DEFAULT_SIZE or make more sub divisions");
+#endif
+    *(nodes + size++) = node;
+}
+
+void AStarPather::OpenList::Clear()
+{
+    *(smallestIndex + 0) = std::numeric_limits<size_t>::max();
+    *(smallestIndex + 1) = std::numeric_limits<size_t>::max();
+
+
+}
+
+void AStarPather::OpenList::Bucket::Init(SubBucket* bucket)
+{
+    buckets = bucket;
+}
+
+void AStarPather::OpenList::Bucket::Insert(Node const* node, size_t index)
+{
+    (buckets + index)->Insert(node);
 }
