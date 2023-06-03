@@ -4,16 +4,36 @@
 
 class AStarPather::OpenList
 {
-    OpenList();
+public:
+    OpenList(float sub_divisions = 5.0f);
     ~OpenList();
+
+private:
+    static size_t constexpr const DEFAULT_SIZE{ 128 };
+
+    struct SubBucket
+    {
+        Node** nodes{ nullptr };  // List of pointers to nodes
+        size_t size{ 0 };         // store the total number of items in this bucket
+        size_t capacity{ 0 };     // store the capacity for this SubBucket
+
+        SubBucket();
+        ~SubBucket();
+    };
 
     struct Bucket
     {
-        Node** node{ nullptr };  // List of pointers to nodes
-        size_t size{ 0 };        // store the total number of items in this bucket
+        Bucket() = default;
+        ~Bucket();
+
+        void Init(float divisions);
+
+        SubBucket* buckets{ nullptr };
     };
 
-    Bucket* list;
+    Bucket* list{};
+    size_t smallestIndex{}; // Used to store the index to the smallest f(x)
+    float divisions{};
 };
 
 #pragma region Extra Credit
@@ -293,13 +313,35 @@ size_t AStarPather::GetArrayPosition(int row, int col) const
     return static_cast<size_t>(row) * terrain->get_map_width() + static_cast<size_t>(col);
 }
 
-AStarPather::OpenList::OpenList()
+AStarPather::OpenList::OpenList(float sub_divisions) : divisions{ sub_divisions }
 {
-    list = new Bucket[ (MAX_SIZE << 1) ];
-
+    list = new Bucket[(MAX_SIZE << 1)];
+    for (size_t i{}; i < (MAX_SIZE << 1); ++i)
+        (list + i)->Init(sub_divisions);
 }
 
 AStarPather::OpenList::~OpenList()
 {
     delete[] list;
+}
+
+AStarPather::OpenList::SubBucket::SubBucket()
+{
+    nodes = new Node *[DEFAULT_SIZE];
+    memset(nodes, 0, sizeof(Node*) * DEFAULT_SIZE);
+}
+
+AStarPather::OpenList::SubBucket::~SubBucket()
+{
+    delete[] nodes;
+}
+
+AStarPather::OpenList::Bucket::~Bucket()
+{
+    delete[] buckets;
+}
+
+void AStarPather::OpenList::Bucket::Init(float _divisions)
+{
+    buckets = new SubBucket[static_cast<size_t>(_divisions)];
 }
