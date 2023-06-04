@@ -26,9 +26,10 @@ private:
 
         void Init(Node const** node);
         void Insert(Node const* node);
-        Node& Pop(bool& isEmpty);
-        void Remove(Node const& node);
+        Node& Pop();
+        bool Remove(Node const& node);
         void Clear();
+        //void Sort();
 
         Node const ** nodes{ nullptr };  // List of pointers to nodes
         size_t size{ 0 };                // store the total number of items in this bucket
@@ -42,15 +43,15 @@ private:
         void Remove(Node const& node, size_t index);
         void Clear(size_t subDivisions);
 
+        size_t size{};
         SubBucket* buckets{ nullptr };
     };
 
     Bucket* buckets{};
     SubBucket* subBuckets{};
     Node const** subBucketNodes{};
-    // Used to store the index to the smallest f(x). 
-    //Index: 0: current smallest 1: next smallest
-    size_t smallestIndex[2]{ std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max() }; 
+    std::set<size_t> indexSet;
+    size_t smallestIndex{ std::numeric_limits<size_t>::max() }; // Used to store the index to the smallest f(x). 
     size_t totalNodes{};
     size_t const subDivisions;
     float const divisions;
@@ -93,6 +94,7 @@ bool AStarPather::initialize()
     Messenger::listen_for_message(Messages::MAP_CHANGE, cb);
 
     list = new OpenList{};
+    memset(map, 0, sizeof(map));
 
     return true; // return false if any errors actually occur, to stop engine initialization
 }
@@ -182,42 +184,41 @@ PathResult AStarPather::compute_path(PathRequest &request)
 
         for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
         {
-            Neighbour& child = *(*(neighbours + parentIndex) + i);
+            Neighbour const& child = *(*(neighbours + parentIndex) + i);
             if (!child.relativePosition)
                 break;
 
             // new gx cost for current node
-            float gx = parentNode.givenCost + IsDiagonal(child.relativePosition) ? SQRT_2 : 1.0f;
+            float gx = parentNode.givenCost + (IsDiagonal(child.relativePosition) ? SQRT_2 : 1.0f);
             float fx = gx + GetHx(request, pos, goal) * request.settings.weight;
 
-            Node* childNode = const_cast<Node*>(child.node);
+            Node childNode = map[child.node->info.id];
 
             // if child node not on list, add to open list
-            if (childNode->info.onList == NO_LIST)
+            if (childNode.info.onList == NO_LIST)
             {
-                childNode->finalCost = fx;
-                childNode->givenCost = gx;
-                list->Insert(childNode);
+                childNode.finalCost = fx;
+                childNode.givenCost = gx;
+                list->Insert(&childNode);
             }
             // if child node is either on open/close list, reinsert the node into the correct bucket
             else if (child.node->info.onList != NO_LIST && fx < child.node->finalCost)
             {
                 float oldCost = child.node->finalCost;
-                childNode->finalCost = fx;
-                childNode->givenCost = gx;
-                list->Reinsert(childNode, oldCost);
+                childNode.finalCost = fx;
+                childNode.givenCost = gx;
+                list->Reinsert(&childNode, oldCost);
             }
         }
         //if (request.settings.singleStep)
         //    return PathResult::PROCESSING;
     }
-
-    std::cout << "Impoosible path" << std::endl;
     return PathResult::IMPOSSIBLE;
 }
 
 void AStarPather::MapChange(void)
 {
+    ResetMap();
     // get each node's neighbour
     memset(neighbours, 0, sizeof(neighbours));
     ComputeNeighbours();
@@ -303,9 +304,19 @@ void AStarPather::ComputeNeighbours(void)
 
 void AStarPather::ResetMap(void)
 {
-    memset(map, 0, sizeof(map));
-    for (size_t i{}; i < MAX_SIZE; ++i)
-        (map + i)->info.id = i;
+    for (int i{}; i < terrain->get_map_height(); ++i)
+    {
+        for (int j{}; j < terrain->get_map_width(); ++j)
+        {
+            size_t index = GetArrayPosition(i, j);
+            (map + index)->finalCost   = (map + index)->givenCost = 0.0f;
+            (map + index)->parent      = nullptr;
+            (map + index)->info.row    = static_cast<unsigned short>(i);
+            (map + index)->info.col    = static_cast<unsigned short>(j);
+            (map + index)->info.id     = static_cast<unsigned short>(index);
+            (map + index)->info.onList = NO_LIST;
+        }
+    }
     list->Clear();
 }
 
@@ -313,36 +324,50 @@ float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal)
 {
     float dx = static_cast<float>(goal.row - curr.row),
           dy = static_cast<float>(goal.col - curr.col);
+    float result = 0.0f;
 
     switch (request.settings.heuristic)
     {
         case Heuristic::OCTILE:
         {
             float min = std::fmin(dx, dy), max = std::fmax(dx, dy);
-            return min * SQRT_2 + (max - min);
+            result = min * SQRT_2 + (max - min); 
+            break;
         }
 
         case Heuristic::CHEBYSHEV:
-            return std::fmax(dx, dy);
+        {
+            result = std::fmax(dx, dy); 
+            break;
+        }
 
         case Heuristic::INCONSISTENT:
         {
-            if ( ! ( (curr.row + curr.col) % 2 ) )
-                return sqrtf(dx * dx + dy * dy);
-            return 0.0f;
+            if (!((curr.row + curr.col) % 2))
+                result = sqrtf(dx * dx + dy * dy);
+            else 
+                result = 0.0f;
+            break;
         }
 
+
         case Heuristic::MANHATTAN:
-            return dx + dy;
+        {
+            result = dx + dy; 
+            break;
+        }
 
         case Heuristic::EUCLIDEAN:
-            return sqrtf( dx * dx + dy * dy );
+        {
+            result = sqrtf(dx * dx + dy * dy); 
+            break;
+        }
 
-        default:
+        default: 
             break;
     }
 
-    return 0.0f;
+    return std::abs(result);
 }
 
 bool AStarPather::Check(Node const& node, unsigned char list) const
@@ -451,11 +476,11 @@ void AStarPather::OpenList::Insert(Node* node)
     terrain->set_color(node->info.row, node->info.col, Colors::Blue);
 
     (buckets + bucketIndex)->Insert(node, subBucketIndex);
-    if (bucketIndex < *smallestIndex)
-    {
-        *(smallestIndex + 1) = *(smallestIndex + 0);
-        *(smallestIndex + 0) = bucketIndex;
-    }
+    if (bucketIndex < smallestIndex)
+        smallestIndex = bucketIndex;
+
+    //indexSet.insert(bucketIndex);
+
     ++totalNodes;
 }
 
@@ -465,7 +490,7 @@ void AStarPather::OpenList::Reinsert(Node* node, float oldCost)
           oldDecimals = oldCost - oldWhole;
 
     size_t const oldBucketIndex     = static_cast<size_t>(oldWhole),
-                 oldSubBucketIndex  = static_cast<size_t>(oldDecimals);
+                 oldSubBucketIndex  = static_cast<size_t>(oldDecimals / divisions);
 
                                                       // x.abcd -> 2.7643 
     float whole       = std::floor(node->finalCost),  // Stores 2.0
@@ -474,26 +499,34 @@ void AStarPather::OpenList::Reinsert(Node* node, float oldCost)
     size_t const bucketIndex    = static_cast<size_t>(whole),
                  subBucketIndex = static_cast<size_t>(decimals / divisions);
 
+    if (oldSubBucketIndex == subBucketIndex)
+        return;
     node->info.onList = OPEN_LIST;
     terrain->set_color(node->info.row, node->info.col, Colors::Blue);
 
-    (buckets + oldBucketIndex)->Remove(*node, subBucketIndex);
+    (buckets + oldBucketIndex)->Remove(*node, oldSubBucketIndex);
     (buckets + bucketIndex)->Insert(node, subBucketIndex);
-    if (bucketIndex < *smallestIndex)
-    {
-        *(smallestIndex + 1) = *(smallestIndex + 0);
-        *(smallestIndex + 0) = bucketIndex;
-    }
+    if (bucketIndex < smallestIndex)
+        smallestIndex = bucketIndex;
 }
 
 AStarPather::Node& AStarPather::OpenList::Pop()
 {
     bool isEmpty{ false };
-    Node& node = (buckets + smallestIndex[0])->Pop(isEmpty, subDivisions);
+    std::cout << "smallestIndex: " << smallestIndex;
+    Node& node = (buckets + smallestIndex)->Pop(isEmpty, subDivisions);
     if (isEmpty)
     {
-        *(smallestIndex + 0) = *(smallestIndex + 1);
-        *(smallestIndex + 1) = 0;
+        size_t i = smallestIndex;
+        smallestIndex = std::numeric_limits<size_t>::max();
+        while (i < (MAX_SIZE << 1))
+        {
+            if (!(buckets + ++i)->size)
+                continue;
+
+            smallestIndex = i;
+            break;
+        }
     }
     --totalNodes;
     return node;
@@ -501,11 +534,11 @@ AStarPather::Node& AStarPather::OpenList::Pop()
 
 void AStarPather::OpenList::Clear()
 {
-    *(smallestIndex + 0) = std::numeric_limits<size_t>::max();
-    *(smallestIndex + 1) = std::numeric_limits<size_t>::max();
+    smallestIndex = std::numeric_limits<size_t>::max();
 
     for (size_t i{}; i < (MAX_SIZE << 1); ++i)
         (buckets + i)->Clear(subDivisions);
+    totalNodes = 0;
 }
 
 bool AStarPather::OpenList::Empty() const
@@ -523,25 +556,30 @@ void AStarPather::OpenList::Bucket::Init(SubBucket* bucket)
 
 void AStarPather::OpenList::Bucket::Insert(Node const* node, size_t index)
 {
+    ++size;
     (buckets + index)->Insert(node);
 }
 
 AStarPather::Node& AStarPather::OpenList::Bucket::Pop(bool& isEmpty, size_t subDivisions)
 {
     size_t index{};
-    while ( !(buckets + index)->size ) ++index;
-    return (buckets + index)->Pop(isEmpty);
+    while ( index < subDivisions && !(buckets + index)->size )
+        ++index;
+    std::cout << " sub_div index: " << index << std::endl;
+    isEmpty = !(--size);
+    return (buckets + index)->Pop();
 }
 
 void AStarPather::OpenList::Bucket::Remove(Node const& node, size_t index)
 {
-    (buckets + index)->Remove(node);
+    if ((buckets + index)->Remove(node)) --size;
 }
 
 void AStarPather::OpenList::Bucket::Clear(size_t subDivisions)
 {
     for (size_t i{}; i < subDivisions; ++i)
         (buckets + i)->Clear();
+    size = 0;
 }
 
 /******************************************************************************************
@@ -567,23 +605,47 @@ void AStarPather::OpenList::SubBucket::Insert(Node const* node)
         });
 }
 
-AStarPather::Node& AStarPather::OpenList::SubBucket::Pop(bool& isEmpty)
+AStarPather::Node& AStarPather::OpenList::SubBucket::Pop()
 {
-    isEmpty = !(--size);
-    return const_cast<Node&>( *( *(nodes + size) ) );
+    return const_cast<Node&>( *( *(nodes + --size) ) );
 }
 
-void AStarPather::OpenList::SubBucket::Remove(Node const& node)
+bool AStarPather::OpenList::SubBucket::Remove(Node const& node)
 {
-    Node** nonConst = const_cast<Node**>(nodes);
-    auto n = std::remove_if(*nonConst, *(nonConst + size), [node](Node const& lhs)
+    bool removed = false;
+    for (size_t i{}; i < size; ++i)
     {
-        return lhs.info.id == node.info.id;
-    });
-    --size;
+        if ((*(nodes + i))->info.id != node.info.id) 
+            continue;
+
+        for (size_t j{ i }; j < size; ++j)
+        {
+            if (!*(nodes + j))
+                break;
+            *(nodes + j) = *(nodes + j + 1);
+        }
+        removed = true;
+        break;
+    }
+    if(removed)
+        --size;
+    return removed;
 }
 
 void AStarPather::OpenList::SubBucket::Clear()
 {
-    memset(nodes, 0, sizeof(Node*) * DEFAULT_SIZE);
+    for (size_t i{}; i < DEFAULT_SIZE; ++i)
+        *(nodes + i) = nullptr;
+    size = 0;
 }
+
+//void AStarPather::OpenList::SubBucket::Sort()
+//{
+//    //Node* nonConst = const_cast<Node*>(*nodes);
+//    //// Arranging it from biggest to smallest
+//    //// Can just return the last element in the array as it is for sure the smallest
+//    //std::sort(nonConst, (nonConst + size), [](Node const& lhs, Node const& rhs)
+//    //    {
+//    //        return lhs.finalCost > rhs.finalCost;
+//    //    });
+//}
