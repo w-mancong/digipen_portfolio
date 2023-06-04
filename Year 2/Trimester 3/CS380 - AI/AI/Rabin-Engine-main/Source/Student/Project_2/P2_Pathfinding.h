@@ -42,7 +42,8 @@ private:
     static float constexpr const
         SQRT_2 = 1.41421356237f;
 
-    static size_t constexpr MAX_WIDTH{ 40 }, MAX_HEIGHT{ 40 }, MAX_SIZE{ MAX_WIDTH * MAX_HEIGHT };
+    static size_t constexpr MAX_WIDTH{ 40 }, MAX_HEIGHT{ 40 }, MAX_SIZE{ MAX_WIDTH * MAX_HEIGHT }, 
+        MAX_NEIGHBOURS{ 8 };
 
     struct NodeInfo
     {
@@ -65,7 +66,7 @@ private:
     struct Neighbour
     {
         Node const* node;
-        unsigned char neighbour;    // Position of node relative to node
+        unsigned char relativePosition;    // Position of node relative to node
     };
 
     class OpenList;
@@ -73,17 +74,23 @@ private:
     void MapChange(void);
     void ComputeNeighbours(void);
     void ResetMap(void);
-    float GetHx(Heuristic heu, GridPos curr, GridPos goal) const;
+    float GetHx(PathRequest const& request, GridPos curr, GridPos goal) const;
     bool Check(Node const& node, unsigned char list) const;
     void SetListStatus(Node& node, unsigned char list);
     GridPos MakeGrid(Node const& node) const;
+    Node& GetNode(GridPos pos);
+    Node const& GetNode(GridPos pos) const;
     Node& GetNode(int row, int col);
     Node const& GetNode(int row, int col) const;
     Node& GetNode(size_t id);
     Node const& GetNode(size_t id) const;
+    size_t GetArrayPosition(GridPos pos) const;
     size_t GetArrayPosition(int row, int col) const;
+    bool IsGoal(Node const& node);
+    bool IsDiagonal(unsigned char relativePosition);
 
     Node map[MAX_SIZE];
-    Neighbour neighbours[MAX_SIZE][8];
+    Neighbour neighbours[MAX_SIZE][MAX_NEIGHBOURS];
     OpenList* list;
+    GridPos goal;
 };
