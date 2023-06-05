@@ -107,12 +107,15 @@ PathResult AStarPather::compute_path(PathRequest &request)
         startNode.fx = startNode.gx + GetHx(request, start, goal) * request.settings.weight;
         startNode.info.onList = OPEN_LIST;
 
-        list.Insert(&startNode);
+        //list.Insert(&startNode);
+        a.Insert(&startNode);
     }
 
-    while (!list.Empty())
+    //while (!list.Empty())
+    while(!a.Empty())
     {
-        Node& parentNode = *list.Pop();
+        //Node& parentNode = *list.Pop();
+        Node& parentNode = *a.Pop();
         GridPos parentPosition = { parentNode.info.row, parentNode.info.col };
 
         if (IsGoal(parentPosition))
@@ -157,17 +160,26 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 neighbourNode->parent = map + parentNode.info.id;
 
                 neighbourNode->info.onList = OPEN_LIST;
-                list.Insert(neighbourNode);
+                //list.Insert(neighbourNode);
+                a.Insert(neighbourNode);
             }
             else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
             {
-                neighbourNode->fx = fx;
-                neighbourNode->gx = gx;
-                neighbourNode->parent = map + parentNode.info.id;
                 if (neighbourNode->info.onList == OPEN_LIST)
-                    list.Rearrange(neighbourNode->info.id);
-                if (neighbourNode->info.onList == CLOSE_LIST)
-                    list.Insert(neighbourNode);
+                {
+                    a.Remove(neighbourNode);
+                    neighbourNode->fx = fx;
+                    neighbourNode->gx = gx;
+                    neighbourNode->parent = map + parentNode.info.id;
+                    a.Insert(neighbourNode);
+                }
+                else if (neighbourNode->info.onList == CLOSE_LIST)
+                {
+                    neighbourNode->fx = fx;
+                    neighbourNode->gx = gx;
+                    neighbourNode->parent = map + parentNode.info.id;
+                    a.Insert(neighbourNode);
+                }
                 neighbourNode->info.onList = OPEN_LIST;
             }
         }
@@ -196,7 +208,8 @@ void AStarPather::NewRequest(void)
             (map + index)->info.onList = NO_LIST;
         }
     }
-    list.Clear();
+    //list.Clear();
+    a.Clear();
 }
 
 void AStarPather::MapChange(void)

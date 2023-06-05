@@ -6,7 +6,12 @@ class OpenList
 public:
 	OpenList();
 	~OpenList();
+
 	void Insert(Node* node);
+	void Remove(Node const* node);
+	Node* Pop(void);
+	void Clear(void);
+	bool Empty(void) const;
 	
 private:
 	static size_t constexpr const MAX_SUB_BUCKETS{ 5 }, MAX_NODES_IN_SUB_BUCKET{ 64 };
