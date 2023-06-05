@@ -17,16 +17,6 @@ void MinHeap::Insert(Node* node)
 	*(arr + heapSize++) = node;
 }
 
-void MinHeap::Remove(unsigned short id)
-{
-	for (size_t i{}; i < heapSize; ++i)
-	{
-		if ((*(arr + i))->info.id != id) continue;
-		*(arr + i) = *(arr + --heapSize);
-		break;
-	}
-}
-
 void MinHeap::Heapify(void)
 {
 	for (int64_t i = ((heapSize - 1) >> 1); i >= 0; --i)
@@ -35,11 +25,15 @@ void MinHeap::Heapify(void)
 
 Node* MinHeap::Pop(void)
 {
+	//std::make_heap(arr, (arr + heapSize), [](Node const* lhs, Node const* rhs)
+	//	{
+	//		return lhs->fx > rhs->fx;
+	//	});
+
 	Heapify();
 	Node* min = *arr;
 	*arr = *(arr + heapSize - 1);
 	--heapSize;
-	Heapify(0);
 	return min;
 }
 
@@ -47,10 +41,6 @@ void MinHeap::Clear(void)
 {
 	memset(arr, 0, sizeof(arr));
 	heapSize = 0;
-
-
-	//std::cout << "Clearing..." << std::endl;
-	//std::cout << *this << std::endl;
 }
 
 bool MinHeap::Empty(void) const
@@ -80,14 +70,14 @@ size_t MinHeap::right(size_t i) const
 
 void MinHeap::Heapify(size_t i)
 {
-	size_t l = left(i);
-	size_t r = right(i);
+	size_t l = (i << 1) + 1;
+	size_t r = (i << 1) + 2;
 
 	size_t largest{ i };
-	if ( l < heapSize && *(*(arr + l)) < *(*(arr + i)) )
+	if ( l < heapSize && (*(arr + l))->fx < (*(arr + i))->fx )
 		largest = l;
 
-	if ( r < heapSize && *(*(arr + r)) < *(*(arr + largest)) )
+	if ( r < heapSize && (*(arr + r))->fx < (*(arr + largest))->fx )
 		largest = r;
 
 	if (largest != i)

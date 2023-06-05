@@ -113,7 +113,7 @@ PathResult AStarPather::compute_path(PathRequest &request)
     while (!list.Empty())
     {
         Node& parentNode = *list.Pop();
-        GridPos parentPosition = MakeGrid(parentNode);
+        GridPos parentPosition = { parentNode.info.row, parentNode.info.col };
 
         if (IsGoal(parentPosition))
         {
@@ -122,7 +122,7 @@ PathResult AStarPather::compute_path(PathRequest &request)
             Node* pn = parentNode.parent;
             while (pn)
             {
-                request.path.push_front( terrain->get_world_position( MakeGrid(*pn) ) );
+                request.path.push_front( terrain->get_world_position( pn->info.row, pn->info.col ) );
                 pn = pn->parent;
             }
             return PathResult::COMPLETE;
@@ -132,62 +132,18 @@ PathResult AStarPather::compute_path(PathRequest &request)
         // Set terrain colour to yellow
         terrain->set_color(parentPosition, Colors::Yellow);
 
+        // Checking with parentNode's neighbours
+        Neighbour* n = neighbours[ parentNode.info.id ];
         for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
         {
-            Node* neighbourNode{ nullptr };
-            // Current neighbour's position
-            GridPos neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[i];
-            bool diagonalNeighbour = false;
+            if (!(n + i)->isNeighbour)
+                break;
 
-            /********************************************************************************************
-            *                                   NEIGHBOUR VALIDATION                                    *
-            *********************************************************************************************/
-            auto IsNotWall = [](GridPos pos)
-            {
-                return terrain->is_valid_grid_position(pos) && !terrain->is_wall(pos);
-            };
-
-            if ( !IsNotWall(neighbourPosition) )
-                continue;
-
-            if ( IsDiagonal( i ))
-            {
-                auto IsValidDiagonalNeighbour = [parentPosition, IsNotWall](size_t index)
-                {
-                    GridPos pos = parentPosition + NEIGHBOUR_POSITIONS[index];
-                    return IsNotWall(pos);
-                };
-
-                if (i == TL)
-                {
-                    if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(L))
-                        neighbourNode = map + GetIndex(neighbourPosition);
-                }
-                else if (i == TR)
-                {
-                    if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(R))
-                        neighbourNode = map + GetIndex(neighbourPosition);
-                }
-                else if (i == BL)
-                {
-                    if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(L))
-                        neighbourNode = map + GetIndex(neighbourPosition);
-                }
-                else if (i == BR)
-                {
-                    if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(R))
-                        neighbourNode = map + GetIndex(neighbourPosition);
-                }
-                diagonalNeighbour = true;
-            }
-            else
-            {
-                neighbourNode = map + GetIndex(neighbourPosition);
-            }
+            Node* neighbourNode = map + (n + i)->id;
+            GridPos neighbourPosition = { neighbourNode->info.row, neighbourNode->info.col };
 
             // Compute fx = gx + hx * weight
-            if (!neighbourNode) continue;
-            float gx = parentNode.gx + (diagonalNeighbour ? SQRT_2 : 1.0f);
+            float gx = parentNode.gx + ((n + i)->isDiagonal ? SQRT_2 : 1.0f);
             float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
 
             // If neighbour node is not on list, add it to open list
@@ -208,14 +164,7 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 neighbourNode->fx = fx;
                 neighbourNode->gx = gx;
                 neighbourNode->parent = map + parentNode.info.id;
-
-                if (neighbourNode->info.onList == OPEN_LIST)
-                {
-                    list.Remove(neighbourNode->info.id);
-                    list.Insert(neighbourNode);
-                }
-                // if neighbourNode is on CLOSE_LIST, then insert it to the open list
-                else if (neighbourNode->info.onList == CLOSE_LIST)
+                if (neighbourNode->info.onList == CLOSE_LIST)
                     list.Insert(neighbourNode);
                 neighbourNode->info.onList = OPEN_LIST;
             }
@@ -249,7 +198,11 @@ void AStarPather::NewRequest(void)
 
 void AStarPather::MapChange(void)
 {
+    NewRequest();
+
     // TODO: Compute neighbours here
+    memset(neighbours, 0, sizeof(neighbours));
+    ComputeNeighbours();
 }
 
 size_t AStarPather::GetIndex(GridPos pos)
@@ -267,10 +220,10 @@ bool AStarPather::IsGoal(GridPos pos)
     return pos.row == goal.row && pos.col == goal.col;
 }
 
-GridPos AStarPather::MakeGrid(Node const& node)
-{
-    return { node.info.row, node.info.col };
-}
+//GridPos AStarPather::MakeGrid(Node const& node)
+//{
+//    return { node.info.row, node.info.col };
+//}
 
 bool AStarPather::IsDiagonal(size_t neighbourPosition)
 {
@@ -278,6 +231,70 @@ bool AStarPather::IsDiagonal(size_t neighbourPosition)
            neighbourPosition == TR || 
            neighbourPosition == BL || 
            neighbourPosition == BR;
+}
+
+void AStarPather::ComputeNeighbours(void)
+{
+    for(size_t index{}; index < MAX_SIZE; ++index)
+    { 
+        GridPos parentPosition = { (map + index)->info.row, (map + index)->info.col };
+        size_t neighbourIndex = 0;
+        for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
+        {
+            Node* neighbourNode{ nullptr };
+            // Current neighbour's position
+            GridPos neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[i];
+            bool isDiagonal = false;
+
+            /********************************************************************************************
+            *                                   NEIGHBOUR VALIDATION                                    *
+            *********************************************************************************************/
+            auto IsNotWall = [](GridPos pos)
+            {
+                return terrain->is_valid_grid_position(pos) && !terrain->is_wall(pos);
+            };
+
+            if (!IsNotWall(neighbourPosition))
+                continue;
+
+            if (IsDiagonal(i))
+            {
+                auto IsValidDiagonalNeighbour = [parentPosition, IsNotWall](size_t index)
+                {
+                    GridPos pos = parentPosition + NEIGHBOUR_POSITIONS[index];
+                    return IsNotWall(pos);
+                };
+
+                if (i == TL)
+                {
+                    if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(L))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                else if (i == TR)
+                {
+                    if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(R))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                else if (i == BL)
+                {
+                    if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(L))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                else if (i == BR)
+                {
+                    if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(R))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                isDiagonal = true;
+            }
+            else
+                neighbourNode = map + GetIndex(neighbourPosition);
+
+            if (!neighbourNode) 
+                continue;
+            neighbours[index][neighbourIndex++] = { neighbourNode->info.id, isDiagonal, true };
+        }
+    }
 }
 
 float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal) const

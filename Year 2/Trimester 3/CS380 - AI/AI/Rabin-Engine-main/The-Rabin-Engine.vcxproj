@@ -53,7 +53,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <WholeProgramOptimization>PGOptimize</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -171,6 +171,7 @@
       <AdditionalIncludeDirectories>$(ProjectDir)\Source\Framework;$(ProjectDir)\Include;$(ProjectDir)\Source\Framework\BehaviorTrees</AdditionalIncludeDirectories>
       <StringPooling>true</StringPooling>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -178,6 +179,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>d3d11.lib;dxguid.lib;uuid.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;odbc32.lib;odbccp32.lib;DWrite.lib;d2d1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/FASTGENPROFILE %(AdditionalOptions)</AdditionalOptions>
+      <LinkTimeCodeGeneration>PGOptimization</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

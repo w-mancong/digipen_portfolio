@@ -27,19 +27,28 @@ public:
     */
 
 private:
+    struct Neighbour
+    {
+        unsigned short id{ std::numeric_limits<unsigned short>::max() };
+        bool isDiagonal{};
+        bool isNeighbour{};
+    };
+
     void NewRequest(void);
     void MapChange(void);
     size_t GetIndex(GridPos pos);
     size_t GetIndex(int row, int col);
 
     bool IsGoal(GridPos pos);
-    GridPos MakeGrid(Node const& node);
+    //GridPos MakeGrid(Node const& node);
 
     bool IsDiagonal(size_t neighbourPosition);
+    void ComputeNeighbours(void);
 
     float GetHx(PathRequest const& request, GridPos curr, GridPos goal) const;
 
-    Node map[MAX_SIZE];
+    Node map[MAX_SIZE]{};
+    Neighbour neighbours[MAX_SIZE][8]{};
     MinHeap list;
     GridPos goal;
 };
