@@ -1,6 +1,8 @@
 #pragma once
 #include "Misc/PathfindingDetails.hpp"
+#include "Node.h"
 #include "MinHeap.h"
+#include "OpenList.h"
 
 class AStarPather
 {
@@ -51,4 +53,6 @@ private:
     Neighbour neighbours[MAX_SIZE][8]{};
     MinHeap list;
     GridPos goal;
+
+    OpenList a;
 };

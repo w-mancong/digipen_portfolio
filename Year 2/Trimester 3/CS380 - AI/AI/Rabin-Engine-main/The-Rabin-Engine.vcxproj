@@ -310,6 +310,8 @@
     <ClInclude Include="Source\Student\Project_1\MyVar.h" />
     <ClInclude Include="Source\Student\Project_1\NodeHeaders.h" />
     <ClInclude Include="Source\Student\Project_2\MinHeap.h" />
+    <ClInclude Include="Source\Student\Project_2\Node.h" />
+    <ClInclude Include="Source\Student\Project_2\OpenList.h" />
     <ClInclude Include="Source\Student\Project_2\P2_Pathfinding.h" />
   </ItemGroup>
   <ItemGroup>
@@ -435,6 +437,7 @@
     <ClCompile Include="Source\Student\Project_1\MyVar.cpp" />
     <ClCompile Include="Source\Student\Project_1\Setup.cpp" />
     <ClCompile Include="Source\Student\Project_2\MinHeap.cpp" />
+    <ClCompile Include="Source\Student\Project_2\OpenList.cpp" />
     <ClCompile Include="Source\Student\Project_2\P2_Pathfinding.cpp" />
     <ClCompile Include="Source\Student\Project_3\P3_TerrainAnalysis.cpp" />
   </ItemGroup>

@@ -9,7 +9,7 @@ MinHeap::MinHeap(void)
 
 MinHeap::~MinHeap(void)
 {
-	//delete[] arr;
+
 }
 
 void MinHeap::Insert(Node* node)
