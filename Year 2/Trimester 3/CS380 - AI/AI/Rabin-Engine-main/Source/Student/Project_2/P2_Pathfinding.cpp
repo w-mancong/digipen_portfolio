@@ -164,6 +164,8 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 neighbourNode->fx = fx;
                 neighbourNode->gx = gx;
                 neighbourNode->parent = map + parentNode.info.id;
+                if (neighbourNode->info.onList == OPEN_LIST)
+                    list.Rearrange(neighbourNode->info.id);
                 if (neighbourNode->info.onList == CLOSE_LIST)
                     list.Insert(neighbourNode);
                 neighbourNode->info.onList = OPEN_LIST;
@@ -181,17 +183,18 @@ void AStarPather::NewRequest(void)
     memset(map, 0, sizeof(map));
     int w = terrain->get_map_width(), h = terrain->get_map_height();
     int map_size = w * h;
-    for (int i{}; i < map_size; ++i)
+    for (int row{}; row < h; ++row)
     {
-        int row = i / h;
-        int col = i % w;
-
-        (map + i)->fx = (map + i)->gx = 0.0f;
-        (map + i)->parent   = nullptr;
-        (map + i)->info.row = static_cast<short>(row);
-        (map + i)->info.col = static_cast<short>(col);
-        (map + i)->info.id  = static_cast<short>(i);
-        (map + i)->info.onList = NO_LIST;
+        for (int col{}; col < w; ++col)
+        {
+            size_t index = static_cast<size_t>(row * h + col);
+            (map + index)->fx = (map + index)->gx = 0.0f;
+            (map + index)->parent   = nullptr;
+            (map + index)->info.row = static_cast<short>(row);
+            (map + index)->info.col = static_cast<short>(col);
+            (map + index)->info.id  = static_cast<short>(index);
+            (map + index)->info.onList = NO_LIST;
+        }
     }
     list.Clear();
 }
@@ -307,7 +310,7 @@ float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal)
     {
         case Heuristic::OCTILE:
         {
-            float min = std::fmin(dx, dy), max = std::fmax(dx, dy);
+            float min = dx < dy ? dx : dy, max = dx > dy ? dx : dy;
             result = min * SQRT_2 + (max - min); 
             break;
         }
@@ -344,5 +347,5 @@ float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal)
             break;
     }
 
-    return std::abs(result);
+    return result * (result < 0.0f ? -1.0f : 1.0f);
 }

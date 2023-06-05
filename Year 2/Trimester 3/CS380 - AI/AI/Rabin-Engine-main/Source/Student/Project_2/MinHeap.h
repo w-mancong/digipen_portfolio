@@ -55,7 +55,7 @@ public:
     ~MinHeap(void);
 
     void Insert(Node* node);
-    void Heapify(void);
+    void Rearrange(unsigned short id);
     Node* Pop(void);
     void Clear(void);
     bool Empty(void) const;
