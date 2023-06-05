@@ -70,7 +70,14 @@ struct GridPos
     {
         return !(*this == rhs);
     }
+
+    GridPos operator+=(GridPos const& rhs) const
+    {
+        return { row + rhs.row, col + rhs.col };
+    }
 };
+
+GridPos operator+(GridPos const& lhs, GridPos const& rhs);
 
 struct WindowSize
 {

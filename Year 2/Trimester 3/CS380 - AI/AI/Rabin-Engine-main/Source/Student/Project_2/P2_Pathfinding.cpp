@@ -19,6 +19,11 @@ bool ProjectTwo::implemented_jps_plus()
 }
 #pragma endregion
 
+GridPos operator+(GridPos const& lhs, GridPos const& rhs)
+{
+    return lhs += rhs;
+}
+
 bool AStarPather::initialize()
 {
     // handle any one-time setup requirements you have
@@ -38,11 +43,6 @@ bool AStarPather::initialize()
     Callback cb = std::bind(&AStarPather::MapChange, this);
     Messenger::listen_for_message(Messages::MAP_CHANGE, cb);
 
-    memset(map, 0, sizeof(map));
-    neighbours = new Neighbour * [MAX_SIZE];
-    for (size_t i{}; i < MAX_SIZE; ++i)
-        *(neighbours + i) = new Neighbour[MAX_NEIGHBOURS];
-
     return true; // return false if any errors actually occur, to stop engine initialization
 }
 
@@ -52,9 +52,6 @@ void AStarPather::shutdown()
         Free any dynamically allocated memory or any other general house-
         keeping you need to do during shutdown.
     */
-    for (size_t i{}; i < MAX_SIZE; ++i)
-        delete[] *(neighbours + i);
-    delete[] neighbours;
 }
 
 PathResult AStarPather::compute_path(PathRequest &request)
@@ -102,182 +99,185 @@ PathResult AStarPather::compute_path(PathRequest &request)
     // WRITE YOUR CODE HERE
     if (request.newRequest)
     {
-        // clear open list
-        // push start node into the open list with cost f(x) = g(x) + h(x) * weight
-        ResetMap();
-        goal          = terrain->get_grid_position(request.goal);
+        NewRequest();
         GridPos start = terrain->get_grid_position(request.start);
-        Node& node = GetNode( start );
-        node.finalCost = node.givenCost + GetHx(request, start, goal) * request.settings.weight;
-        list.Insert(&node);
+        goal = terrain->get_grid_position(request.goal);
+
+        Node& startNode = *( map + GetIndex(start) );
+        startNode.fx = startNode.gx + GetHx(request, start, goal) * request.settings.weight;
+        startNode.info.onList = OPEN_LIST;
+
+        list.Insert(&startNode);
     }
-    
+
     while (!list.Empty())
     {
-        // Pop cheapest node off the list
-        Node* parentNode = list.Pop();
+        Node& parentNode = *list.Pop();
+        GridPos parentPosition = MakeGrid(parentNode);
 
-        // if parent node is goal, path found
-        if (IsGoal(*parentNode))
+        if (IsGoal(parentPosition))
         {
-            // assign the path to request.path
+            // TODO: Add nodes into request.path
+            request.path.push_back( terrain->get_world_position(parentPosition) );
+            Node* pn = parentNode.parent;
+            while (pn)
+            {
+                request.path.push_front( terrain->get_world_position( MakeGrid(*pn) ) );
+                pn = pn->parent;
+            }
             return PathResult::COMPLETE;
         }
 
-        // Place parent node on close list
-        parentNode->info.onList = CLOSE_LIST;
-        terrain->set_color(parentNode->info.row, parentNode->info.col, Colors::Yellow);
-
-         // Retrieve all valid neighbours from parentNode
-        GridPos pos = MakeGrid(*parentNode);
-        size_t parentIndex = GetArrayPosition(pos);
+        parentNode.info.onList = CLOSE_LIST;
+        // Set terrain colour to yellow
+        terrain->set_color(parentPosition, Colors::Yellow);
 
         for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
         {
-            Neighbour const& child = *(*(neighbours + parentIndex) + i);
-            if (!child.relativePosition)
-                break;
+            Node* neighbourNode{ nullptr };
+            // Current neighbour's position
+            GridPos neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[i];
+            bool diagonalNeighbour = false;
 
-            GridPos neighbourPos = MakeGrid(*child.node);
-            // new gx cost for current node
-            float gx = parentNode->givenCost + (IsDiagonal(child.relativePosition) ? SQRT_2 : 1.0f);
-            float fx = gx + GetHx(request, neighbourPos, goal) * request.settings.weight;
-
-            Node& childNode = map[child.node->info.id];
-
-            // if child node not on list, add to open list
-            if (childNode.info.onList == NO_LIST)
+            /********************************************************************************************
+            *                                   NEIGHBOUR VALIDATION                                    *
+            *********************************************************************************************/
+            auto IsNotWall = [](GridPos pos)
             {
-                childNode.finalCost = fx;
-                childNode.givenCost = gx;
-                childNode.info.onList = OPEN_LIST;
-                terrain->set_color(neighbourPos, Colors::Blue);
-                list.Insert(&childNode);
+                return terrain->is_valid_grid_position(pos) && !terrain->is_wall(pos);
+            };
+
+            if ( !IsNotWall(neighbourPosition) )
+                continue;
+
+            if ( IsDiagonal( i ))
+            {
+                auto IsValidDiagonalNeighbour = [parentPosition, IsNotWall](size_t index)
+                {
+                    GridPos pos = parentPosition + NEIGHBOUR_POSITIONS[index];
+                    return IsNotWall(pos);
+                };
+
+                if (i == TL)
+                {
+                    if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(L))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                else if (i == TR)
+                {
+                    if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(R))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                else if (i == BL)
+                {
+                    if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(L))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                else if (i == BR)
+                {
+                    if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(R))
+                        neighbourNode = map + GetIndex(neighbourPosition);
+                }
+                diagonalNeighbour = true;
             }
-            // if child node is either on open/close list, reinsert the node into the correct bucket
-            else if (child.node->info.onList != NO_LIST && fx < child.node->finalCost)
+            else
             {
-                childNode.finalCost = fx;
-                childNode.givenCost = gx;
-                if(child.node->info.onList != OPEN_LIST)
-                    list.Insert(&childNode);
+                neighbourNode = map + GetIndex(neighbourPosition);
+            }
+
+            // Compute fx = gx + hx * weight
+            if (!neighbourNode) continue;
+            float gx = parentNode.gx + (diagonalNeighbour ? SQRT_2 : 1.0f);
+            float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
+
+            // If neighbour node is not on list, add it to open list
+            if (neighbourNode->info.onList == NO_LIST)
+            {
+                // set terrain's color to blue
+                terrain->set_color(neighbourPosition, Colors::Blue);
+
+                neighbourNode->fx = fx;
+                neighbourNode->gx = gx;
+                neighbourNode->parent = map + parentNode.info.id;
+
+                neighbourNode->info.onList = OPEN_LIST;
+                list.Insert(neighbourNode);
+            }
+            else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
+            {
+                neighbourNode->fx = fx;
+                neighbourNode->gx = gx;
+                neighbourNode->parent = map + parentNode.info.id;
+
+                if (neighbourNode->info.onList == OPEN_LIST)
+                {
+                    list.Remove(neighbourNode->info.id);
+                    list.Insert(neighbourNode);
+                }
+                // if neighbourNode is on CLOSE_LIST, then insert it to the open list
+                else if (neighbourNode->info.onList == CLOSE_LIST)
+                    list.Insert(neighbourNode);
+                neighbourNode->info.onList = OPEN_LIST;
             }
         }
         if (request.settings.singleStep)
             return PathResult::PROCESSING;
     }
+
     return PathResult::IMPOSSIBLE;
+}
+
+void AStarPather::NewRequest(void)
+{
+    memset(map, 0, sizeof(map));
+    int w = terrain->get_map_width(), h = terrain->get_map_height();
+    int map_size = w * h;
+    for (int i{}; i < map_size; ++i)
+    {
+        int row = i / h;
+        int col = i % w;
+
+        (map + i)->fx = (map + i)->gx = 0.0f;
+        (map + i)->parent   = nullptr;
+        (map + i)->info.row = static_cast<short>(row);
+        (map + i)->info.col = static_cast<short>(col);
+        (map + i)->info.id  = static_cast<short>(i);
+        (map + i)->info.onList = NO_LIST;
+    }
+    list.Clear();
 }
 
 void AStarPather::MapChange(void)
 {
-    ResetMap();
-    // get each node's neighbour
-    for (size_t i{}; i < MAX_SIZE; ++i)
-    {
-        for (size_t j{}; j < MAX_NEIGHBOURS; ++j)
-        {
-            (*(neighbours + i) + j)->relativePosition = 0;
-            (*(neighbours + i) + j)->node = nullptr;
-        }
-    }
-    ComputeNeighbours();
+    // TODO: Compute neighbours here
 }
 
-void AStarPather::ComputeNeighbours(void)
+size_t AStarPather::GetIndex(GridPos pos)
 {
-    size_t const WIDTH  = static_cast<size_t>( terrain->get_map_width() ),
-                 HEIGHT = static_cast<size_t>( terrain->get_map_height() );
-
-    auto ShouldBeNeighbour = [](unsigned char relativePosition, GridPos pos)
-    {
-        static size_t constexpr const TOP{ 0 }, LEFT{ 1 }, RIGHT{ 2 }, BTM{ 3 };
-        GridPos wall[4]{ { pos.row + 1, pos.col },      // Top
-                         { pos.row, pos.col - 1 },      // Left
-                         { pos.row, pos.col + 1 },      // Right
-                         { pos.row - 1, pos.col } };    // Btm
-
-        auto IsWall = [](GridPos pos)
-        {
-            return terrain->is_valid_grid_position(pos) && terrain->is_wall(pos);
-        };
-
-        if (relativePosition & TOP_LEFT)
-        {
-            if ( IsWall(wall[TOP]) || IsWall(wall[LEFT]) )
-                return false;
-        }
-
-        if (relativePosition & TOP_RIGHT)
-        {
-            if (IsWall(wall[TOP]) || IsWall(wall[RIGHT]))
-                return false;
-        }
-
-        if (relativePosition & BTM_LEFT)
-        {
-            if (IsWall(wall[BTM]) || IsWall(wall[LEFT]))
-                return false;
-        }
-
-        if (relativePosition & BTM_RIGHT)
-        {
-            if (IsWall(wall[BTM]) || IsWall(wall[RIGHT]))
-                return false;
-        }
-
-        return true;
-    };
-
-    auto GetNeighbours = [this, ShouldBeNeighbour](int i, int j)
-    {
-        size_t index = 0; unsigned char relativePosition = 0;
-        int const nodeIndex = static_cast<int>( GetArrayPosition( i, j ) );
-
-        for (int row{ 1 }; row >= -1; --row)
-        {
-            for (int col{ -1 }; col <= 1; ++col)
-            {
-                if (row == 0 && col == 0)
-                    continue;
-
-                ++relativePosition;
-                GridPos pos{ i + row, j + col };
-                if ( !terrain->is_valid_grid_position( pos ) || terrain->is_wall(pos) )
-                    continue;
-
-                if ( IsDiagonal( 0b1 << (relativePosition - 1) ) && !ShouldBeNeighbour( 0b1 << (relativePosition - 1), { i , j } ) )
-                        continue;
-
-                neighbours[nodeIndex][index].relativePosition = 0b1 << (relativePosition - 1);
-                neighbours[nodeIndex][index++].node = &map[ GetArrayPosition(i + row, j + col) ];
-            }
-        }
-    };
-
-    for (int i{}; i < HEIGHT; ++i)
-    {
-        for (int j{}; j < WIDTH; ++j)
-            GetNeighbours(i, j);
-    }
+    return GetIndex(pos.row, pos.col);
 }
 
-void AStarPather::ResetMap(void)
+size_t AStarPather::GetIndex(int row, int col)
 {
-    for (int i{}; i < terrain->get_map_height(); ++i)
-    {
-        for (int j{}; j < terrain->get_map_width(); ++j)
-        {
-            size_t index = GetArrayPosition(i, j);
-            (map + index)->finalCost   = (map + index)->givenCost = 0.0f;
-            (map + index)->parent      = nullptr;
-            (map + index)->info.row    = static_cast<unsigned short>(i);
-            (map + index)->info.col    = static_cast<unsigned short>(j);
-            (map + index)->info.id     = static_cast<unsigned short>(index);
-            (map + index)->info.onList = NO_LIST;
-        }
-    }
-    list.Clear();
+    return static_cast<size_t>(row) * terrain->get_map_height() + static_cast<size_t>(col);
+}
+
+bool AStarPather::IsGoal(GridPos pos)
+{
+    return pos.row == goal.row && pos.col == goal.col;
+}
+
+GridPos AStarPather::MakeGrid(Node const& node)
+{
+    return { node.info.row, node.info.col };
+}
+
+bool AStarPather::IsDiagonal(size_t neighbourPosition)
+{
+    return neighbourPosition == TL || 
+           neighbourPosition == TR || 
+           neighbourPosition == BL || 
+           neighbourPosition == BR;
 }
 
 float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal) const
@@ -328,72 +328,4 @@ float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal)
     }
 
     return std::abs(result);
-}
-
-bool AStarPather::Check(Node const& node, unsigned char list) const
-{
-    return node.info.onList & list;
-}
-
-void AStarPather::SetListStatus(Node& node, unsigned char list)
-{
-    node.info.onList = list;
-}
-
-GridPos AStarPather::MakeGrid(Node const& node) const
-{
-    return { static_cast<int>(node.info.row), static_cast<int>(node.info.col) };
-}
-
-Node& AStarPather::GetNode(GridPos pos)
-{
-    return GetNode(pos.row, pos.col);
-}
-
-Node const& AStarPather::GetNode(GridPos pos) const
-{
-    return GetNode(pos.row, pos.col);
-}
-
-Node& AStarPather::GetNode(int row, int col)
-{
-    return const_cast<Node&>( const_cast<AStarPather const&>(*this).GetNode(row, col) );
-}
-
-Node const& AStarPather::GetNode(int row, int col) const
-{
-    return *( map + GetArrayPosition(row, col) );
-}
-
-Node& AStarPather::GetNode(size_t id)
-{
-    return const_cast<Node&>( const_cast<AStarPather const&>(*this).GetNode(id) );
-}
-
-Node const& AStarPather::GetNode(size_t id) const
-{
-    return *(map + id);
-}
-
-size_t AStarPather::GetArrayPosition(GridPos pos) const
-{
-    return GetArrayPosition(pos.row, pos.col);
-}
-
-size_t AStarPather::GetArrayPosition(int row, int col) const
-{
-    return static_cast<size_t>(row) * terrain->get_map_width() + static_cast<size_t>(col);
-}
-
-bool AStarPather::IsGoal(Node const& node)
-{
-    return node.info.row == goal.row && node.info.col == goal.col;
-}
-
-bool AStarPather::IsDiagonal(unsigned char relativePosition)
-{
-    return relativePosition & TOP_LEFT  ||
-           relativePosition & TOP_RIGHT ||
-           relativePosition & BTM_LEFT  ||
-           relativePosition & BTM_RIGHT;
 }

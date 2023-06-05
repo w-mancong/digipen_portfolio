@@ -17,6 +17,13 @@ static float constexpr const
 SQRT_2      = 1.41421356237f;
 
 static size_t constexpr MAX_WIDTH{ 40 }, MAX_HEIGHT{ 40 }, MAX_SIZE{ MAX_WIDTH * MAX_HEIGHT }, MAX_NEIGHBOURS{ 8 };
+static GridPos constexpr const NEIGHBOUR_POSITIONS[8]{ {  1, -1 }, {  1, 0 }, {  1, 1 }, 
+                                                       {  0, -1 },            {  0, 1 }, 
+                                                       { -1, -1 }, { -1, 0 }, { -1, 1 } };
+
+static size_t constexpr TL{ 0 }, T{ 1 }, TR{ 2 },
+                         L{ 3 },          R{ 4 },
+                        BL{ 5 }, B{ 6 }, BR{ 7 };
 
 struct NodeInfo
 {
@@ -30,14 +37,14 @@ struct NodeInfo
 
 struct Node
 {
-    Node* parent{};               // Node's parent
-    float finalCost{};            // Node's final cost
-    float givenCost{};            // Node's given cost
-    NodeInfo info{};              // Contains grid position and a value to check if node is on list
+    Node* parent{};        // Node's parent
+    float fx{};            // Node's final cost
+    float gx{};            // Node's given cost
+    NodeInfo info{};       // Contains grid position and a value to check if node is on list
 
     bool operator<(Node const& rhs)
     {
-        return finalCost < rhs.finalCost;
+        return fx < rhs.fx;
     }
 };
 
@@ -48,6 +55,7 @@ public:
     ~MinHeap(void);
 
     void Insert(Node* node);
+    void Remove(unsigned short id);
     void Heapify(void);
     Node* Pop(void);
     void Clear(void);
@@ -60,7 +68,7 @@ private:
     size_t right(size_t i) const;
     void Heapify(size_t i);
 
-    Node** arr{ nullptr };
+    Node* arr[MAX_SIZE];
     size_t heapSize{};
 
     friend std::ostream& operator<<(std::ostream& os, MinHeap const& p);

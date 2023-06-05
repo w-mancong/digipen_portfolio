@@ -4,18 +4,27 @@
 
 MinHeap::MinHeap(void)
 {
-	arr = new Node * [MAX_WIDTH * MAX_HEIGHT];
-	memset(arr, 0, sizeof(Node**) * MAX_WIDTH * MAX_HEIGHT);
+	memset(arr, 0, sizeof(arr));
 }
 
 MinHeap::~MinHeap(void)
 {
-	delete[] arr;
+	//delete[] arr;
 }
 
 void MinHeap::Insert(Node* node)
 {
 	*(arr + heapSize++) = node;
+}
+
+void MinHeap::Remove(unsigned short id)
+{
+	for (size_t i{}; i < heapSize; ++i)
+	{
+		if ((*(arr + i))->info.id != id) continue;
+		*(arr + i) = *(arr + --heapSize);
+		break;
+	}
 }
 
 void MinHeap::Heapify(void)
@@ -36,9 +45,12 @@ Node* MinHeap::Pop(void)
 
 void MinHeap::Clear(void)
 {
-	for (size_t i{}; i < heapSize; ++i)
-		*(arr + i) = nullptr;
+	memset(arr, 0, sizeof(arr));
 	heapSize = 0;
+
+
+	//std::cout << "Clearing..." << std::endl;
+	//std::cout << *this << std::endl;
 }
 
 bool MinHeap::Empty(void) const
@@ -80,15 +92,19 @@ void MinHeap::Heapify(size_t i)
 
 	if (largest != i)
 	{
-		std::swap( *(*(arr + i)), *(*(arr + largest)) );
+		std::swap( *(arr + i), *(arr + largest) );
 		Heapify(largest);
 	}
 }
 
 std::ostream& operator<<(std::ostream& os, MinHeap const& p)
 {
-	size_t const size = p.heapSize;
-	for (size_t i{}; i < size; ++i)
-		os << "id: " << (*(p.arr + i))->info.id << " fx: " << (*(p.arr + i))->finalCost << ' ';
+	//size_t const size = p.heapSize;
+	//for (size_t i{}; i < size; ++i)
+	//	os << "id: " << (*(p.arr + i))->info.id << " fx: " << (*(p.arr + i))->fx << std::endl;
+
+	//for (size_t i{}; i < MAX_SIZE; ++i)
+	//	std::cout << *(p.arr + i) << std::endl;
+
 	return os << std::endl;
 }
