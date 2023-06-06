@@ -3,6 +3,7 @@
 #include "Node.h"
 #include "MinHeap.h"
 #include "OpenList.h"
+#include "QuickArray.h"
 
 class AStarPather
 {
@@ -54,5 +55,7 @@ private:
     //MinHeap list;
     GridPos goal;
 
-    OpenList a;
+    //OpenList a;
+
+    QuickArray list;
 };

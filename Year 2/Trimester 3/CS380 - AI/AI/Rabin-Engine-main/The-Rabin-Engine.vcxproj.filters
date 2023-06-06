@@ -369,6 +369,7 @@
     <ClInclude Include="Source\Student\Project_2\MinHeap.h" />
     <ClInclude Include="Source\Student\Project_2\OpenList.h" />
     <ClInclude Include="Source\Student\Project_2\Node.h" />
+    <ClInclude Include="Source\Student\Project_2\QuickArray.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Framework\Main.cpp">
@@ -639,6 +640,7 @@
     <ClCompile Include="Source\Student\Project_1\Leaf\L_SpawnCustomers.cpp" />
     <ClCompile Include="Source\Student\Project_2\MinHeap.cpp" />
     <ClCompile Include="Source\Student\Project_2\OpenList.cpp" />
+    <ClCompile Include="Source\Student\Project_2\QuickArray.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

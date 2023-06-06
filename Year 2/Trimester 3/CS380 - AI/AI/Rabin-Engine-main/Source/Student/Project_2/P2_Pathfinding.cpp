@@ -108,14 +108,15 @@ PathResult AStarPather::compute_path(PathRequest &request)
         startNode.info.onList = OPEN_LIST;
 
         //list.Insert(&startNode);
-        a.Insert(&startNode);
+        //a.Insert(&startNode);
+        list.Insert(&startNode);
     }
 
-    //while (!list.Empty())
-    while(!a.Empty())
+    while (!list.Empty())
+    //while(!a.Empty())
     {
         //Node& parentNode = *list.Pop();
-        Node& parentNode = *a.Pop();
+        Node& parentNode = *list.Pop();
         GridPos parentPosition = { parentNode.info.row, parentNode.info.col };
 
         if (IsGoal(parentPosition))
@@ -133,7 +134,8 @@ PathResult AStarPather::compute_path(PathRequest &request)
 
         parentNode.info.onList = CLOSE_LIST;
         // Set terrain colour to yellow
-        terrain->set_color(parentPosition, Colors::Yellow);
+        if(request.settings.debugColoring)
+            terrain->set_color(parentPosition, Colors::Yellow);
 
         // Checking with parentNode's neighbours
         Neighbour* n = neighbours[ parentNode.info.id ];
@@ -153,38 +155,56 @@ PathResult AStarPather::compute_path(PathRequest &request)
             if (neighbourNode->info.onList == NO_LIST)
             {
                 // set terrain's color to blue
-                terrain->set_color(neighbourPosition, Colors::Blue);
+                if(request.settings.debugColoring)
+                    terrain->set_color(neighbourPosition, Colors::Blue);
 
                 neighbourNode->fx = fx;
                 neighbourNode->gx = gx;
                 neighbourNode->parent = map + parentNode.info.id;
-
                 neighbourNode->info.onList = OPEN_LIST;
-                //list.Insert(neighbourNode);
-                a.Insert(neighbourNode);
+
+                list.Insert(neighbourNode);
+
+                //a.Insert(neighbourNode);
             }
             else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
             {
-                if (neighbourNode->info.onList == OPEN_LIST)
-                {
-                    a.Remove(neighbourNode);
-                    neighbourNode->fx = fx;
-                    neighbourNode->gx = gx;
-                    neighbourNode->parent = map + parentNode.info.id;
-                    a.Insert(neighbourNode);
-                }
-                else if (neighbourNode->info.onList == CLOSE_LIST)
-                {
-                    neighbourNode->fx = fx;
-                    neighbourNode->gx = gx;
-                    neighbourNode->parent = map + parentNode.info.id;
-                    a.Insert(neighbourNode);
-                }
+                // QuickArray
+                neighbourNode->fx = fx;
+                neighbourNode->gx = gx;
+                neighbourNode->parent = map + parentNode.info.id;
                 neighbourNode->info.onList = OPEN_LIST;
+
+                // Bucket List
+                //if (neighbourNode->info.onList == OPEN_LIST)
+                //{
+                //    a.Remove(neighbourNode);
+                //    neighbourNode->fx = fx;
+                //    neighbourNode->gx = gx;
+                //    neighbourNode->parent = map + parentNode.info.id;
+                //    a.Insert(neighbourNode);
+                //}
+                //else if (neighbourNode->info.onList == CLOSE_LIST)
+                //{
+                //    neighbourNode->fx = fx;
+                //    neighbourNode->gx = gx;
+                //    neighbourNode->parent = map + parentNode.info.id;
+                //    a.Insert(neighbourNode);
+                //}
+                //neighbourNode->info.onList = OPEN_LIST;
+                // MinHeap
+                //neighbourNode->fx = fx;
+                //neighbourNode->gx = gx;
+                //neighbourNode->parent = map + parentNode.info.id;
+                //if (neighbourNode->info.onList == OPEN_LIST)
+                //    list.Rearrange(neighbourNode->info.id);
+                //if (neighbourNode->info.onList == CLOSE_LIST)
+                //    list.Insert(neighbourNode);
+                //neighbourNode->info.onList = OPEN_LIST;
             }
         }
-        if (request.settings.singleStep)
-            return PathResult::PROCESSING;
+        //if (request.settings.singleStep)
+        //    return PathResult::PROCESSING;
     }
 
     return PathResult::IMPOSSIBLE;
@@ -208,8 +228,8 @@ void AStarPather::NewRequest(void)
             (map + index)->info.onList = NO_LIST;
         }
     }
-    //list.Clear();
-    a.Clear();
+    list.Clear();
+    //a.Clear();
 }
 
 void AStarPather::MapChange(void)

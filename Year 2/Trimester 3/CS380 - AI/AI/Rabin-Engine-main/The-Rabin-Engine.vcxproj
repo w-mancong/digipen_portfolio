@@ -313,6 +313,7 @@
     <ClInclude Include="Source\Student\Project_2\Node.h" />
     <ClInclude Include="Source\Student\Project_2\OpenList.h" />
     <ClInclude Include="Source\Student\Project_2\P2_Pathfinding.h" />
+    <ClInclude Include="Source\Student\Project_2\QuickArray.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Framework\Agent\Agent.cpp" />
@@ -439,6 +440,7 @@
     <ClCompile Include="Source\Student\Project_2\MinHeap.cpp" />
     <ClCompile Include="Source\Student\Project_2\OpenList.cpp" />
     <ClCompile Include="Source\Student\Project_2\P2_Pathfinding.cpp" />
+    <ClCompile Include="Source\Student\Project_2\QuickArray.cpp" />
     <ClCompile Include="Source\Student\Project_3\P3_TerrainAnalysis.cpp" />
   </ItemGroup>
   <ItemGroup>
