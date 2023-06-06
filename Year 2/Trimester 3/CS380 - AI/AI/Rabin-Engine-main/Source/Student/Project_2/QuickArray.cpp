@@ -8,6 +8,7 @@ void QuickArray::Insert(Node* node)
 
 Node* QuickArray::Pop(void)
 {
+	// Search thru the entire arr to find the smallest float value
 	struct Lowest
 	{
 		size_t index{};
@@ -22,9 +23,8 @@ Node* QuickArray::Pop(void)
 		lowest.index = i;
 		lowest.fx = n->fx;
 	}
-	Node* n = arr[lowest.index];
-	arr[lowest.index] = arr[--totalNodes];
-	return n;
+	--totalNodes;
+	return arr[lowest.index];
 }
 
 bool QuickArray::Empty(void) const

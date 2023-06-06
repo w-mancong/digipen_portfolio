@@ -11,5 +11,5 @@ public:
 
 private:
 	size_t totalNodes{};
-	std::array<Node*, 160> arr;
+	std::array<Node*, 255> arr;
 };
