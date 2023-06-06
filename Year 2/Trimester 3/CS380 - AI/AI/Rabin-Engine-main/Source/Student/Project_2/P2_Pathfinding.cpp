@@ -107,13 +107,10 @@ PathResult AStarPather::compute_path(PathRequest &request)
         startNode.fx = startNode.gx + GetHx(request, start, goal) * request.settings.weight;
         startNode.info.onList = OPEN_LIST;
 
-        //list.Insert(&startNode);
-        //a.Insert(&startNode);
         list.Insert(&startNode);
     }
 
     while (!list.Empty())
-    //while(!a.Empty())
     {
         //Node& parentNode = *list.Pop();
         Node& parentNode = *list.Pop();
@@ -138,73 +135,7 @@ PathResult AStarPather::compute_path(PathRequest &request)
             terrain->set_color(parentPosition, Colors::Yellow);
 
         // Checking with parentNode's neighbours
-        Neighbour* n = neighbours[ parentNode.info.id ];
-        for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
-        {
-            if (!(n + i)->isNeighbour)
-                break;
-
-            Node* neighbourNode = map + (n + i)->id;
-            GridPos neighbourPosition = { neighbourNode->info.row, neighbourNode->info.col };
-
-            // Compute fx = gx + hx * weight
-            float gx = parentNode.gx + ((n + i)->isDiagonal ? SQRT_2 : 1.0f);
-            float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
-
-            // If neighbour node is not on list, add it to open list
-            if (neighbourNode->info.onList == NO_LIST)
-            {
-                // set terrain's color to blue
-                if(request.settings.debugColoring)
-                    terrain->set_color(neighbourPosition, Colors::Blue);
-
-                neighbourNode->fx = fx;
-                neighbourNode->gx = gx;
-                neighbourNode->parent = map + parentNode.info.id;
-                neighbourNode->info.onList = OPEN_LIST;
-
-                list.Insert(neighbourNode);
-
-                //a.Insert(neighbourNode);
-            }
-            else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
-            {
-                // QuickArray
-                neighbourNode->fx = fx;
-                neighbourNode->gx = gx;
-                neighbourNode->parent = map + parentNode.info.id;
-                if(neighbourNode->info.onList == CLOSE_LIST)
-                    list.Insert(neighbourNode);
-                neighbourNode->info.onList = OPEN_LIST;
-
-                // Bucket List
-                //if (neighbourNode->info.onList == OPEN_LIST)
-                //{
-                //    a.Remove(neighbourNode);
-                //    neighbourNode->fx = fx;
-                //    neighbourNode->gx = gx;
-                //    neighbourNode->parent = map + parentNode.info.id;
-                //    a.Insert(neighbourNode);
-                //}
-                //else if (neighbourNode->info.onList == CLOSE_LIST)
-                //{
-                //    neighbourNode->fx = fx;
-                //    neighbourNode->gx = gx;
-                //    neighbourNode->parent = map + parentNode.info.id;
-                //    a.Insert(neighbourNode);
-                //}
-                //neighbourNode->info.onList = OPEN_LIST;
-                // MinHeap
-                //neighbourNode->fx = fx;
-                //neighbourNode->gx = gx;
-                //neighbourNode->parent = map + parentNode.info.id;
-                //if (neighbourNode->info.onList == OPEN_LIST)
-                //    list.Rearrange(neighbourNode->info.id);
-                //if (neighbourNode->info.onList == CLOSE_LIST)
-                //    list.Insert(neighbourNode);
-                //neighbourNode->info.onList = OPEN_LIST;
-            }
-        }
+        ForAllNeighbouringChildNodes(parentNode, request);
         if (request.settings.singleStep)
             return PathResult::PROCESSING;
     }
@@ -231,7 +162,6 @@ void AStarPather::NewRequest(void)
         }
     }
     list.Clear();
-    //a.Clear();
 }
 
 void AStarPather::MapChange(void)
@@ -258,11 +188,6 @@ bool AStarPather::IsGoal(GridPos pos)
     return pos.row == goal.row && pos.col == goal.col;
 }
 
-//GridPos AStarPather::MakeGrid(Node const& node)
-//{
-//    return { node.info.row, node.info.col };
-//}
-
 bool AStarPather::IsDiagonal(size_t neighbourPosition)
 {
     return neighbourPosition == TL || 
@@ -279,8 +204,8 @@ void AStarPather::ComputeNeighbours(void)
         size_t neighbourIndex = 0;
         for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
         {
-            Node* neighbourNode{ nullptr };
             // Current neighbour's position
+            unsigned char neighbour = 0;
             GridPos neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[i];
             bool isDiagonal = false;
 
@@ -306,32 +231,137 @@ void AStarPather::ComputeNeighbours(void)
                 if (i == TL)
                 {
                     if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(L))
-                        neighbourNode = map + GetIndex(neighbourPosition);
+                        neighbour = TOP_LEFT;
                 }
                 else if (i == TR)
                 {
                     if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(R))
-                        neighbourNode = map + GetIndex(neighbourPosition);
+                        neighbour = TOP_RIGHT;
                 }
                 else if (i == BL)
                 {
                     if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(L))
-                        neighbourNode = map + GetIndex(neighbourPosition);
+                        neighbour = BTM_LEFT;
                 }
                 else if (i == BR)
                 {
                     if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(R))
-                        neighbourNode = map + GetIndex(neighbourPosition);
+                        neighbour = BTM_RIGHT;
                 }
                 isDiagonal = true;
             }
             else
-                neighbourNode = map + GetIndex(neighbourPosition);
+            {
+                if (i == T)
+                    neighbour = TOP;
+                else if (i == L)
+                    neighbour = LEFT;
+                else if (i == R)
+                    neighbour = RIGHT;
+                else if (i == B)
+                    neighbour = BTM;
+            }
 
-            if (!neighbourNode) 
+            if (!neighbour) 
                 continue;
-            neighbours[index][neighbourIndex++] = { neighbourNode->info.id, isDiagonal, true };
+            neighbours[index] |= neighbour;
         }
+    }
+}
+
+void AStarPather::InsertNeighbourNode(Node* neighbourNode, Node const& parentNode, PathRequest const& request, size_t diagonalIndex)
+{
+    GridPos neighbourPosition = { neighbourNode->info.row, neighbourNode->info.col };
+    // Compute fx = gx + hx * weight
+    float gx = parentNode.gx + (IsDiagonal(diagonalIndex) ? SQRT_2 : 1.0f);
+    float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
+
+    // If neighbour node is not on list, add it to open list
+    if (neighbourNode->info.onList == NO_LIST)
+    {
+        // set terrain's color to blue
+        if (request.settings.debugColoring)
+            terrain->set_color(neighbourPosition, Colors::Blue);
+
+        neighbourNode->fx     = fx;
+        neighbourNode->gx     = gx;
+        neighbourNode->parent = map + parentNode.info.id;
+        neighbourNode->info.onList = OPEN_LIST;
+
+        list.Insert(neighbourNode);
+    }
+    else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
+    {
+        // QuickArray
+        neighbourNode->fx     = fx;
+        neighbourNode->gx     = gx;
+        neighbourNode->parent = map + parentNode.info.id;
+        if (neighbourNode->info.onList == CLOSE_LIST)
+            list.Insert(neighbourNode);
+        neighbourNode->info.onList = OPEN_LIST;
+    }
+}
+
+void AStarPather::ForAllNeighbouringChildNodes(Node const& parentNode, PathRequest const& request)
+{
+    unsigned char n = neighbours[ parentNode.info.id ];
+    Node* neighbourNode{ nullptr };
+    GridPos neighbourPosition, parentPosition{ parentNode.info.row, parentNode.info.col };
+
+    if (n & TOP_LEFT)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[TL];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, TL);
+    }
+
+    if (n & TOP)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[T];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, T);
+    }
+
+    if (n & TOP_RIGHT)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[TR];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, TR);
+    }
+
+    if (n & LEFT)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[L];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, L);
+    }
+
+    if (n & RIGHT)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[R];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, R);
+    }
+
+    if (n & BTM_LEFT)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[BL];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, BL);
+    }
+
+    if (n & BTM)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[B];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, B);
+    }
+
+    if (n & BTM_RIGHT)
+    {
+        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[BR];
+        neighbourNode = map + GetIndex(neighbourPosition);
+        InsertNeighbourNode(neighbourNode, parentNode, request, BR);
     }
 }
 

@@ -30,12 +30,12 @@ public:
     */
 
 private:
-    struct Neighbour
-    {
-        unsigned short id{ std::numeric_limits<unsigned short>::max() };
-        bool isDiagonal{};
-        bool isNeighbour{};
-    };
+    //struct Neighbour
+    //{
+    //    unsigned short id{ std::numeric_limits<unsigned short>::max() };
+    //    bool isDiagonal{};
+    //    bool isNeighbour{};
+    //};
 
     void NewRequest(void);
     void MapChange(void);
@@ -47,15 +47,15 @@ private:
 
     bool IsDiagonal(size_t neighbourPosition);
     void ComputeNeighbours(void);
+    void InsertNeighbourNode(Node* neighbourNode, Node const& parentNode, PathRequest const& request, size_t diagonalIndex);
+    void ForAllNeighbouringChildNodes(Node const& parentNode, PathRequest const& request);
 
     float GetHx(PathRequest const& request, GridPos curr, GridPos goal) const;
 
     Node map[MAX_SIZE]{};
-    Neighbour neighbours[MAX_SIZE][8]{};
-    //MinHeap list;
+    //Neighbour neighbours[MAX_SIZE][8]{};
+    unsigned char neighbours[MAX_SIZE];
     GridPos goal;
-
-    //OpenList a;
 
     QuickArray list;
 };
