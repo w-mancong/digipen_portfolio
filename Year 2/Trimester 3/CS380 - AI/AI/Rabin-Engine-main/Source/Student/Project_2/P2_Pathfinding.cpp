@@ -107,15 +107,11 @@ PathResult AStarPather::compute_path(PathRequest &request)
         startNode.fx = startNode.gx + GetHx(request, start, goal) * request.settings.weight;
         startNode.info.onList = OPEN_LIST;
 
-        //list.Insert(&startNode);
-        //a.Insert(&startNode);
         list.Insert(&startNode);
     }
 
     while (!list.Empty())
-    //while(!a.Empty())
     {
-        //Node& parentNode = *list.Pop();
         Node& parentNode = *list.Pop();
         GridPos parentPosition = { parentNode.info.row, parentNode.info.col };
 
@@ -148,7 +144,7 @@ PathResult AStarPather::compute_path(PathRequest &request)
             GridPos neighbourPosition = { neighbourNode->info.row, neighbourNode->info.col };
 
             // Compute fx = gx + hx * weight
-            float gx = parentNode.gx + ((n + i)->isDiagonal ? SQRT_2 : 1.0f);
+            float gx = parentNode.gx + ( (n + i)->isDiagonal ? SQRT_2 : 1.0f );
             float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
 
             // If neighbour node is not on list, add it to open list
@@ -164,8 +160,6 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 neighbourNode->info.onList = OPEN_LIST;
 
                 list.Insert(neighbourNode);
-
-                //a.Insert(neighbourNode);
             }
             else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
             {
@@ -173,38 +167,13 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 neighbourNode->fx = fx;
                 neighbourNode->gx = gx;
                 neighbourNode->parent = map + parentNode.info.id;
+                if(neighbourNode->info.onList == CLOSE_LIST)
+                    list.Insert(neighbourNode);
                 neighbourNode->info.onList = OPEN_LIST;
-
-                // Bucket List
-                //if (neighbourNode->info.onList == OPEN_LIST)
-                //{
-                //    a.Remove(neighbourNode);
-                //    neighbourNode->fx = fx;
-                //    neighbourNode->gx = gx;
-                //    neighbourNode->parent = map + parentNode.info.id;
-                //    a.Insert(neighbourNode);
-                //}
-                //else if (neighbourNode->info.onList == CLOSE_LIST)
-                //{
-                //    neighbourNode->fx = fx;
-                //    neighbourNode->gx = gx;
-                //    neighbourNode->parent = map + parentNode.info.id;
-                //    a.Insert(neighbourNode);
-                //}
-                //neighbourNode->info.onList = OPEN_LIST;
-                // MinHeap
-                //neighbourNode->fx = fx;
-                //neighbourNode->gx = gx;
-                //neighbourNode->parent = map + parentNode.info.id;
-                //if (neighbourNode->info.onList == OPEN_LIST)
-                //    list.Rearrange(neighbourNode->info.id);
-                //if (neighbourNode->info.onList == CLOSE_LIST)
-                //    list.Insert(neighbourNode);
-                //neighbourNode->info.onList = OPEN_LIST;
             }
         }
-        //if (request.settings.singleStep)
-        //    return PathResult::PROCESSING;
+        if (request.settings.singleStep)
+            return PathResult::PROCESSING;
     }
 
     return PathResult::IMPOSSIBLE;
