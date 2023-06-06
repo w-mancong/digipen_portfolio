@@ -173,6 +173,8 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 neighbourNode->fx = fx;
                 neighbourNode->gx = gx;
                 neighbourNode->parent = map + parentNode.info.id;
+                if(neighbourNode->info.onList == CLOSE_LIST)
+                    list.Insert(neighbourNode);
                 neighbourNode->info.onList = OPEN_LIST;
 
                 // Bucket List
@@ -203,8 +205,8 @@ PathResult AStarPather::compute_path(PathRequest &request)
                 //neighbourNode->info.onList = OPEN_LIST;
             }
         }
-        //if (request.settings.singleStep)
-        //    return PathResult::PROCESSING;
+        if (request.settings.singleStep)
+            return PathResult::PROCESSING;
     }
 
     return PathResult::IMPOSSIBLE;

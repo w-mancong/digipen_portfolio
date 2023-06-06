@@ -23,8 +23,9 @@ Node* QuickArray::Pop(void)
 		lowest.index = i;
 		lowest.fx = n->fx;
 	}
-	--totalNodes;
-	return arr[lowest.index];
+	Node* n = arr[lowest.index];
+	arr[lowest.index] = arr[--totalNodes];
+	return n;
 }
 
 bool QuickArray::Empty(void) const
@@ -34,6 +35,5 @@ bool QuickArray::Empty(void) const
 
 void QuickArray::Clear(void)
 {
-	arr.fill(nullptr);
 	totalNodes = 0;
 }
