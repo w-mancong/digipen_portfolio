@@ -54,7 +54,7 @@ void AStarPather::shutdown()
     */
 }
 
-PathResult AStarPather::compute_path(PathRequest &request)
+PathResult AStarPather::compute_path(PathRequest& request)
 {
     /*
         This is where you handle pathing requests, each request has several fields:
@@ -103,10 +103,9 @@ PathResult AStarPather::compute_path(PathRequest &request)
         GridPos start = terrain->get_grid_position(request.start);
         goal = terrain->get_grid_position(request.goal);
 
-        Node& startNode = *( map + GetIndex(start) );
+        Node& startNode = *(map + GetIndex(start));
         startNode.fx = startNode.gx + GetHx(request, start, goal) * request.settings.weight;
         startNode.info.onList = OPEN_LIST;
-
         list.Insert(&startNode);
     }
 
@@ -119,23 +118,88 @@ PathResult AStarPather::compute_path(PathRequest &request)
         if (IsGoal(parentPosition))
         {
             // TODO: Add nodes into request.path
-            request.path.push_back( terrain->get_world_position(parentPosition) );
+            request.path.push_back(terrain->get_world_position(parentPosition));
             Node* pn = parentNode.parent;
             while (pn)
             {
-                request.path.push_front( terrain->get_world_position( pn->info.row, pn->info.col ) );
+                request.path.push_front(terrain->get_world_position(pn->info.row, pn->info.col));
                 pn = pn->parent;
             }
+
+            if (request.settings.rubberBanding || request.settings.smoothing)
+            {
+                std::vector<Vec3> path{ request.path.begin(), request.path.end() };
+                // Do rubber banding
+                if (request.settings.rubberBanding)
+                {
+                    Rubberbanding(path);
+                    request.path.clear();
+                    for (size_t i{}; i < path.size(); ++i)
+                        request.path.push_back(path[i]);
+                }
+
+                // Do smoothing
+                if (request.settings.smoothing)
+                {
+                    // Add middle points
+                    if (request.settings.rubberBanding)
+                        AddMiddlePoints(path);
+
+                    Smoothing(path);
+
+                    request.path.clear();
+                    for (size_t i{}; i < path.size(); ++i)
+                        request.path.push_back(path[i]);
+                }
+            }
+
             return PathResult::COMPLETE;
         }
 
         parentNode.info.onList = CLOSE_LIST;
         // Set terrain colour to yellow
-        if(request.settings.debugColoring)
+        if (request.settings.debugColoring)
             terrain->set_color(parentPosition, Colors::Yellow);
 
         // Checking with parentNode's neighbours
-        ForAllNeighbouringChildNodes(parentNode, request);
+        Neighbour* n = neighbours[parentNode.info.id];
+        for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
+        {
+            if (!(n + i)->isNeighbour)
+                break;
+
+            Node* neighbourNode = map + (n + i)->id;
+            GridPos neighbourPosition = { neighbourNode->info.row, neighbourNode->info.col };
+
+            // Compute fx = gx + hx * weight
+            float gx = parentNode.gx + ((n + i)->isDiagonal ? SQRT_2 : 1.0f);
+            float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
+
+            // If neighbour node is not on list, add it to open list
+            if (neighbourNode->info.onList == NO_LIST)
+            {
+                // set terrain's color to blue
+                if (request.settings.debugColoring)
+                    terrain->set_color(neighbourPosition, Colors::Blue);
+
+                neighbourNode->fx = fx;
+                neighbourNode->gx = gx;
+                neighbourNode->parent = map + parentNode.info.id;
+                neighbourNode->info.onList = OPEN_LIST;
+
+                list.Insert(neighbourNode);
+            }
+            else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
+            {
+                // QuickArray
+                neighbourNode->fx = fx;
+                neighbourNode->gx = gx;
+                neighbourNode->parent = map + parentNode.info.id;
+                if (neighbourNode->info.onList == CLOSE_LIST)
+                    list.Insert(neighbourNode);
+                neighbourNode->info.onList = OPEN_LIST;
+            }
+        }
         if (request.settings.singleStep)
             return PathResult::PROCESSING;
     }
@@ -154,14 +218,15 @@ void AStarPather::NewRequest(void)
         {
             size_t index = static_cast<size_t>(row * h + col);
             (map + index)->fx = (map + index)->gx = 0.0f;
-            (map + index)->parent   = nullptr;
+            (map + index)->parent = nullptr;
             (map + index)->info.row = static_cast<short>(row);
             (map + index)->info.col = static_cast<short>(col);
-            (map + index)->info.id  = static_cast<short>(index);
+            (map + index)->info.id = static_cast<short>(index);
             (map + index)->info.onList = NO_LIST;
         }
     }
     list.Clear();
+    //a.Clear();
 }
 
 void AStarPather::MapChange(void)
@@ -188,24 +253,29 @@ bool AStarPather::IsGoal(GridPos pos)
     return pos.row == goal.row && pos.col == goal.col;
 }
 
+//GridPos AStarPather::MakeGrid(Node const& node)
+//{
+//    return { node.info.row, node.info.col };
+//}
+
 bool AStarPather::IsDiagonal(size_t neighbourPosition)
 {
-    return neighbourPosition == TL || 
-           neighbourPosition == TR || 
-           neighbourPosition == BL || 
-           neighbourPosition == BR;
+    return neighbourPosition == TL ||
+        neighbourPosition == TR ||
+        neighbourPosition == BL ||
+        neighbourPosition == BR;
 }
 
 void AStarPather::ComputeNeighbours(void)
 {
-    for(size_t index{}; index < MAX_SIZE; ++index)
-    { 
+    for (size_t index{}; index < MAX_SIZE; ++index)
+    {
         GridPos parentPosition = { (map + index)->info.row, (map + index)->info.col };
         size_t neighbourIndex = 0;
         for (size_t i{}; i < MAX_NEIGHBOURS; ++i)
         {
+            Node* neighbourNode{ nullptr };
             // Current neighbour's position
-            unsigned char neighbour = 0;
             GridPos neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[i];
             bool isDiagonal = false;
 
@@ -231,186 +301,179 @@ void AStarPather::ComputeNeighbours(void)
                 if (i == TL)
                 {
                     if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(L))
-                        neighbour = TOP_LEFT;
+                        neighbourNode = map + GetIndex(neighbourPosition);
                 }
                 else if (i == TR)
                 {
                     if (IsValidDiagonalNeighbour(T) && IsValidDiagonalNeighbour(R))
-                        neighbour = TOP_RIGHT;
+                        neighbourNode = map + GetIndex(neighbourPosition);
                 }
                 else if (i == BL)
                 {
                     if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(L))
-                        neighbour = BTM_LEFT;
+                        neighbourNode = map + GetIndex(neighbourPosition);
                 }
                 else if (i == BR)
                 {
                     if (IsValidDiagonalNeighbour(B) && IsValidDiagonalNeighbour(R))
-                        neighbour = BTM_RIGHT;
+                        neighbourNode = map + GetIndex(neighbourPosition);
                 }
                 isDiagonal = true;
             }
             else
-            {
-                if (i == T)
-                    neighbour = TOP;
-                else if (i == L)
-                    neighbour = LEFT;
-                else if (i == R)
-                    neighbour = RIGHT;
-                else if (i == B)
-                    neighbour = BTM;
-            }
+                neighbourNode = map + GetIndex(neighbourPosition);
 
-            if (!neighbour) 
+            if (!neighbourNode)
                 continue;
-            neighbours[index] |= neighbour;
+            neighbours[index][neighbourIndex++] = { neighbourNode->info.id, isDiagonal, true };
         }
-    }
-}
-
-void AStarPather::InsertNeighbourNode(Node* neighbourNode, Node const& parentNode, PathRequest const& request, size_t diagonalIndex)
-{
-    GridPos neighbourPosition = { neighbourNode->info.row, neighbourNode->info.col };
-    // Compute fx = gx + hx * weight
-    float gx = parentNode.gx + (IsDiagonal(diagonalIndex) ? SQRT_2 : 1.0f);
-    float fx = gx + GetHx(request, neighbourPosition, goal) * request.settings.weight;
-
-    // If neighbour node is not on list, add it to open list
-    if (neighbourNode->info.onList == NO_LIST)
-    {
-        // set terrain's color to blue
-        if (request.settings.debugColoring)
-            terrain->set_color(neighbourPosition, Colors::Blue);
-
-        neighbourNode->fx     = fx;
-        neighbourNode->gx     = gx;
-        neighbourNode->parent = map + parentNode.info.id;
-        neighbourNode->info.onList = OPEN_LIST;
-
-        list.Insert(neighbourNode);
-    }
-    else if (neighbourNode->info.onList != NO_LIST && fx < neighbourNode->fx)
-    {
-        // QuickArray
-        neighbourNode->fx     = fx;
-        neighbourNode->gx     = gx;
-        neighbourNode->parent = map + parentNode.info.id;
-        if (neighbourNode->info.onList == CLOSE_LIST)
-            list.Insert(neighbourNode);
-        neighbourNode->info.onList = OPEN_LIST;
-    }
-}
-
-void AStarPather::ForAllNeighbouringChildNodes(Node const& parentNode, PathRequest const& request)
-{
-    unsigned char n = neighbours[ parentNode.info.id ];
-    Node* neighbourNode{ nullptr };
-    GridPos neighbourPosition, parentPosition{ parentNode.info.row, parentNode.info.col };
-
-    if (n & TOP_LEFT)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[TL];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, TL);
-    }
-
-    if (n & TOP)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[T];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, T);
-    }
-
-    if (n & TOP_RIGHT)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[TR];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, TR);
-    }
-
-    if (n & LEFT)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[L];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, L);
-    }
-
-    if (n & RIGHT)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[R];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, R);
-    }
-
-    if (n & BTM_LEFT)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[BL];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, BL);
-    }
-
-    if (n & BTM)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[B];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, B);
-    }
-
-    if (n & BTM_RIGHT)
-    {
-        neighbourPosition = parentPosition + NEIGHBOUR_POSITIONS[BR];
-        neighbourNode = map + GetIndex(neighbourPosition);
-        InsertNeighbourNode(neighbourNode, parentNode, request, BR);
     }
 }
 
 float AStarPather::GetHx(PathRequest const& request, GridPos curr, GridPos goal) const
 {
     float dx = static_cast<float>(goal.row - curr.row),
-          dy = static_cast<float>(goal.col - curr.col);
+        dy = static_cast<float>(goal.col - curr.col);
     float result = 0.0f;
 
     switch (request.settings.heuristic)
     {
-        case Heuristic::OCTILE:
-        {
-            float min = dx < dy ? dx : dy, max = dx > dy ? dx : dy;
-            result = min * SQRT_2 + (max - min); 
-            break;
-        }
+    case Heuristic::OCTILE:
+    {
+        float min = dx < dy ? dx : dy, max = dx > dy ? dx : dy;
+        result = min * SQRT_2 + (max - min);
+        break;
+    }
 
-        case Heuristic::CHEBYSHEV:
-        {
-            result = std::fmax(dx, dy); 
-            break;
-        }
+    case Heuristic::CHEBYSHEV:
+    {
+        result = std::fmax(dx, dy);
+        break;
+    }
 
-        case Heuristic::INCONSISTENT:
-        {
-            if (!((curr.row + curr.col) % 2))
-                result = sqrtf(dx * dx + dy * dy);
-            else 
-                result = 0.0f;
-            break;
-        }
+    case Heuristic::INCONSISTENT:
+    {
+        if (!((curr.row + curr.col) % 2))
+            result = sqrtf(dx * dx + dy * dy);
+        else
+            result = 0.0f;
+        break;
+    }
 
 
-        case Heuristic::MANHATTAN:
-        {
-            result = dx + dy; 
-            break;
-        }
+    case Heuristic::MANHATTAN:
+    {
+        result = dx + dy;
+        break;
+    }
 
-        case Heuristic::EUCLIDEAN:
-        {
-            result = sqrtf(dx * dx + dy * dy); 
-            break;
-        }
+    case Heuristic::EUCLIDEAN:
+    {
+        result = sqrtf(dx * dx + dy * dy);
+        break;
+    }
 
-        default: 
-            break;
+    default:
+        break;
     }
 
     return result * (result < 0.0f ? -1.0f : 1.0f);
+}
+
+void AStarPather::Rubberbanding(std::vector<Vec3>& path)
+{
+    size_t index{ 1 };
+    while (index < path.size() - 1)
+    {
+        GridPos prevPos = terrain->get_grid_position(path[index - 1]),
+            currPos = terrain->get_grid_position(path[index + 1]);
+
+        int dx = std::abs(currPos.col - prevPos.col);
+        int dy = std::abs(currPos.row - prevPos.row);
+
+        int lowestRow = std::min(currPos.row, prevPos.row);
+        int lowestCol = std::min(currPos.col, prevPos.col);
+
+        bool gotWall = false;
+
+        // using this double for loop to iterate and find if there is any wall
+        for (int row{}; row <= dy; ++row)
+        {
+            for (int col{}; col <= dx; ++col)
+            {
+                GridPos pos{ lowestRow + row, lowestCol + col };
+                if (terrain->is_valid_grid_position(pos) && terrain->is_wall(pos))
+                    gotWall = true;
+            }
+        }
+
+        // If got wall between middle node
+        if (gotWall)
+        {
+            ++index;
+            continue;
+        }
+
+        // No wall between middle node, remove middle node
+        path.erase(path.begin() + index);
+    }
+}
+
+void AStarPather::AddMiddlePoints(std::vector<Vec3>& path)
+{
+    size_t i{};
+
+    struct GridPosf
+    {
+        GridPosf(GridPos pos) : row{ static_cast<float>(pos.row) }, col{ static_cast<float>(pos.col) } {}
+        GridPosf(Vec3 vec) { *this = GridPosf(terrain->get_grid_position(vec)); }
+
+        float row{},
+            col{};
+    };
+
+    float constexpr SQUARED = 1.5f * 1.5f;
+    while (i < path.size() - 1)
+    {
+        GridPosf curr{ terrain->get_grid_position(path[i]) },
+            next{ terrain->get_grid_position(path[i + 1]) };
+
+        float dx = std::abs(curr.col - next.col);
+        float dy = std::abs(curr.row - next.row);
+
+        float dist = dx * dx + dy * dy;
+        if (SQUARED > dist)
+        {
+            ++i;
+            continue;
+        }
+
+        // the distance between the two grid pos is more than 1.5x, add a middle point
+        Vec3 mid = (path[i] + path[i + 1]) * 0.5f;
+        path.insert(path.begin() + i + 1, mid);
+    }
+}
+
+void AStarPather::Smoothing(std::vector<Vec3>& path)
+{
+    // using this vector as reference points that since path will have new points added in 
+    std::vector<Vec3> refPoints{ path.begin(), path.end() };
+
+    int i{ -1 }, j{ 0 }, k{ 1 }, l{ 2 }, index{};
+    int max_iterations = static_cast<int>(refPoints.size() - 1);
+    while (j < max_iterations)
+    {
+        i = std::clamp(i, 0, max_iterations), k = std::clamp(k, 0, max_iterations), l = std::clamp(l, 0, max_iterations);
+
+        // p(oint)75, p50, p25...
+        Vec3 p75 = Vec3::CatmullRom(refPoints[i], refPoints[j], refPoints[k], refPoints[l], 0.75f),
+            p50 = Vec3::CatmullRom(refPoints[i], refPoints[j], refPoints[k], refPoints[l], 0.50f),
+            p25 = Vec3::CatmullRom(refPoints[i], refPoints[j], refPoints[k], refPoints[l], 0.25f);
+
+        path.insert(path.begin() + index + 1, p75);
+        path.insert(path.begin() + index + 1, p50);
+        path.insert(path.begin() + index + 1, p25);
+
+        ++i, ++j, ++k, ++l, index += 4;
+    }
 }

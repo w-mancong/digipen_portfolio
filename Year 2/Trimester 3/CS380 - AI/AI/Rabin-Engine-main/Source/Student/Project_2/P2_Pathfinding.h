@@ -8,19 +8,19 @@
 class AStarPather
 {
 public:
-    /* 
+    /*
         The class should be default constructible, so you may need to define a constructor.
         If needed, you can modify the framework where the class is constructed in the
         initialize functions of ProjectTwo and ProjectThree.
     */
-    AStarPather()  = default;
+    AStarPather() = default;
     ~AStarPather() = default;
 
     /* ************************************************** */
     // DO NOT MODIFY THESE SIGNATURES
     bool initialize();
     void shutdown();
-    PathResult compute_path(PathRequest &request);
+    PathResult compute_path(PathRequest& request);
     /* ************************************************** */
 
     /*
@@ -30,12 +30,12 @@ public:
     */
 
 private:
-    //struct Neighbour
-    //{
-    //    unsigned short id{ std::numeric_limits<unsigned short>::max() };
-    //    bool isDiagonal{};
-    //    bool isNeighbour{};
-    //};
+    struct Neighbour
+    {
+        unsigned short id{ std::numeric_limits<unsigned short>::max() };
+        bool isDiagonal{};
+        bool isNeighbour{};
+    };
 
     void NewRequest(void);
     void MapChange(void);
@@ -43,18 +43,18 @@ private:
     size_t GetIndex(int row, int col);
 
     bool IsGoal(GridPos pos);
-    //GridPos MakeGrid(Node const& node);
 
     bool IsDiagonal(size_t neighbourPosition);
     void ComputeNeighbours(void);
-    void InsertNeighbourNode(Node* neighbourNode, Node const& parentNode, PathRequest const& request, size_t diagonalIndex);
-    void ForAllNeighbouringChildNodes(Node const& parentNode, PathRequest const& request);
 
     float GetHx(PathRequest const& request, GridPos curr, GridPos goal) const;
 
+    void Rubberbanding(std::vector<Vec3>& path);
+    void AddMiddlePoints(std::vector<Vec3>& path);
+    void Smoothing(std::vector<Vec3>& path);
+
     Node map[MAX_SIZE]{};
-    //Neighbour neighbours[MAX_SIZE][8]{};
-    unsigned char neighbours[MAX_SIZE];
+    Neighbour neighbours[MAX_SIZE][8]{};
     GridPos goal;
 
     QuickArray list;
