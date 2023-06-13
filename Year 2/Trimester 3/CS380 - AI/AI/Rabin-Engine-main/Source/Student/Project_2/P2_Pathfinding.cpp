@@ -226,7 +226,6 @@ void AStarPather::NewRequest(void)
         }
     }
     list.Clear();
-    //a.Clear();
 }
 
 void AStarPather::MapChange(void)
@@ -236,6 +235,9 @@ void AStarPather::MapChange(void)
     // TODO: Compute neighbours here
     memset(neighbours, 0, sizeof(neighbours));
     ComputeNeighbours();
+
+    referenceDistance = (terrain->get_world_position({ 0, 1 }).z - terrain->get_world_position({ 0, 0 }).z) * 1.5f;
+    referenceDistance *= referenceDistance;
 }
 
 size_t AStarPather::GetIndex(GridPos pos)
@@ -252,11 +254,6 @@ bool AStarPather::IsGoal(GridPos pos)
 {
     return pos.row == goal.row && pos.col == goal.col;
 }
-
-//GridPos AStarPather::MakeGrid(Node const& node)
-//{
-//    return { node.info.row, node.info.col };
-//}
 
 bool AStarPather::IsDiagonal(size_t neighbourPosition)
 {
@@ -423,26 +420,13 @@ void AStarPather::AddMiddlePoints(std::vector<Vec3>& path)
 {
     size_t i{};
 
-    struct GridPosf
-    {
-        GridPosf(GridPos pos) : row{ static_cast<float>(pos.row) }, col{ static_cast<float>(pos.col) } {}
-        GridPosf(Vec3 vec) { *this = GridPosf(terrain->get_grid_position(vec)); }
-
-        float row{},
-            col{};
-    };
-
-    float constexpr SQUARED = 1.5f * 1.5f;
     while (i < path.size() - 1)
     {
-        GridPosf curr{ terrain->get_grid_position(path[i]) },
-            next{ terrain->get_grid_position(path[i + 1]) };
-
-        float dx = std::abs(curr.col - next.col);
-        float dy = std::abs(curr.row - next.row);
+        float dx = path[i].z - path[i + 1].z;
+        float dy = path[i].x - path[i + 1].x;
 
         float dist = dx * dx + dy * dy;
-        if (SQUARED > dist)
+        if (referenceDistance > dist)
         {
             ++i;
             continue;

@@ -58,4 +58,5 @@ private:
     GridPos goal;
 
     QuickArray list;
+    float referenceDistance{};
 };

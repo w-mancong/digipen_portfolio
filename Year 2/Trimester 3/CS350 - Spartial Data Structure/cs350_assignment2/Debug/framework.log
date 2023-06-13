@@ -1,0 +1,7 @@
+﻿cl : command line warning D9035: option 'Gm' has been deprecated and will be removed in a future release
+  shapes.cpp
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\shapes.cpp(260,20): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\shapes.cpp(267,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\shapes.cpp(268,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  framework.vcxproj -> C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\Debug\framework.exe
+  0 File(s) copied
