@@ -169,7 +169,7 @@ void Scene::InitializeScene()
     sky        = new Object(SpherePolygons, skyId, black, black, 0);
     ground     = new Object(GroundPolygons, groundId, grassColor, black, 1);
     sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 120);
-    objects    = new Object(NULL, nullId);
+    objects    = new Object(nullptr, nullId);
 
     for (int i=-ellipsoidCount;  i<=ellipsoidCount;  i++) 
     {
@@ -225,12 +225,55 @@ void Scene::InitializeScene()
             //        modelTr*Pnt[tri[0]], modelTr*Pnt[tri[1]], modelTr*Pnt[tri[2]]
             //    Its normals vectors are: (probably not needed)
             //        Nrm[tri[0]]*normalTr, Nrm[tri[1]]*normalTr, Nrm[tri[2]]*normalTr
-        } 
+        }
+
+        // AABB
+        //Object* cube = new Object(CubePolygons, debugId, glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.5), 120);
+        //aabb->add(cube, modelTr);
     }
 
     // @@ This is a good place to build the VAOs for the debug draws,
     // storing the results in the Scene instance.
+    {
+        std::vector<glm::vec4> pnt = { glm::vec4(0, 0, 0, 1), glm::vec4(1, 1, 1, 1) };
+        std::vector<int> ind = { 0, 1 };
+        segmentVao = VaoFromPoints(pnt, ind);
 
+        for (INSTANCE& instance : objects->instances)
+        {
+            Object* obj = instance.first;
+            glm::mat4 const& modelTr = instance.second;
+
+            std::vector<glm::vec4>&  Pnt = obj->shape->Pnt; // The objects list of vertices
+            std::vector<glm::ivec3>& Tri = obj->shape->Tri; // The object's list of triangles
+
+            for (glm::ivec3 const& tri : Tri)
+            {
+                glm::vec4 const p0 = modelTr * Pnt[tri[0]], p1 = modelTr * Pnt[tri[1]], p2 = modelTr * Pnt[tri[2]];
+                glm::vec3 const A = { (p0.x + p1.x + p2.x) / 3.0f, (p0.y + p1.y + p2.y) / 3.0f, (p0.z + p1.z + p2.z) / 3.0f };
+                glm::vec3 const B = A + glm::cross(glm::vec3(p1 - p0), glm::vec3(p2 - p0));
+
+                lineSegments.emplace_back( std::make_pair(A, B) );
+            }
+        }
+    }
+
+    {
+        std::vector<glm::vec4> pnt = { glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f), glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f), 
+                                       glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f), glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
+                                       glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f), glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f), 
+                                       glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f), glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f) 
+                                     };
+        std::vector<int> ind       = { 0, 1, 1, 4, 4, 2, 2, 0, // front
+                                       1, 5, 5, 7, 7, 4, 4, 1, // right
+                                       5, 3, 3, 6, 6, 7, 7, 5, // back
+                                       6, 2, 2, 0, 0, 3, 3, 6, // left
+                                       4, 7, 7, 6, 6, 2, 2, 4, // top
+                                       0, 1, 1, 5, 5, 3, 3, 0, // btm
+                                     };
+
+        aabbVao = VaoFromPoints(pnt, ind);
+    }
 }
 
 void Scene::DrawGUI()
@@ -247,9 +290,13 @@ void Scene::DrawGUI()
                 1000.0f / ImGui::GetIO().Framerate);
     ImGui::Text(" %d triangles managed", triangleCount);
 
-    ImGui::Checkbox("Show_demo_window", &show_demo_window);
-    if (show_demo_window)
-        ImGui::ShowDemoWindow();
+    ImGui::Checkbox("AABB", &drawAABB);
+    ImGui::Checkbox("Triangle AABB", &drawTriangleAABB);
+    ImGui::Checkbox("Line Segment", &drawLineSegments);
+
+    //ImGui::Checkbox("Show_demo_window", &show_demo_window);
+    //if (show_demo_window)
+    //    ImGui::ShowDemoWindow();
         
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -326,7 +373,6 @@ void Scene::DrawScene()
     glClearColor(0.5, 0.5, 0.5, 1.0);
     glClear(GL_COLOR_BUFFER_BIT| GL_DEPTH_BUFFER_BIT);
 
-
     loc = glGetUniformLocation(programId, "WorldProj");
     glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldProj));
     loc = glGetUniformLocation(programId, "WorldView");
@@ -351,12 +397,19 @@ void Scene::DrawScene()
     // glDisable(GL_POLYGON_OFFSET_FILL);
     CHECKERROR;
 
-    // @@ The main image is drawn by this point.  This is a good time
-    // to draw any debug drawing items.
-
-    
     // Turn off the shader
     lightingProgram->UnuseShader();
+
+    // @@ The main image is drawn by this point.  This is a good time
+    // to draw any debug drawing items.
+    if(drawLineSegments)
+        DrawLineSegment();
+
+    if(drawAABB)
+        DrawAABB();
+
+    if(drawTriangleAABB)
+        DrawTriangleAABB();
 
     ////////////////////////////////////////////////////////////////////////////////
     // End of Lighting pass
@@ -367,4 +420,129 @@ void Scene::DestroyScene()
 {
     // @@ This is called as the program is exiting. Perform any
     // necessary cleanup here.
+}
+
+unsigned int Scene::VaoFromPoints(std::vector<glm::vec4> pnt, std::vector<int> ind)
+{
+    unsigned int vaoID;
+    glGenVertexArrays(1, &vaoID);
+    glBindVertexArray(vaoID);
+
+    GLuint pBuf;
+    glGenBuffers(1, &pBuf);
+    glBindBuffer(GL_ARRAY_BUFFER, pBuf);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 4 * pnt.size(),  &pnt[0][0], GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    GLuint iBuf;
+    glGenBuffers(1, &iBuf);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iBuf);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * ind.size(), &ind[0], GL_STATIC_DRAW);
+    glBindVertexArray(0);
+
+    return vaoID;
+}
+
+void Scene::DrawLineSegment()
+{
+    for (std::pair<glm::vec3, glm::vec3> const& pts : lineSegments)
+    {
+        glm::vec3 const& A = pts.first;
+        glm::vec3 const& B = pts.second;
+
+        DrawLineSegment(A, B);
+    }
+}
+
+void Scene::DrawLineSegment(glm::vec3 const& p0, glm::vec3 const& p1)
+{
+    glm::mat4 modelTr
+    {
+        { p1.x - p0.x, 0.0f, 0.0f, 0.0f },
+        { 0.0f, p1.y - p0.y, 0.0f, 0.0f },
+        { 0.0f, 0.0f, p1.z - p0.z, 0.0f },
+        { p0.x, p0.y, p0.z, 1.0f },
+    };
+
+    int loc{}, programId{};
+    lightingProgram->UseShader();
+    programId = lightingProgram->programId;
+
+    loc = glGetUniformLocation(programId, "ModelTr");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(modelTr));
+
+    loc = glGetUniformLocation(programId, "objectId");
+    glUniform1i(loc, debugId);
+
+    glBindVertexArray(segmentVao);
+    glDrawElements(GL_LINES, 2, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    lightingProgram->UnuseShader();
+}
+
+void Scene::DrawAABB()
+{
+    int loc{}, programId{};
+    lightingProgram->UseShader();
+    programId = lightingProgram->programId;
+
+    for (INSTANCE& instances : objects->instances)
+    {
+        glm::mat4& modelTr = instances.second;
+
+        loc = glGetUniformLocation(programId, "ModelTr");
+        glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(modelTr));
+
+        loc = glGetUniformLocation(programId, "objectId");
+        glUniform1i(loc, debugId);
+
+        glBindVertexArray(aabbVao);
+        glDrawElements(GL_LINES, 48, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
+
+    lightingProgram->UnuseShader();
+}
+
+void Scene::DrawTriangleAABB()
+{
+    int loc{}, programId{};
+    lightingProgram->UseShader();
+    programId = lightingProgram->programId;
+
+    for (INSTANCE& instances : objects->instances)
+    {
+        Object* obj = instances.first;
+        glm::mat4 const& modelTr = instances.second;
+
+        std::vector<glm::vec4>& Pnt = obj->shape->Pnt; // The objects list of vertices
+        std::vector<glm::ivec3>& Tri = obj->shape->Tri; // The object's list of triangles
+
+        for (glm::ivec3 tri : Tri)
+        {
+            glm::vec4 const p0 = modelTr * Pnt[tri[0]], p1 = modelTr * Pnt[tri[1]], p2 = modelTr * Pnt[tri[2]];
+            glm::mat4 trans
+            {
+                { p1.x - p0.x, 0.0f, 0.0f, 0.0f },
+                { 0.0f, p1.y - p0.y, 0.0f, 0.0f },
+                { 0.0f, 0.0f, p1.z - p0.z, 0.0f },
+                { p0.x, p0.y, p0.z, 1.0f },
+            };
+
+            loc = glGetUniformLocation(programId, "ModelTr");
+            glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(trans));
+
+            loc = glGetUniformLocation(programId, "objectId");
+            glUniform1i(loc, debugId);
+
+            glBindVertexArray(aabbVao);
+            glDrawElements(GL_LINES, 48, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
+        }
+    }
+
+    lightingProgram->UnuseShader();
 }

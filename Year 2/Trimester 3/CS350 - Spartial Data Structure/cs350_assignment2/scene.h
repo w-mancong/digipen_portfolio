@@ -73,6 +73,21 @@ public:
 
     // ImGui variables
     bool show_demo_window;
+    bool drawAABB{};
+    bool drawTriangleAABB{};
+    bool drawLineSegments{};
 
+    // All Debugging objects delcared here
+    unsigned int VaoFromPoints(std::vector<glm::vec4> pnt, std::vector<int> ind);
 
+    // Line segment
+    void DrawLineSegment();
+    void DrawLineSegment(glm::vec3 const& p0, glm::vec3 const& p1);
+    
+    // AABB
+    void DrawAABB();
+    void DrawTriangleAABB();
+
+    std::vector<std::pair<glm::vec3, glm::vec3>> lineSegments;
+    unsigned int segmentVao, aabbVao;
 };

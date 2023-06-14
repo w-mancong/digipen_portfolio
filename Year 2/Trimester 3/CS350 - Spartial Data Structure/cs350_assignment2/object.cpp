@@ -75,7 +75,7 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
     // Draw this object
     CHECKERROR;
     if (shape)
-        shape->DrawVAO(objectId);
+        shape->DrawVAO();
     CHECKERROR;
 
 

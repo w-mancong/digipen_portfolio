@@ -58,7 +58,7 @@ public:
     virtual ~Shape() {}
 
     virtual void MakeVAO();
-    virtual void DrawVAO(int objectId);
+    virtual void DrawVAO();
 };
 
 class Sphere: public Shape
@@ -94,6 +94,8 @@ class Cube : public Shape
 {
 public:
     Cube();
+
+    virtual void DrawVAO();
 };
 
 #endif

@@ -120,14 +120,11 @@ void Shape::MakeVAO()
     count = Tri.size();
 }
 
-void Shape::DrawVAO(int objectId)
+void Shape::DrawVAO()
 {
     CHECKERROR;
     glBindVertexArray(vaoID);
-    if(objectId != 5)
-        glDrawElements(GL_TRIANGLES, 3 * count, GL_UNSIGNED_INT, 0);
-    else
-        glDrawElements(GL_LINES, 3 * count, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, 3 * count, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
     CHECKERROR;
 }
@@ -266,41 +263,59 @@ Cube::Cube()
     shininess = 120.0;
 
     // adding 8 points to Pnt vectors
-    Pnt.push_back(glm::vec4(  0.5f, -0.5f,  0.5f, 1.0f )); // 0   
-    Pnt.push_back(glm::vec4( -0.5f, -0.5f,  0.5f, 1.0f )); // 1
-
-    Pnt.push_back(glm::vec4(  0.5f,  0.5f,  0.5f, 1.0f )); // 2
-    Pnt.push_back(glm::vec4( -0.5f,  0.5f,  0.5f, 1.0f )); // 3
-
-    Pnt.push_back(glm::vec4(  0.5f, -0.5f, -0.5f, 1.0f )); // 4
-    Pnt.push_back(glm::vec4( -0.5f, -0.5f, -0.5f, 1.0f )); // 5
-
-    Pnt.push_back(glm::vec4(  0.5f,  0.5f, -0.5f, 1.0f )); // 6
-    Pnt.push_back(glm::vec4( -0.5f,  0.5f, -0.5f, 1.0f )); // 7
-
-    // Front face
-    Tri.push_back(glm::ivec3( 0, 2, 1 ));
-    Tri.push_back(glm::ivec3( 1, 2, 3 ));
-
-    // Back face
-    Tri.push_back(glm::ivec3( 5, 7, 6 ));
-    Tri.push_back(glm::ivec3( 5, 6, 4 ));
-
-    // Right face
-    Tri.push_back(glm::ivec3( 4, 6, 0 ));
-    Tri.push_back(glm::ivec3( 0, 6, 2 ));
-
-    // Left face
-    Tri.push_back(glm::ivec3( 1, 3, 5 ));
-    Tri.push_back(glm::ivec3( 5, 3, 7 ));
-
-    // Top face
-    Tri.push_back(glm::ivec3( 6, 7, 2 ));
-    Tri.push_back(glm::ivec3( 2, 7, 3 ));
+    Pnt.push_back(glm::vec4( -1.0f, -1.0f, -1.0f, 1.0f ));  // 0
+    Pnt.push_back(glm::vec4(  1.0f, -1.0f, -1.0f, 1.0f ));  // 1
+    Pnt.push_back(glm::vec4(  1.0f,  1.0f, -1.0f, 1.0f ));  // 2
+    Pnt.push_back(glm::vec4( -1.0f,  1.0f, -1.0f, 1.0f ));  // 3
+    Pnt.push_back(glm::vec4( -1.0f, -1.0f,  1.0f, 1.0f ));  // 4
+    Pnt.push_back(glm::vec4(  1.0f, -1.0f,  1.0f, 1.0f ));  // 5
+    Pnt.push_back(glm::vec4(  1.0f,  1.0f,  1.0f, 1.0f ));  // 6
+    Pnt.push_back(glm::vec4( -1.0f,  1.0f,  1.0f, 1.0f ));  // 7
 
     // Btm face
-    Tri.push_back(glm::ivec3( 5, 4, 1 ));
-    Tri.push_back(glm::ivec3( 1, 4, 0 ));
+    Tri.push_back(glm::ivec3( 0, 1, 0 ));
+    Tri.push_back(glm::ivec3( 1, 2, 1 ));
+    Tri.push_back(glm::ivec3( 2, 3, 2 ));
+    Tri.push_back(glm::ivec3( 3, 0, 3 ));
+
+    // Right face
+    Tri.push_back(glm::ivec3( 1, 5, 1 ));
+    Tri.push_back(glm::ivec3( 5, 6, 5 ));
+    Tri.push_back(glm::ivec3( 6, 2, 6 ));
+    Tri.push_back(glm::ivec3( 2, 1, 2 ));
+
+    // Btm face
+    Tri.push_back(glm::ivec3( 7, 6, 7 ));
+    Tri.push_back(glm::ivec3( 6, 5, 6 ));
+    Tri.push_back(glm::ivec3( 5, 4, 5 ));
+    Tri.push_back(glm::ivec3( 4, 7, 4 ));
+
+    // Left face
+    Tri.push_back(glm::ivec3( 4, 0, 4 ));
+    Tri.push_back(glm::ivec3( 0, 3, 0 ));
+    Tri.push_back(glm::ivec3( 3, 7, 3 ));
+    Tri.push_back(glm::ivec3( 7, 4, 7 ));
+
+    // Btm face
+    Tri.push_back(glm::ivec3( 4, 5, 4 ));
+    Tri.push_back(glm::ivec3( 5, 1, 5 ));
+    Tri.push_back(glm::ivec3( 1, 0, 1 ));
+    Tri.push_back(glm::ivec3( 0, 4, 0 ));
+
+    // Top face
+    Tri.push_back(glm::ivec3( 3, 2, 3 ));
+    Tri.push_back(glm::ivec3( 2, 6, 2 ));
+    Tri.push_back(glm::ivec3( 6, 7, 6 ));
+    Tri.push_back(glm::ivec3( 7, 3, 7 ));
 
     MakeVAO();
+}
+
+void Cube::DrawVAO()
+{
+    CHECKERROR;
+    glBindVertexArray(vaoID);
+    glDrawElements(GL_LINES, 3 * count, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+    CHECKERROR;
 }
