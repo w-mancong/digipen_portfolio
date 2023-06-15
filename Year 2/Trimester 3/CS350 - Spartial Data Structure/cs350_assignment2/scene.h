@@ -76,6 +76,8 @@ public:
     bool drawAABB{};
     bool drawTriangleAABB{};
     bool drawLineSegments{};
+    bool drawTriangle{};
+    bool drawSphere{};
 
     // All Debugging objects delcared here
     unsigned int VaoFromPoints(std::vector<glm::vec4> pnt, std::vector<int> ind);
@@ -88,6 +90,16 @@ public:
     void DrawAABB();
     void DrawTriangleAABB();
 
+    // Triangle
+    void DrawTriangle();
+
+    // Sphere
+    void DrawSphere();
+
+    glm::mat4 RotateZtoV(glm::vec3 v);
+
     std::vector<std::pair<glm::vec3, glm::vec3>> lineSegments;
-    unsigned int segmentVao, aabbVao;
+    unsigned int segmentVao, aabbVao, triangleVao, sphereVao;
+    glm::vec4 debugColor{};
+    static size_t constexpr N = 48;
 };

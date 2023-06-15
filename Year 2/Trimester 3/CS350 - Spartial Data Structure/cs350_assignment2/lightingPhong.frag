@@ -28,7 +28,7 @@ void main()
 {
     if (objectId == debugId) 
     {
-        FragColor.xyz = vec3(1.0f, 1.0f, 1.0f);
+        FragColor.xyz = diffuse;
         return; 
     }
     

@@ -23,7 +23,7 @@
 #include <sstream> // stringstream
 #include <utility> // pair
 
-const float PI = 3.14159f;
+constexpr float PI = 3.14159f;
 
 struct Unimplemented {};       // Marks code to be implemented by students.
 
