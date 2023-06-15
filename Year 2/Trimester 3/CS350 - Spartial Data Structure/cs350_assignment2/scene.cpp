@@ -317,10 +317,6 @@ void Scene::DrawGUI()
 
 	ImGui::ColorEdit4("Debug Color", &debugColor.x);
 
-	//ImGui::Checkbox("Show_demo_window", &show_demo_window);
-	//if (show_demo_window)
-	//    ImGui::ShowDemoWindow();
-
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
@@ -351,12 +347,20 @@ void Scene::BuildTransforms()
 	for (INSTANCE const& instances : objects->instances)
 	{
 		Object* obj = instances.first;
-		Box3D const aabb(obj->position, { obj->scale.x, obj->scale.y, obj->scale.z } );
+		glm::mat4 modelTr = instances.second;
+		std::vector<glm::vec4>& Pnt = obj->shape->Pnt;  // The objects list of vertices
+		std::vector<glm::ivec3>& Tri = obj->shape->Tri; // The object's list of triangles
 
-		if ( Intersects(ray, aabb, &t) )
+		for (glm::ivec3 const& tri : Tri)
 		{
-			if (t < min_t)
-				min_t = t;
+			glm::vec4 const p0 = modelTr * Pnt[tri[0]], p1 = modelTr * Pnt[tri[1]], p2 = modelTr * Pnt[tri[2]];
+			Triangle3D const triangle( glm::vec3{p0.x, p0.y, p0.z}, glm::vec3{ p1.x, p1.y, p1.z }, glm::vec3{ p2.x, p2.y, p2.z } );
+
+			if (Intersects(ray, triangle, &t))
+			{
+				if (t < min_t)
+					min_t = t;
+			}
 		}
 	}
 	if(min_t > dist)

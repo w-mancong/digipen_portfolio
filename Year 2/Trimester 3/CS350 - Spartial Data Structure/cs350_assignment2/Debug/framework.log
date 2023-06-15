@@ -12,8 +12,8 @@ C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\
           [
               T=float
           ]
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(332,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(364,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(328,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(368,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
           with
           [
               T=float
