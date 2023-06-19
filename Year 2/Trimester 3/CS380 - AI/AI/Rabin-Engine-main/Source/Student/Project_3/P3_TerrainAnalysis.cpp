@@ -8,6 +8,14 @@
 #include <iostream>
 #define CAST(t, v) (static_cast<t>(v))
 
+namespace
+{
+    bool Equal(float a, float b)
+    {
+        return fabs(a - b) < FLT_EPSILON;
+    }
+}
+
 bool ProjectThree::implemented_fog_of_war() const // extra credit
 {
     return false;
@@ -160,7 +168,7 @@ void analyze_visibility(MapLayer<float> &layer)
             if (is_clear_path(r0, c0, r1, c1))
                 ++numOfVisibleCells;
         }
-        float const val = std::clamp(static_cast<float>(numOfVisibleCells / 160.0f), 0.0f, 1.0f);
+        float const val = std::clamp(CAST(float, numOfVisibleCells / 160.0f), 0.0f, 1.0f);
         layer.set_value(r0, c0, val);
     }
 }
@@ -185,6 +193,7 @@ void analyze_visible_to_cell(MapLayer<float> &layer, int row, int col)
     int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
     std::vector<Coords> coords{}; coords.reserve(CAST(size_t, WIDTH)* CAST(size_t, HEIGHT));
 
+    // Loop to assign map layer with values 1.0f/0.0f
     for (int r{}; r < HEIGHT; ++r)
     {
         for (int c{}; c < WIDTH; ++c)
@@ -210,7 +219,7 @@ void analyze_visible_to_cell(MapLayer<float> &layer, int row, int col)
             && is_clear_path(r, c, coords[index].r, coords[index].c);
     };
 
-    do  // loop through each visible cell to search for valid visible neighbours
+    do  // loop through each visible cell to search for valid visible neighbours (to set each cells to be 0.5f)
     {
         int const r = coords[index].r,
                   c = coords[index].c;
@@ -319,7 +328,7 @@ void propagate_solo_occupancy(MapLayer<float> &layer, float decay, float growth)
     auto Prop = [&layer, growth, &tmp, IsValid, Decay](int r, int c)
     {
         float max{ FLT_MIN };
-        float vals[8]{ FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN };
+        float vals[8]{ -FLT_MIN, -FLT_MIN, -FLT_MIN, -FLT_MIN, -FLT_MIN, -FLT_MIN, -FLT_MIN, -FLT_MIN };
         size_t index{};
 
         float constexpr const sqrt2{ 1.41421356237f };
@@ -352,7 +361,7 @@ void propagate_solo_occupancy(MapLayer<float> &layer, float decay, float growth)
 
         for (size_t i{}; i < 8; ++i)
         {
-            if (vals[i] == FLT_MIN)
+            if (vals[i] == -FLT_MIN)
                 break;
             if (max < vals[i])
                 max = vals[i];
@@ -361,6 +370,7 @@ void propagate_solo_occupancy(MapLayer<float> &layer, float decay, float growth)
         return lerp(layer.get_value(r, c), max, growth);
     };
 
+    // Propagate the cells
     for (int r{}; r < HEIGHT; ++r)
     {
         for (int c{}; c < WIDTH; ++c)
@@ -371,6 +381,7 @@ void propagate_solo_occupancy(MapLayer<float> &layer, float decay, float growth)
         }
     }
 
+    // assigning temp values into layer
     for (int r{}; r < HEIGHT; ++r)
     {
         for (int c{}; c < WIDTH; ++c)
@@ -424,15 +435,16 @@ void normalize_solo_occupancy(MapLayer<float> &layer)
         }
     }
 
-    if (-0.01 <= max && max <= 0.01) return;
+    // Don't let value be divided by 0
+    if (Equal(max, 0.0f)) 
+        return;
+
     for (int r{}; r < HEIGHT; ++r)
     {
         for (int c{}; c < WIDTH; ++c)
         {
-            if (terrain->is_wall(r, c))
-                continue;
             float const val = layer.get_value(r, c);
-            if (val < 0.0f)
+            if (terrain->is_wall(r, c) || val <= 0.0f)
                 continue;
             layer.set_value(r, c, val / max);
         }
@@ -471,6 +483,19 @@ void enemy_field_of_view(MapLayer<float> &layer, float fovAngle, float closeDist
     */
 
     // WRITE YOUR CODE HERE
+    float const ANGLE = cos(fovAngle * 0.5f);
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (terrain->is_wall(r, c) || layer.get_value(r, c) >= 0.0f)
+                continue;
+            layer.set_value(r, c, 0.0f);
+        }
+    }
+
+
 }
 
 bool enemy_find_player(MapLayer<float> &layer, AStarAgent *enemy, Agent *player)
