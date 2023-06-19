@@ -6,7 +6,7 @@
 #include "Projects/ProjectThree.h"
 
 #include <iostream>
-#define BYTES_8(v) (static_cast<size_t>(v))
+#define CAST(t, v) (static_cast<t>(v))
 
 bool ProjectThree::implemented_fog_of_war() const // extra credit
 {
@@ -63,8 +63,8 @@ bool is_clear_path(int row0, int col0, int row1, int col1)
     {
         Vec2 p0{}, p1{};
         // los -> Line of sight
-    } const los{ { static_cast<float>(col0), static_cast<float>(row0) },
-                 { static_cast<float>(col1), static_cast<float>(row1) } };
+    } const los{ { CAST(float, col0), CAST(float, row0) },
+                 { CAST(float, col1), CAST(float, row1) } };
 
     // WRITE YOUR CODE HERE
     int const MIN_ROW = std::min(row0, row1),
@@ -86,14 +86,14 @@ bool is_clear_path(int row0, int col0, int row1, int col1)
             if (!terrain->is_wall(r, c))
                 continue;
 
-            Line const top  { { static_cast<float>(c) + 0.501f, static_cast<float>(r) + 0.501f },
-                              { static_cast<float>(c) - 0.501f, static_cast<float>(r) + 0.501f } };
-            Line const btm  { { static_cast<float>(c) + 0.501f, static_cast<float>(r) - 0.501f },
-                              { static_cast<float>(c) - 0.501f, static_cast<float>(r) - 0.501f } };
-            Line const right{ { static_cast<float>(c) + 0.501f, static_cast<float>(r) + 0.501f },
-                              { static_cast<float>(c) + 0.501f, static_cast<float>(r) - 0.501f } };
-            Line const left { { static_cast<float>(c) - 0.501f, static_cast<float>(r) + 0.501f },
-                              { static_cast<float>(c) - 0.501f, static_cast<float>(r) - 0.501f } };
+            Line const top  { { CAST(float, c) + 0.501f, CAST(float, r) + 0.501f },
+                              { CAST(float, c) - 0.501f, CAST(float, r) + 0.501f } };
+            Line const btm  { { CAST(float, c) + 0.501f, CAST(float, r) - 0.501f },
+                              { CAST(float, c) - 0.501f, CAST(float, r) - 0.501f } };
+            Line const right{ { CAST(float, c) + 0.501f, CAST(float, r) + 0.501f },
+                              { CAST(float, c) + 0.501f, CAST(float, r) - 0.501f } };
+            Line const left { { CAST(float, c) - 0.501f, CAST(float, r) + 0.501f },
+                              { CAST(float, c) - 0.501f, CAST(float, r) - 0.501f } };
 
             // If any of the wall lines intersect with the los, path is not clear
             if (Intersect(los, top) || Intersect(los, btm) || Intersect(los, right) || Intersect(los, left))
@@ -183,7 +183,7 @@ void analyze_visible_to_cell(MapLayer<float> &layer, int row, int col)
     };
     layer.set_value(row, col, 1.0f);
     int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
-    std::vector<Coords> coords{}; coords.reserve(BYTES_8(WIDTH)* BYTES_8(HEIGHT));
+    std::vector<Coords> coords{}; coords.reserve(CAST(size_t, WIDTH)* CAST(size_t, HEIGHT));
 
     for (int r{}; r < HEIGHT; ++r)
     {
@@ -262,6 +262,27 @@ void analyze_agent_vision(MapLayer<float> &layer, const Agent *agent)
     */
 
     // WRITE YOUR CODE HERE
+    Vec2 const& view{ agent->get_forward_vector().x, agent->get_forward_vector().z };
+    GridPos const& pos{ terrain->get_grid_position( agent->get_position() ) };
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+
+    float constexpr const ANGLE = -0.087f;
+
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (!is_clear_path(pos.row, pos.col, r, c))
+                continue;
+
+            // Get the dot product with agent's view vector and vector from agent to cell
+            Vec2 v{ terrain->get_world_position(r, c).x - agent->get_position().x,
+                    terrain->get_world_position(r, c).z - agent->get_position().z }; v.Normalize();
+            if (v.Dot(view) < ANGLE)
+                continue;
+            layer.set_value(r, c, 1.0f);
+        }
+    }
 }
 
 void propagate_solo_occupancy(MapLayer<float> &layer, float decay, float growth)
