@@ -21,10 +21,29 @@ float distance_to_closest_wall(int row, int col)
         functions in the global terrain to determine if a cell is within map bounds
         and a wall, respectively.
     */
+    float closestWallDist{ FLT_MAX };
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
 
-    // WRITE YOUR CODE HERE
-    
-    return 0.0f; // REPLACE THIS
+    auto IsWall = [](int r, int c)
+    {
+        return !terrain->is_valid_grid_position(r, c) || terrain->is_wall(r, c);
+    };
+
+    for (int r{ -1 }; r <= HEIGHT; ++r)
+    {
+        for (int c{ -1 }; c <= WIDTH; ++c)
+        {
+            if (!IsWall(r, c))
+                continue;
+            float const dx = static_cast<float>(col - c),
+                        dy = static_cast<float>(row - r);
+            float const dist = dx * dx + dy * dy;
+            if (dist < closestWallDist)
+                closestWallDist = dist;
+        }
+    }
+
+    return sqrt(closestWallDist);
 }
 
 bool is_clear_path(int row0, int col0, int row1, int col1)
@@ -37,10 +56,56 @@ bool is_clear_path(int row0, int col0, int row1, int col1)
         line_intersect helper function for the intersection test and the is_wall member
         function in the global terrain to determine if a cell is a wall or not.
     */
+    if (!terrain->is_valid_grid_position(row0, col0) || !terrain->is_valid_grid_position(row1, col1))
+        return false;
+    struct Line
+    {
+        Vec2 p0{}, p1{};
+        // los -> Line of sight
+    } const los{ { static_cast<float>(col0), static_cast<float>(row0) },
+                 { static_cast<float>(col1), static_cast<float>(row1) } };
 
     // WRITE YOUR CODE HERE
+    int const MIN_ROW = std::min(row0, row1),
+              MAX_ROW = std::max(row0, row1);
+    int const MIN_COL = std::min(col0, col1),
+              MAX_COL = std::max(col0, col1);
 
-    return false; // REPLACE THIS
+    bool pathClear{ true };
+
+    auto Intersect = [](Line const& l0, Line const& l1)
+    {
+        return line_intersect(l0.p0, l0.p1, l1.p0, l1.p1);
+    };
+
+	for (int r{ MIN_ROW }; r <= MAX_ROW; ++r)
+	{
+		for (int c{ MIN_COL }; c <= MAX_COL; ++c)
+        {
+            if (!terrain->is_wall(r, c))
+                continue;
+
+            Line const top  { { static_cast<float>(c) + 0.501f, static_cast<float>(r) + 0.501f },
+                              { static_cast<float>(c) - 0.501f, static_cast<float>(r) + 0.501f } };
+            Line const btm  { { static_cast<float>(c) + 0.501f, static_cast<float>(r) - 0.501f },
+                              { static_cast<float>(c) - 0.501f, static_cast<float>(r) - 0.501f } };
+            Line const right{ { static_cast<float>(c) + 0.501f, static_cast<float>(r) + 0.501f },
+                              { static_cast<float>(c) + 0.501f, static_cast<float>(r) - 0.501f } };
+            Line const left { { static_cast<float>(c) - 0.501f, static_cast<float>(r) + 0.501f },
+                              { static_cast<float>(c) - 0.501f, static_cast<float>(r) - 0.501f } };
+
+            // If any of the wall lines intersect with the los, path is not clear
+            if (Intersect(los, top) || Intersect(los, btm) || Intersect(los, right) || Intersect(los, left))
+            {
+                pathClear = false;
+                break;
+            }
+        }
+        if (!pathClear)
+            break;
+    }
+
+    return pathClear; // REPLACE THIS
 }
 
 void analyze_openness(MapLayer<float> &layer)
@@ -52,6 +117,17 @@ void analyze_openness(MapLayer<float> &layer)
     */
 
     // WRITE YOUR CODE HERE
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (terrain->is_wall(r, c))
+                continue;
+            float const d = distance_to_closest_wall(r, c);
+            layer.set_value(r, c, 1.0f / (d * d));
+        }
+    }
 }
 
 void analyze_visibility(MapLayer<float> &layer)
@@ -67,6 +143,25 @@ void analyze_visibility(MapLayer<float> &layer)
     */
 
     // WRITE YOUR CODE HERE
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+    int const MAX_CELLS{ WIDTH * HEIGHT };
+    for (int i{}; i < MAX_CELLS; ++i)
+    {
+        int numOfVisibleCells{};
+        int const r0 = i / HEIGHT,
+                  c0 = i % WIDTH;
+        if (terrain->is_wall(r0, c0))
+            continue;
+        for (int j{}; j < MAX_CELLS; ++j)
+        {
+            int const r1 = j / HEIGHT,
+                      c1 = j % WIDTH;
+            if (is_clear_path(r0, c0, r1, c1))
+                ++numOfVisibleCells;
+        }
+        float const val = std::clamp(static_cast<float>(numOfVisibleCells / 160.0f), 0.0f, 1.0f);
+        layer.set_value(r0, c0, val);
+    }
 }
 
 void analyze_visible_to_cell(MapLayer<float> &layer, int row, int col)
@@ -82,6 +177,8 @@ void analyze_visible_to_cell(MapLayer<float> &layer, int row, int col)
     */
 
     // WRITE YOUR CODE HERE
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+
 }
 
 void analyze_agent_vision(MapLayer<float> &layer, const Agent *agent)
