@@ -6,6 +6,7 @@
 #include "Projects/ProjectThree.h"
 
 #include <iostream>
+#define BYTES_8(v) (static_cast<size_t>(v))
 
 bool ProjectThree::implemented_fog_of_war() const // extra credit
 {
@@ -175,10 +176,69 @@ void analyze_visible_to_cell(MapLayer<float> &layer, int row, int col)
         intersect the four boundary lines of every wall cell.  Make use of the is_clear_path
         helper function.
     */
-
     // WRITE YOUR CODE HERE
+    struct Coords
+    {
+        int r{}, c{};
+    };
+    layer.set_value(row, col, 1.0f);
     int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+    std::vector<Coords> coords{}; coords.reserve(BYTES_8(WIDTH)* BYTES_8(HEIGHT));
 
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if ( terrain->is_wall(r, c) || (r == row && c == col) )
+                continue;
+            if (is_clear_path(row, col, r, c))
+            {
+                layer.set_value(r, c, 1.0f);
+                coords.emplace_back(Coords{ r, c });
+            }
+            else
+                layer.set_value(r, c, 0.0f);
+        }
+    }
+
+    size_t index = 0;
+    auto IsValid = [&layer, &coords, &index](int r, int c)
+    {
+        return terrain->is_valid_grid_position(r, c) 
+            && !terrain->is_wall(r, c) 
+            && layer.get_value(r, c) != 1.0f
+            && is_clear_path(r, c, coords[index].r, coords[index].c);
+    };
+
+    do  // loop through each visible cell to search for valid visible neighbours
+    {
+        int const r = coords[index].r,
+                  c = coords[index].c;
+        // Top Left
+        if (IsValid(r + 1, c - 1))
+            layer.set_value(r + 1, c - 1, 0.5f);
+        // Top
+        if(IsValid(r + 1, c))
+            layer.set_value(r + 1, c, 0.5f);
+        // Top Right
+        if (IsValid(r + 1, c + 1))
+            layer.set_value(r + 1, c + 1, 0.5f);
+        // Left
+        if (IsValid(r, c - 1))
+            layer.set_value(r, c - 1, 0.5f);
+        // Right
+        if (IsValid(r, c + 1))
+            layer.set_value(r, c + 1, 0.5f);
+        // Btm left
+        if (IsValid(r - 1, c - 1))
+            layer.set_value(r - 1, c - 1, 0.5f);
+        // Btm
+        if (IsValid(r - 1, c))
+            layer.set_value(r - 1, c, 0.5f);
+        // Btm right
+        if (IsValid(r - 1, c + 1))
+            layer.set_value(r - 1, c + 1, 0.5f);
+    } while (++index < coords.size());
 }
 
 void analyze_agent_vision(MapLayer<float> &layer, const Agent *agent)
