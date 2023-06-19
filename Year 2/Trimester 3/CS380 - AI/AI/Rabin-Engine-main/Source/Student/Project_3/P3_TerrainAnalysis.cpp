@@ -262,10 +262,11 @@ void analyze_agent_vision(MapLayer<float> &layer, const Agent *agent)
     */
 
     // WRITE YOUR CODE HERE
-    Vec2 const& view{ agent->get_forward_vector().x, agent->get_forward_vector().z };
     GridPos const& pos{ terrain->get_grid_position( agent->get_position() ) };
+    Vec2 const& view{ agent->get_forward_vector().x, agent->get_forward_vector().z };
     int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
 
+    // ANGLE is cos95
     float constexpr const ANGLE = -0.087f;
 
     for (int r{}; r < HEIGHT; ++r)
@@ -302,6 +303,83 @@ void propagate_solo_occupancy(MapLayer<float> &layer, float decay, float growth)
     */
     
     // WRITE YOUR CODE HERE
+    float tmp[40][40];  // [r][c]
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+
+    auto IsValid = [](int r, int c)
+    {
+        return terrain->is_valid_grid_position(r, c) && !terrain->is_wall(r, c);
+    };
+
+    auto Decay = [decay](float influenceValue, float ex)
+    {
+        return influenceValue * exp(ex * decay);
+    };
+
+    auto Prop = [&layer, growth, &tmp, IsValid, Decay](int r, int c)
+    {
+        float max{ FLT_MIN };
+        float vals[8]{ FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN, FLT_MIN };
+        size_t index{};
+
+        float constexpr const sqrt2{ 1.41421356237f };
+
+        // Top
+        if (IsValid(r + 1, c))
+            vals[index++] = Decay(layer.get_value(r + 1, c), -1.0f);
+        // Btm
+        if (IsValid(r - 1, c))
+            vals[index++] = Decay(layer.get_value(r - 1, c), -1.0f);
+        // Right
+        if (IsValid(r, c + 1))
+            vals[index++] = Decay(layer.get_value(r, c + 1), -1.0f);
+        // Left
+        if (IsValid(r, c - 1))
+            vals[index++] = Decay(layer.get_value(r, c - 1), -1.0f);
+        
+        // Top Left
+        if ( IsValid(r + 1, c) && IsValid(r, c - 1) )
+            vals[index++] = Decay(layer.get_value(r + 1, c - 1), -sqrt2);
+        // Top Right
+        if( IsValid(r + 1, c) && IsValid(r, c + 1) )
+            vals[index++] = Decay(layer.get_value(r + 1, c + 1), -sqrt2);
+        // Btm Left
+        if( IsValid(r - 1, c) && IsValid(r, c - 1) )
+            vals[index++] = Decay(layer.get_value(r - 1, c - 1), -sqrt2);
+        // Btm Right
+		if ( IsValid(r - 1, c) && IsValid(r, c + 1) )
+            vals[index] = Decay(layer.get_value(r - 1, c + 1), -sqrt2);
+
+        for (size_t i{}; i < 8; ++i)
+        {
+            if (vals[i] == FLT_MIN)
+                break;
+            if (max < vals[i])
+                max = vals[i];
+        }
+
+        return lerp(layer.get_value(r, c), max, growth);
+    };
+
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (terrain->is_wall(r, c))
+                continue;
+            tmp[r][c] = Prop(r, c);
+        }
+    }
+
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (terrain->is_wall(r, c))
+                continue;
+            layer.set_value(r, c, tmp[r][c]);
+        }
+    }
 }
 
 void propagate_dual_occupancy(MapLayer<float> &layer, float decay, float growth)
@@ -334,6 +412,31 @@ void normalize_solo_occupancy(MapLayer<float> &layer)
     */
 
     // WRITE YOUR CODE HERE
+    float max{ -FLT_MIN };
+    int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            float const val = layer.get_value(r, c);
+            if (max < val)
+                max = val;
+        }
+    }
+
+    if (-0.01 <= max && max <= 0.01) return;
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (terrain->is_wall(r, c))
+                continue;
+            float const val = layer.get_value(r, c);
+            if (val < 0.0f)
+                continue;
+            layer.set_value(r, c, val / max);
+        }
+    }
 }
 
 void normalize_dual_occupancy(MapLayer<float> &layer)
