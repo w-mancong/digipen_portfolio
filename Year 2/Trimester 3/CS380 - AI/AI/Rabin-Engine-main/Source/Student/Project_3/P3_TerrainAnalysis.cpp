@@ -483,8 +483,9 @@ void enemy_field_of_view(MapLayer<float> &layer, float fovAngle, float closeDist
     */
 
     // WRITE YOUR CODE HERE
-    float const ANGLE = cos(fovAngle * 0.5f);
     int const WIDTH{ terrain->get_map_width() }, HEIGHT{ terrain->get_map_height() };
+
+    // Clear out old values by setting negative values to be 0.0f
     for (int r{}; r < HEIGHT; ++r)
     {
         for (int c{}; c < WIDTH; ++c)
@@ -495,7 +496,31 @@ void enemy_field_of_view(MapLayer<float> &layer, float fovAngle, float closeDist
         }
     }
 
+    // To draw the pov for enemy based on it's view vector
+    float const ANGLE = cos( MyVar::DegToRad( fovAngle * 0.5f ) );
+    Vec2 const& view{ enemy->get_forward_vector().x, enemy->get_forward_vector().z };
+    GridPos const& pos{ terrain->get_grid_position( enemy->get_position() ) };
+    float const SQUARE_DIST = closeDistance * closeDistance;
 
+    for (int r{}; r < HEIGHT; ++r)
+    {
+        for (int c{}; c < WIDTH; ++c)
+        {
+            if (!is_clear_path(pos.row, pos.col, r, c))
+                continue;
+            float const dx = pos.col - CAST(float, c),
+                        dy = pos.row - CAST(float, r);
+            if ((dx * dx + dy * dy) < SQUARE_DIST)
+                layer.set_value(r, c, occupancyValue);
+
+			// Get the dot product with agent's view vector and vector from agent to cell
+			Vec2 v{ terrain->get_world_position(r, c).x - enemy->get_position().x,
+					terrain->get_world_position(r, c).z - enemy->get_position().z }; v.Normalize();
+			if (v.Dot(view) < ANGLE)
+				continue;
+			layer.set_value(r, c, occupancyValue);
+        }
+    }
 }
 
 bool enemy_find_player(MapLayer<float> &layer, AStarAgent *enemy, Agent *player)
