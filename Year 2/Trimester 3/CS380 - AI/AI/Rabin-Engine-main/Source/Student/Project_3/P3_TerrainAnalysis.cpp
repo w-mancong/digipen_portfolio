@@ -596,51 +596,9 @@ bool enemy_seek_player(MapLayer<float> &layer, AStarAgent *enemy)
         }
     }
 
+    if (max < 0.99f)
+        return false;
+
     enemy->path_to(targetPos);
     return true;
-    
-   // // First loop iteration: Find tiles with highest occupancy value
-   // for (int r{}; r < HEIGHT; ++r)
-   // {
-   //     for (int c{}; c < WIDTH; ++c)
-   //     {
-   //         float const val = layer.get_value(r, c);
-   //         if (terrain->is_wall(r, c) || val < 0.0f)
-   //             continue;
-
-   //         if ( max < val )
-   //             max = val;
-   //     }
-   // }
-
-   // if (Equal(max, -FLT_MIN))
-   //     return false;
-
-   // // Second loop iteration: Find the closest tile with the highest occupancy value
-   // Vec3 targetPos{};
-   // float nearest{ 5000.0f };   // because the maximum distance that can be achieve by 40x40 grid is 3200
-   // GridPos const& pos{ terrain->get_grid_position( enemy->get_position() ) };
-   // int row{}, col{};
-   // for (int r{}; r < HEIGHT; ++r)
-   // {
-   //     for (int c{}; c < WIDTH; ++c)
-   //     {
-   //         if (terrain->is_wall(r, c))
-   //             continue;
-   //         float const dx = pos.col - CAST(float, c),
-   //                     dy = pos.row - CAST(float, r);
-   //         float const dist = dx * dx + dy * dy;
-   //         if (layer.get_value(r, c) < max
-   //             || dist > nearest * nearest 
-   //             || Equal(dist, nearest))
-   //             continue;
-			//nearest = dist;
-   //         targetPos = terrain->get_world_position(r, c);
-   //         row = r, col = c;
-   //     }
-   // }
-
-   // enemy->path_to(targetPos);
-
-    return true; // REPLACE THIS
 }
