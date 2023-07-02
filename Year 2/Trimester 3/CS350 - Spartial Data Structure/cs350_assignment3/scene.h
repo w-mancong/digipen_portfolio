@@ -111,9 +111,20 @@ private:
         Leaf
     };
 
+    struct Node
+    {
+        Box3D aabb{};
+        Triangle3D tri{};
+        glm::mat4 const* modelTr{};
+    };
+
     struct TreeNode
     {
         NodeType type{ NodeType::Invalid };
-
+        Node* node;
+        int numOfObjects{};
+        TreeNode* lChild{ nullptr }, *rChild{ nullptr };
     };
+
+    std::vector<Node> nodes{};
 };

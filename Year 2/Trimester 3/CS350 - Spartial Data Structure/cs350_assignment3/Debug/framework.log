@@ -1,22 +1,22 @@
 ﻿cl : command line warning D9035: option 'Gm' has been deprecated and will be removed in a future release
   scene.cpp
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(56,28): warning C4305: 'initializing': truncation from 'double' to 'float'
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(57,35): warning C4305: 'initializing': truncation from 'double' to 'float'
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(112,25): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(117,10): warning C4305: '=': truncation from 'double' to 'float'
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(178,36): warning C4244: 'argument': conversion from 'double' to 'const float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(179,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(180,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(186,50): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(56,28): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(57,35): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(112,25): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(117,10): warning C4305: '=': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(178,36): warning C4244: 'argument': conversion from 'double' to 'const float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(179,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(180,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(186,50): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
           with
           [
               T=float
           ]
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(328,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\scene.cpp(368,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(356,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(385,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
           with
           [
               T=float
           ]
-  framework.vcxproj -> C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment2\Debug\framework.exe
+  framework.vcxproj -> C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\Debug\framework.exe
   0 File(s) copied

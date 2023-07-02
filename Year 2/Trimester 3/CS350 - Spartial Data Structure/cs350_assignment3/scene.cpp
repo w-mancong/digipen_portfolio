@@ -228,10 +228,6 @@ void Scene::InitializeScene()
 			//    Its normals vectors are: (probably not needed)
 			//        Nrm[tri[0]]*normalTr, Nrm[tri[1]]*normalTr, Nrm[tri[2]]*normalTr
 		}
-
-		// AABB
-		//Object* cube = new Object(CubePolygons, debugId, glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.5), 120);
-		//aabb->add(cube, modelTr);
 	}
 
 	// @@ This is a good place to build the VAOs for the debug draws,
@@ -261,10 +257,10 @@ void Scene::InitializeScene()
 	}
 
 	{
-		std::vector<glm::vec4> pnt = { glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f), glm::vec4(1.0f, -1.0f, -1.0f, 1.0f),
+		std::vector<glm::vec4> pnt = { glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f), glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
 									   glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f), glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
-									   glm::vec4(1.0f,  1.0f, -1.0f, 1.0f), glm::vec4(1.0f, -1.0f,  1.0f, 1.0f),
-									   glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f), glm::vec4(1.0f,  1.0f,  1.0f, 1.0f)
+									   glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f), glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
+									   glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f), glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f)
 		};
 		std::vector<int> ind = { 0, 1, 1, 4, 4, 2, 2, 0, // front
 									   1, 5, 5, 7, 7, 4, // right
@@ -292,6 +288,38 @@ void Scene::InitializeScene()
 		}
 
 		sphereVao = VaoFromPoints(pnt, ind);
+	}
+
+	// building of all the leaf nodes
+	nodes.reserve(triangleCount);
+	for (INSTANCE instance : objects->instances)
+	{
+		Object* object = instance.first;
+		glm::mat4 const& modelTr = instance.second;
+
+		std::vector<glm::vec4>& Pnt = object->shape->Pnt;  // The objects list of vertices
+		std::vector<glm::vec3>& Nrm = object->shape->Nrm;  // The object's list of normals
+		std::vector<glm::ivec3>& Tri = object->shape->Tri; // The object's list of triangles
+
+		for (glm::ivec3 tri : Tri)
+		{
+			glm::vec3 const p0 = static_cast<glm::vec3>( modelTr * Pnt[tri[0]] ), 
+							p1 = static_cast<glm::vec3>( modelTr * Pnt[tri[1]] ), 
+							p2 = static_cast<glm::vec3>( modelTr * Pnt[tri[2]] );
+
+			float const min_x = std::min( p0.x, std::min( p1.x, p2.x ) ),
+						min_y = std::min( p0.y, std::min( p1.y, p2.y ) ),
+						min_z = std::min( p0.z, std::min( p1.z, p2.z ) ),
+						max_x = std::max( p0.x, std::max( p1.x, p2.x ) ),
+						max_y = std::max( p0.y, std::max( p1.y, p2.y ) ),
+						max_z = std::max( p0.z, std::max( p1.z, p2.z ) );
+			
+			glm::vec3 const pos = glm::vec3(max_x + min_x, max_y + min_y, max_z + min_z) * 0.5f,
+							ext{ max_x - min_x, max_y - min_y, max_z - min_z };
+
+			Node const node{ { pos, ext }, { p0, p1, p2 }, &modelTr };
+			nodes.emplace_back(node);
+		}
 	}
 }
 
@@ -344,23 +372,12 @@ void Scene::BuildTransforms()
 	// object. 
 	Ray3D const ray(eye, dir);
 	float t{}, min_t{ FLT_MAX };
-	for (INSTANCE const& instances : objects->instances)
+	for (Node const& node : nodes)
 	{
-		Object* obj = instances.first;
-		glm::mat4 const modelTr = instances.second;
-		std::vector<glm::vec4>& Pnt = obj->shape->Pnt;  // The objects list of vertices
-		std::vector<glm::ivec3>& Tri = obj->shape->Tri; // The object's list of triangles
-
-		for (glm::ivec3 const& tri : Tri)
+		if (Intersects(ray, node.aabb, &t))
 		{
-			glm::vec4 const p0 = modelTr * Pnt[tri[0]], p1 = modelTr * Pnt[tri[1]], p2 = modelTr * Pnt[tri[2]];
-			Triangle3D const triangle( glm::vec3{p0.x, p0.y, p0.z}, glm::vec3{ p1.x, p1.y, p1.z }, glm::vec3{ p2.x, p2.y, p2.z } );
-
-			if (Intersects(ray, triangle, &t))
-			{
-				if (t < min_t)
-					min_t = t;
-			}
+			if (t < min_t)
+				min_t = t;
 		}
 	}
 	if(min_t > dist)
@@ -566,38 +583,29 @@ void Scene::DrawTriangleAABB()
 	lightingProgram->UseShader();
 	programId = lightingProgram->programId;
 
-	for (INSTANCE& instances : objects->instances)
+	for (Node const& node : nodes)
 	{
-		Object* obj = instances.first;
-		glm::mat4 const& modelTr = instances.second;
-
-		std::vector<glm::vec4>& Pnt = obj->shape->Pnt;  // The objects list of vertices
-		std::vector<glm::ivec3>& Tri = obj->shape->Tri; // The object's list of triangles
-
-		for (glm::ivec3 const& tri : Tri)
+		Triangle3D const& tri = node.tri;
+		glm::mat4 trans
 		{
-			glm::vec4 const p0 = modelTr * Pnt[tri[0]], p1 = modelTr * Pnt[tri[1]];
-			glm::mat4 trans
-			{
-				{ p1.x - p0.x, 0.0f, 0.0f, 0.0f },
-				{ 0.0f, p1.y - p0.y, 0.0f, 0.0f },
-				{ 0.0f, 0.0f, p1.z - p0.z, 0.0f },
-				{ p0.x, p0.y, p0.z, 1.0f },
-			};
+			{ tri[1].x - tri[0].x, 0.0f, 0.0f, 0.0f },
+			{ 0.0f, tri[1].y - tri[0].y, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, tri[1].z - tri[0].z, 0.0f },
+			{ tri[0].x, tri[0].y, tri[0].z, 1.0f },
+		};
 
-			loc = glGetUniformLocation(programId, "ModelTr");
-			glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(trans));
+		loc = glGetUniformLocation(programId, "ModelTr");
+		glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(trans));
 
-			loc = glGetUniformLocation(programId, "objectId");
-			glUniform1i(loc, debugId);
+		loc = glGetUniformLocation(programId, "objectId");
+		glUniform1i(loc, debugId);
 
-			loc = glGetUniformLocation(programId, "diffuse");
-			glUniform3fv(loc, 1, &debugColor[0]);
+		loc = glGetUniformLocation(programId, "diffuse");
+		glUniform3fv(loc, 1, &debugColor[0]);
 
-			glBindVertexArray(aabbVao);
-			glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
-		}
+		glBindVertexArray(aabbVao);
+		glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
 	}
 
 	lightingProgram->UnuseShader();
@@ -609,38 +617,29 @@ void Scene::DrawTriangle()
 	lightingProgram->UseShader();
 	programId = lightingProgram->programId;
 
-	for (INSTANCE& instances : objects->instances)
+	for (Node const& node : nodes)
 	{
-		Object* obj = instances.first;
-		glm::mat4 const& modelTr = instances.second;
-
-		std::vector<glm::vec4>& Pnt = obj->shape->Pnt;  // The objects list of vertices
-		std::vector<glm::ivec3>& Tri = obj->shape->Tri; // The object's list of triangles
-
-		for (glm::ivec3 const& tri : Tri)
+		Triangle3D const& tri = node.tri;
+		glm::mat4 trans
 		{
-			glm::vec4 const p0 = modelTr * Pnt[tri[0]], p1 = modelTr * Pnt[tri[1]], p2 = modelTr * Pnt[tri[2]];
-			glm::mat4 trans
-			{
-				{ p0[0], p0[1], p0[2], 1.0f },
-				{ p1[0], p1[1], p1[2], 1.0f },
-				{ p2[0], p2[1], p2[2], 1.0f },
-				{ 0.0f , 0.0f , 0.0f , 1.0f },
-			};
+			{ tri[0].x, tri[0].y, tri[0].z, 1.0f },
+			{ tri[1].x, tri[1].y, tri[1].z, 1.0f },
+			{ tri[2].x, tri[2].y, tri[2].z, 1.0f },
+			{ 0.0f , 0.0f , 0.0f , 1.0f },
+		};
 
-			loc = glGetUniformLocation(programId, "ModelTr");
-			glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(trans));
+		loc = glGetUniformLocation(programId, "ModelTr");
+		glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(trans));
 
-			loc = glGetUniformLocation(programId, "objectId");
-			glUniform1i(loc, debugId);
+		loc = glGetUniformLocation(programId, "objectId");
+		glUniform1i(loc, debugId);
 
-			loc = glGetUniformLocation(programId, "diffuse");
-			glUniform3fv(loc, 1, &debugColor[0]);
+		loc = glGetUniformLocation(programId, "diffuse");
+		glUniform3fv(loc, 1, &debugColor[0]);
 
-			glBindVertexArray(triangleVao);
-			glDrawElements(GL_LINE_LOOP, 3, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
-		}
+		glBindVertexArray(triangleVao);
+		glDrawElements(GL_LINE_LOOP, 3, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
 	}
 
 	lightingProgram->UnuseShader();
