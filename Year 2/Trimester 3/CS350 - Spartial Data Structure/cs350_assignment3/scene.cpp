@@ -321,6 +321,10 @@ void Scene::InitializeScene()
 			nodes.emplace_back(node);
 		}
 	}
+
+	// initialize binary tree
+	root = new TreeNode{};
+	BuildTopDownTree(root, nodes, 0, nodes.size() - 1);
 }
 
 void Scene::DrawGUI()
@@ -484,6 +488,11 @@ void Scene::DestroyScene()
 {
 	// @@ This is called as the program is exiting. Perform any
 	// necessary cleanup here.
+	if (root)
+	{
+		delete root;
+		root = nullptr;
+	}
 }
 
 unsigned int Scene::VaoFromPoints(std::vector<glm::vec4> pnt, std::vector<int> ind)
@@ -718,4 +727,105 @@ glm::mat4 Scene::RotateZtoV(glm::vec3 v)
 		{ C.x,  C.y,  C.z,  0.0f },
 		{ 0.0f, 0.0f, 0.0f, 1.0f }
 	};
+}
+
+void Scene::BuildTopDownTree(TreeNode* node, std::vector<Node> nodes_, size_t start, size_t end)
+{
+	node->aabb = CombineBV(nodes_, start, end);
+	if (start == end)
+	{
+		node->type = NodeType::Leaf;
+		node->numOfObjects = end - start + 1;
+		node->node = &nodes_[start];
+	}
+	else
+	{
+		node->type = NodeType::Internal;
+		size_t const k = PartitionNodes(nodes_, start, end);
+		node->lChild = new TreeNode{};
+		node->rChild = new TreeNode{};
+		BuildTopDownTree(node->lChild, nodes, start, k);	// end - beg + 1 -> k - start + 1
+		BuildTopDownTree(node->rChild, nodes, k + 1, end);	//				 -> end - (k + 1) + 1
+	}
+}
+
+Box3D Scene::CombineBV(std::vector<Node> const& nodes_, size_t start, size_t end) const
+{
+	glm::vec3 min{ FLT_MAX, FLT_MAX, FLT_MAX }, max{ -FLT_MIN, -FLT_MIN , -FLT_MIN };
+	for (size_t i = start; i <= end; ++i)
+	{
+		min = GetMinVal(min, nodes_[i].tri);
+		max = GetMaxVal(max, nodes_[i].tri);
+	}
+
+	return { glm::vec3(max.x + min.x, max.y + min.y, max.z + min.z) * 0.5f, 
+		   { max.x - min.x, max.y - min.y, max.z - min.z } };
+}
+
+size_t Scene::PartitionNodes(std::vector<Node>& nodes_, size_t start, size_t end) const
+{
+	MinMax const aabb = GetMinMax(nodes, start, end);
+	glm::vec3 const extent = aabb.second - aabb.first;
+	bool x_largest{ false }, y_largest{ false }, z_largest{ false };
+	if (extent.x > extent.y && extent.x > extent.z)
+		x_largest = true;
+	else if (extent.y > extent.x && extent.y > extent.z)
+		y_largest = true;
+	else if (extent.z > extent.x && extent.z > extent.y)
+		z_largest = true;
+
+	if (x_largest)
+	{
+		std::sort(nodes_.begin() + start, nodes_.begin() + end, [](Node const& lhs, Node const& rhs)
+		{
+			return lhs.aabb.center.x < rhs.aabb.center.x;
+		});
+	}
+
+	else if (y_largest)
+	{
+		std::sort(nodes_.begin() + start, nodes_.begin() + end, [](Node const& lhs, Node const& rhs)
+		{
+			return lhs.aabb.center.y < rhs.aabb.center.y;
+		});
+	}
+
+	else if (z_largest)
+	{
+		std::sort(nodes_.begin() + start, nodes_.begin() + end, [](Node const& lhs, Node const& rhs)
+		{
+			return lhs.aabb.center.z < rhs.aabb.center.z;
+		});
+	}
+
+	return (start + end) >> 1;
+}
+
+glm::vec3 Scene::GetMinVal(glm::vec3 min, Triangle3D const& tri) const
+{
+	min.x = std::min( std::min( min.x, tri[0].x ), std::min( tri[1].x, tri[2].x ) ),
+	min.y = std::min( std::min( min.y, tri[0].y ), std::min( tri[1].y, tri[2].y ) ),
+	min.z = std::min( std::min( min.z, tri[0].z ), std::min( tri[1].z, tri[2].z ) );
+	return min;
+}
+
+glm::vec3 Scene::GetMaxVal(glm::vec3 max, Triangle3D const& tri) const
+{
+	max.x = std::max( std::max( max.x, tri[0].x ), std::max( tri[1].x, tri[2].x ) ),
+	max.y = std::max( std::max( max.y, tri[0].y ), std::max( tri[1].y, tri[2].y ) ),
+	max.z = std::max( std::max( max.z, tri[0].z ), std::max( tri[1].z, tri[2].z ) );
+	return max;
+}
+
+typename Scene::MinMax Scene::GetMinMax(std::vector<Node> const& nodes_, size_t start, size_t end) const
+{
+	glm::vec3 min{ FLT_MAX, FLT_MAX, FLT_MAX }, max{ -FLT_MIN, -FLT_MIN , -FLT_MIN };
+
+	for (size_t i = start; i <= end; ++i)
+	{
+		min = GetMinVal(min, nodes_[i].tri);
+		max = GetMaxVal(max, nodes_[i].tri);
+	}
+
+	return std::make_pair(min, max);
 }

@@ -122,9 +122,21 @@ private:
     {
         NodeType type{ NodeType::Invalid };
         Node* node;
+        Box3D aabb{};
         int numOfObjects{};
         TreeNode* lChild{ nullptr }, *rChild{ nullptr };
     };
 
+    using MinMax = std::pair<glm::vec3, glm::vec3>;
+
+    void BuildTopDownTree(TreeNode* node, std::vector<Node> nodes_, size_t start, size_t end);
+    Box3D CombineBV(std::vector<Node> const& nodes_, size_t start, size_t end) const;
+    size_t PartitionNodes(std::vector<Node>& nodes_, size_t start, size_t end) const;
+    glm::vec3 GetMinVal(glm::vec3 min, Triangle3D const& tri) const;
+    glm::vec3 GetMaxVal(glm::vec3 max, Triangle3D const& tri) const;
+    // first = min, second = max
+    MinMax GetMinMax(std::vector<Node> const& nodes_, size_t start, size_t end) const;
+
+    TreeNode* root{ nullptr };
     std::vector<Node> nodes{};
 };
