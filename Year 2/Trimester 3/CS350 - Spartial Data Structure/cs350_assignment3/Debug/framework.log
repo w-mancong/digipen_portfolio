@@ -12,13 +12,11 @@ C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\
           [
               T=float
           ]
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(360,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(389,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(364,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\scene.cpp(393,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
           with
           [
               T=float
           ]
-fbo.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/SAFESEH' specification
-LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
   framework.vcxproj -> C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment3\Debug\framework.exe
   0 File(s) copied

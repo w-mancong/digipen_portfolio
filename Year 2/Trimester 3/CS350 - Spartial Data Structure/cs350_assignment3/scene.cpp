@@ -325,6 +325,7 @@ void Scene::InitializeScene()
 	// initialize binary tree
 	root = new TreeNode{};
 	BuildTopDownTree(root, nodes, 0, nodes.size() - 1);
+	GetHeightOfTree();
 }
 
 void Scene::DrawGUI()
@@ -348,6 +349,9 @@ void Scene::DrawGUI()
 	ImGui::Checkbox("Sphere", &drawSphere);
 
 	ImGui::ColorEdit4("Debug Color", &debugColor.x);
+
+	ImGui::Checkbox("Render Tree", &renderTree);
+	ImGui::SliderInt("Depth", &drawDepth, 0, heightOfTree - 1);
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -478,6 +482,9 @@ void Scene::DrawScene()
 
 	if(drawSphere)
 		DrawSphere();
+
+	if(renderTree)
+		RenderTree(root, 0);
 
 	////////////////////////////////////////////////////////////////////////////////
 	// End of Lighting pass
@@ -729,10 +736,9 @@ glm::mat4 Scene::RotateZtoV(glm::vec3 v)
 	};
 }
 
-void Scene::BuildTopDownTree(TreeNode* node, std::vector<Node> nodes_, size_t start, size_t end)
-{
-	node->aabb = CombineBV(nodes_, start, end);
-	if (start == end)
+void Scene::BuildTopDownTree(TreeNode* node, std::vector<Node>& nodes_, size_t start, size_t end)
+{	
+	if (end - start + 1 <= 1)
 	{
 		node->type = NodeType::Leaf;
 		node->numOfObjects = end - start + 1;
@@ -741,91 +747,116 @@ void Scene::BuildTopDownTree(TreeNode* node, std::vector<Node> nodes_, size_t st
 	else
 	{
 		node->type = NodeType::Internal;
+		node->aabb = CombineBV(nodes_, start, end - start + 1);
 		size_t const k = PartitionNodes(nodes_, start, end);
 		node->lChild = new TreeNode{};
 		node->rChild = new TreeNode{};
-		BuildTopDownTree(node->lChild, nodes, start, k);	// end - beg + 1 -> k - start + 1
-		BuildTopDownTree(node->rChild, nodes, k + 1, end);	//				 -> end - (k + 1) + 1
+		BuildTopDownTree(node->lChild, nodes_, start, k);
+		BuildTopDownTree(node->rChild, nodes_, k + 1, end);
 	}
 }
 
-Box3D Scene::CombineBV(std::vector<Node> const& nodes_, size_t start, size_t end) const
+Box3D Scene::CombineBV(std::vector<Node> const& nodes_, size_t start, size_t numOfObjects) const
 {
-	glm::vec3 min{ FLT_MAX, FLT_MAX, FLT_MAX }, max{ -FLT_MIN, -FLT_MIN , -FLT_MIN };
-	for (size_t i = start; i <= end; ++i)
-	{
-		min = GetMinVal(min, nodes_[i].tri);
-		max = GetMaxVal(max, nodes_[i].tri);
-	}
+	glm::vec3 min{}, max{};
+	MinMax const mm = GetMinMax(nodes_, start, numOfObjects);
+	min = mm.first, max = mm.second;
 
 	return { glm::vec3(max.x + min.x, max.y + min.y, max.z + min.z) * 0.5f, 
-		   { max.x - min.x, max.y - min.y, max.z - min.z } };
+			 glm::vec3(max.x - min.x, max.y - min.y, max.z - min.z) * 0.5f };
 }
 
 size_t Scene::PartitionNodes(std::vector<Node>& nodes_, size_t start, size_t end) const
 {
-	MinMax const aabb = GetMinMax(nodes, start, end);
+	MinMax const aabb = GetMinMax(nodes, start, end - start + 1);
 	glm::vec3 const extent = aabb.second - aabb.first;
-	bool x_largest{ false }, y_largest{ false }, z_largest{ false };
-	if (extent.x > extent.y && extent.x > extent.z)
-		x_largest = true;
-	else if (extent.y > extent.x && extent.y > extent.z)
-		y_largest = true;
-	else if (extent.z > extent.x && extent.z > extent.y)
-		z_largest = true;
+	int largestAxis = 0;
+	if (extent.x < extent.y)
+		largestAxis = 1;
+	if (extent.x < extent.z && extent.y < extent.z)
+		largestAxis = 2;
 
-	if (x_largest)
+	std::sort(nodes_.begin() + start, nodes_.begin() + end + 1, [largestAxis](Node const& lhs, Node const& rhs)
 	{
-		std::sort(nodes_.begin() + start, nodes_.begin() + end, [](Node const& lhs, Node const& rhs)
-		{
-			return lhs.aabb.center.x < rhs.aabb.center.x;
-		});
-	}
+		return lhs.aabb.center[largestAxis] < rhs.aabb.center[largestAxis];
+	});
 
-	else if (y_largest)
-	{
-		std::sort(nodes_.begin() + start, nodes_.begin() + end, [](Node const& lhs, Node const& rhs)
-		{
-			return lhs.aabb.center.y < rhs.aabb.center.y;
-		});
-	}
-
-	else if (z_largest)
-	{
-		std::sort(nodes_.begin() + start, nodes_.begin() + end, [](Node const& lhs, Node const& rhs)
-		{
-			return lhs.aabb.center.z < rhs.aabb.center.z;
-		});
-	}
-
-	return (start + end) >> 1;
+	return start + ((end - start) >> 1);
 }
 
-glm::vec3 Scene::GetMinVal(glm::vec3 min, Triangle3D const& tri) const
+typename Scene::MinMax Scene::GetMinMax(std::vector<Node> const& nodes_, size_t start, size_t numOfObject) const
 {
-	min.x = std::min( std::min( min.x, tri[0].x ), std::min( tri[1].x, tri[2].x ) ),
-	min.y = std::min( std::min( min.y, tri[0].y ), std::min( tri[1].y, tri[2].y ) ),
-	min.z = std::min( std::min( min.z, tri[0].z ), std::min( tri[1].z, tri[2].z ) );
-	return min;
-}
+	glm::vec3 min{ nodes_[start].aabb.center - nodes_[start].aabb.extents }, 
+			  max{ nodes_[start].aabb.center + nodes_[start].aabb.extents };
 
-glm::vec3 Scene::GetMaxVal(glm::vec3 max, Triangle3D const& tri) const
-{
-	max.x = std::max( std::max( max.x, tri[0].x ), std::max( tri[1].x, tri[2].x ) ),
-	max.y = std::max( std::max( max.y, tri[0].y ), std::max( tri[1].y, tri[2].y ) ),
-	max.z = std::max( std::max( max.z, tri[0].z ), std::max( tri[1].z, tri[2].z ) );
-	return max;
-}
-
-typename Scene::MinMax Scene::GetMinMax(std::vector<Node> const& nodes_, size_t start, size_t end) const
-{
-	glm::vec3 min{ FLT_MAX, FLT_MAX, FLT_MAX }, max{ -FLT_MIN, -FLT_MIN , -FLT_MIN };
-
-	for (size_t i = start; i <= end; ++i)
+	for (size_t i = start; i < start + numOfObject; ++i)
 	{
-		min = GetMinVal(min, nodes_[i].tri);
-		max = GetMaxVal(max, nodes_[i].tri);
+		min = glm::min(min, nodes_[i].aabb.center - nodes_[i].aabb.extents);
+		max = glm::max(max, nodes_[i].aabb.center + nodes_[i].aabb.extents);
 	}
 
 	return std::make_pair(min, max);
+}
+
+void Scene::GetHeightOfTree(void)
+{
+	heightOfTree = Height(root);
+}
+
+int Scene::Height(TreeNode const* node)
+{
+	if (!node)
+		return 0;
+	return std::max(Height(node->lChild), Height(node->rChild)) + 1;
+}
+
+void Scene::RenderTree(TreeNode const* node, int depth) const
+{
+	if (!node)
+		return;
+
+	if (depth < drawDepth)
+	{
+		RenderTree(node->lChild, depth + 1);
+		RenderTree(node->rChild, depth + 1);
+		return;
+	}
+
+	int loc{}, programId{};
+	lightingProgram->UseShader();
+	programId = lightingProgram->programId;
+
+	glm::vec3 const& ext = node->aabb.extents,
+					 pos = node->aabb.center;
+
+	glm::mat4 modelTr = node->type == NodeType::Leaf ? 
+			  glm::mat4
+			  {
+			  	  { node->node->tri[1].x - node->node->tri[0].x, 0.0f, 0.0f, 0.0f },
+			  	  { 0.0f, node->node->tri[1].y - node->node->tri[0].y, 0.0f, 0.0f },
+			  	  { 0.0f, 0.0f, node->node->tri[1].z - node->node->tri[0].z, 0.0f },
+			  	  { node->node->tri[0].x, node->node->tri[0].y, node->node->tri[0].z, 1.0f },
+			  } :
+			  glm::mat4
+			  {
+				  { ext.x, 0.0f, 0.0f, 0.0f },
+				  { 0.0f, ext.y, 0.0f, 0.0f },
+				  { 0.0f, 0.0f, ext.z, 0.0f },
+				  { pos.x, pos.y, pos.z, 1.0f },
+			  };
+
+	loc = glGetUniformLocation(programId, "ModelTr");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(modelTr));
+
+	loc = glGetUniformLocation(programId, "objectId");
+	glUniform1i(loc, debugId);
+
+	loc = glGetUniformLocation(programId, "diffuse");
+	glUniform3fv(loc, 1, &debugColor[0]);
+
+	glBindVertexArray(aabbVao);
+	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	lightingProgram->UnuseShader();
 }
