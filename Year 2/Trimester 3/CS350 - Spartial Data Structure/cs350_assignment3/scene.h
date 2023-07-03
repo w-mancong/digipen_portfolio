@@ -132,14 +132,17 @@ private:
     void BuildTopDownTree(TreeNode* node, std::vector<Node>& nodes_, size_t start, size_t end);
     Box3D CombineBV(std::vector<Node> const& nodes_, size_t start, size_t numOfObjects) const;
     size_t PartitionNodes(std::vector<Node>& nodes_, size_t start, size_t numOfObjects) const;
+    void TestRayAgainstNode(Ray3D const& ray, TreeNode const* node, float& min_t) const;
     // first = min, second = max
     MinMax GetMinMax(std::vector<Node> const& nodes_, size_t start, size_t end) const;
     void GetHeightOfTree(void);
     int Height(TreeNode const* node);
     void RenderTree(TreeNode const* node, int depth) const;
+    void RenderAllTree(TreeNode const* node, int depth) const;
 
-    bool renderTree;
+    bool renderTree{}, renderTreeAll{};
     TreeNode* root{ nullptr };
     std::vector<Node> nodes{};
     int heightOfTree{}, drawDepth{};
+    std::vector<glm::vec3> treeLayerColors;
 };

@@ -66,6 +66,15 @@ const float grndHigh = 5.0;        // Highest extent above sea level
 // refresh will tell you if something is going wrong.
 #define CHECKERROR {GLenum err = glGetError(); if (err != GL_NO_ERROR) { fprintf(stderr, "OpenGL error (at line scene.cpp:%d): %s\n", __LINE__, gluErrorString(err)); exit(-1);} }
 
+#define STRESS_TEST 1
+#if STRESS_TEST
+int constexpr spherePolyCount = 108;
+size_t constexpr iterations = 10000;
+#else
+int constexpr spherePolyCount = 12;
+size_t constexpr iterations = 1;
+#endif
+
 // Create an RGB color from human friendly parameters: hue, saturation, value
 glm::vec3 HSV2RGB(const float h, const float s, const float v)
 {
@@ -126,8 +135,8 @@ void Scene::InitializeScene()
 	//    12 and 6 ( 97344 triangles) runs at      144 FPS
 	//    24 and 6 (389376 triangles) slows down to 92 FPS.
 	//    36 and 6 (876096 triangles) slows down to 44 FPS.
-	polyCount = 12;             // Produces 4*polyCount^2 triangles per ellipsoid
-	ellipsoidCount = 6;         // Produces (2*ellipsoidCount+1)^2 ellipsoids
+	polyCount = spherePolyCount;    // Produces 4*polyCount^2 triangles per ellipsoid
+	ellipsoidCount = 6;				// Produces (2*ellipsoidCount+1)^2 ellipsoids
 
 	// Create the lighting shader program from source code files.
 	lightingProgram = new ShaderProgram();
@@ -326,6 +335,13 @@ void Scene::InitializeScene()
 	root = new TreeNode{};
 	BuildTopDownTree(root, nodes, 0, nodes.size() - 1);
 	GetHeightOfTree();
+
+	treeLayerColors.reserve(heightOfTree);
+	for (int i = 0; i < heightOfTree; ++i)
+	{
+		glm::vec3 const color{ myrandom(RG), myrandom(RG), myrandom(RG) };
+		treeLayerColors.emplace_back(color);
+	}
 }
 
 void Scene::DrawGUI()
@@ -349,7 +365,8 @@ void Scene::DrawGUI()
 	ImGui::Checkbox("Sphere", &drawSphere);
 
 	ImGui::ColorEdit4("Debug Color", &debugColor.x);
-
+	
+	ImGui::Checkbox("Render All Layer of Tree", &renderTreeAll);
 	ImGui::Checkbox("Render Tree", &renderTree);
 	ImGui::SliderInt("Depth", &drawDepth, 0, heightOfTree - 1);
 
@@ -379,15 +396,9 @@ void Scene::BuildTransforms()
 	// looking for collision of the segment(eye, eye+step) with any
 	// object. 
 	Ray3D const ray(eye, dir);
-	float t{}, min_t{ FLT_MAX };
-	for (Node const& node : nodes)
-	{
-		if (Intersects(ray, node.aabb, &t))
-		{
-			if (t < min_t)
-				min_t = t;
-		}
-	}
+	float min_t{ FLT_MAX };
+	for(size_t i = 0; i < iterations; ++i)
+		TestRayAgainstNode(ray, root, min_t);
 	if(min_t > dist)
 		eye += dist * dir;
 	eye[2] = proceduralground->HeightAt(eye[0], eye[1]) + 1.5; // Set the height of the eye
@@ -485,6 +496,9 @@ void Scene::DrawScene()
 
 	if(renderTree)
 		RenderTree(root, 0);
+
+	if (renderTreeAll)
+		RenderAllTree(root, 0);
 
 	////////////////////////////////////////////////////////////////////////////////
 	// End of Lighting pass
@@ -784,6 +798,24 @@ size_t Scene::PartitionNodes(std::vector<Node>& nodes_, size_t start, size_t end
 	return start + ((end - start) >> 1);
 }
 
+void Scene::TestRayAgainstNode(Ray3D const& ray, TreeNode const* node, float& min_t) const
+{
+	float t{};
+	Box3D const& aabb = node->type == NodeType::Leaf ? node->node->aabb : node->aabb;
+	if (!Intersects(ray, aabb, &t))
+		return;
+
+	if(node->type == NodeType::Leaf)
+		if (t < min_t)
+			min_t = t;
+
+	if (node->type == NodeType::Internal)
+	{
+		TestRayAgainstNode(ray, node->lChild, min_t);
+		TestRayAgainstNode(ray, node->rChild, min_t);
+	}
+}
+
 typename Scene::MinMax Scene::GetMinMax(std::vector<Node> const& nodes_, size_t start, size_t numOfObject) const
 {
 	glm::vec3 min{ nodes_[start].aabb.center - nodes_[start].aabb.extents }, 
@@ -853,6 +885,54 @@ void Scene::RenderTree(TreeNode const* node, int depth) const
 
 	loc = glGetUniformLocation(programId, "diffuse");
 	glUniform3fv(loc, 1, &debugColor[0]);
+
+	glBindVertexArray(aabbVao);
+	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	lightingProgram->UnuseShader();
+}
+
+void Scene::RenderAllTree(TreeNode const* node, int depth) const
+{
+	if (!node)
+		return;
+
+	RenderAllTree(node->lChild, depth + 1);
+	RenderAllTree(node->rChild, depth + 1);
+
+	int loc{}, programId{};
+	lightingProgram->UseShader();
+	programId = lightingProgram->programId;
+
+	glm::vec3 const& ext = node->aabb.extents,
+					 pos = node->aabb.center;
+
+	glm::mat4 modelTr = node->type == NodeType::Leaf ?
+		glm::mat4
+	{
+		{ node->node->tri[1].x - node->node->tri[0].x, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, node->node->tri[1].y - node->node->tri[0].y, 0.0f, 0.0f },
+		{ 0.0f, 0.0f, node->node->tri[1].z - node->node->tri[0].z, 0.0f },
+		{ node->node->tri[0].x, node->node->tri[0].y, node->node->tri[0].z, 1.0f },
+	} :
+	glm::mat4
+	{
+		{ ext.x, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, ext.y, 0.0f, 0.0f },
+		{ 0.0f, 0.0f, ext.z, 0.0f },
+		{ pos.x, pos.y, pos.z, 1.0f },
+	};
+
+	loc = glGetUniformLocation(programId, "ModelTr");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(modelTr));
+
+	loc = glGetUniformLocation(programId, "objectId");
+	glUniform1i(loc, debugId);
+
+	glm::vec4 const color{ treeLayerColors[depth], 1.0f };
+	loc = glGetUniformLocation(programId, "diffuse");
+	glUniform3fv(loc, 1, &color[0]);
 
 	glBindVertexArray(aabbVao);
 	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
