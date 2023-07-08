@@ -66,12 +66,12 @@ const float grndHigh = 5.0;        // Highest extent above sea level
 // refresh will tell you if something is going wrong.
 #define CHECKERROR {GLenum err = glGetError(); if (err != GL_NO_ERROR) { fprintf(stderr, "OpenGL error (at line scene.cpp:%d): %s\n", __LINE__, gluErrorString(err)); exit(-1);} }
 
-#define STRESS_TEST 1
+#define STRESS_TEST 0
 #if STRESS_TEST
 int constexpr spherePolyCount = 108;
 size_t constexpr iterations = 10000;
 #else
-int constexpr spherePolyCount = 12;
+int constexpr spherePolyCount = 96;
 size_t constexpr iterations = 1;
 #endif
 
