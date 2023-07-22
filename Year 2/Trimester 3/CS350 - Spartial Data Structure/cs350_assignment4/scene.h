@@ -153,8 +153,11 @@ private:
 
     struct KDTree
     {
-        TreeNode tree;
-        std::vector<Node*> nodes;
+        KDTree* lChild{ nullptr }, *rChild{ nullptr };
+        NodeType type{ NodeType::Invalid };
+        Node const* node{};
+        Box3D aabb{};
+        std::vector<Node*> nodes{};
     } *kd_root{ nullptr };
 
     struct SweepAlgoVar
@@ -178,16 +181,25 @@ private:
 
     using GroupSharedPoints = std::pair<float, Grouping>;
     using Box3DPair = std::pair<Box3D, Box3D>;
-    using SplitTriangle = std::pair<std::vector<Node const*>, std::vector<Node const*>>;    // first: lhs of triangles, second: rhs of triangles
+    using SplitTriangle = std::pair<std::vector<Node*>, std::vector<Node*>>;    // first: lhs of triangles, second: rhs of triangles
 
-    // Variable used to store all the triangles nodes after splitting
-    SplitTriangle st{};
+    int kd_renderDepth{};
+    int min_depth{}, max_depth{};
+    // Rendering variables for kd tree
+    bool renderKDTree{ false }, renderAllKDTree{ false };
 
-    KDTree* BuildKDTree(void);
+    void BuildKDTree(void);
     KDTree* BuildNode(Box3D const& box, std::vector<Node*>& tri_nodes, int depth);
     float ComputeSurfaceArea(Box3D const& box) const;
     float ProbabilityOfIntersection(Box3D const& lhs, Box3D const& rhs) const;
     Box3DPair SplitBoxAtSPlane(Box3D const& box, float splitPoint, int splitAxis) const;
-    void SplitUpTriangles(std::vector<Node*> const& triangles, SweepAlgoVar const& result);
-    Box3DPair SplitUpBoundingBox(void) const;
+    SplitTriangle SplitUpTriangles(std::vector<Node*> const& triangles, SweepAlgoVar const& result);
+    Box3DPair SplitUpBoundingBox(SplitTriangle triangles) const;
+    Box3D MakeBoundingBox(std::vector<Node*> nodes_) const;
+    int GetMinDepth(KDTree* node) const;
+    int GetMaxDepth(KDTree* node) const;
+
+    void RenderKDTree(KDTree* node, int depth) const;
+    void RenderAllKDTree(KDTree* node, int depth) const;
+    void KdIntersect(Ray3D const& ray, KDTree const* node, float& min_t) const;
 };

@@ -338,6 +338,15 @@ void Scene::InitializeScene()
 	}
 
 	BuildKDTree();
+	min_depth = GetMinDepth(kd_root);
+	max_depth = GetMaxDepth(kd_root);
+
+	treeLayerColors.reserve(max_depth);
+	for (int i = 0; i < max_depth; ++i)
+	{
+		glm::vec3 const color{ myrandom(RG), myrandom(RG), myrandom(RG) };
+		treeLayerColors.emplace_back(color);
+	}
 }
 
 void Scene::DrawGUI()
@@ -365,6 +374,11 @@ void Scene::DrawGUI()
 	//ImGui::Checkbox("Render All Layer of Tree", &renderTreeAll);
 	//ImGui::Checkbox("Render Tree", &renderTree);
 	//ImGui::SliderInt("Depth", &drawDepth, 0, heightOfTree - 1);
+	ImGui::Checkbox("Render KD Tree", &renderKDTree);
+	if(renderKDTree)
+		ImGui::SliderInt("KD Tree depth", &kd_renderDepth, 0, max_depth - 1);
+	ImGui::Checkbox("Render All KD Tree", &renderAllKDTree);
+
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -392,11 +406,11 @@ void Scene::BuildTransforms()
 	// looking for collision of the segment(eye, eye+step) with any
 	// object. 
 	// TODO: Do collisions
-	//Ray3D const ray(eye, dir);
-	//float min_t{ FLT_MAX };
-	//for(size_t i = 0; i < iterations; ++i)
-	//	TestRayAgainstNode(ray, root, min_t);
-	//if(min_t > dist)
+	Ray3D const ray(eye, dir);
+	float min_t{ FLT_MAX };
+	for(size_t i = 0; i < iterations; ++i)
+		KdIntersect(ray, kd_root, min_t);
+	if(min_t > dist)
 		eye += dist * dir;
 	eye[2] = proceduralground->HeightAt(eye[0], eye[1]) + 1.5; // Set the height of the eye
 
@@ -496,6 +510,12 @@ void Scene::DrawScene()
 
 	//if (renderTreeAll)
 	//	RenderAllTree(root, 0);
+
+	if (renderKDTree)
+		RenderKDTree(kd_root, 0);
+
+	if (renderAllKDTree)
+		RenderAllKDTree(kd_root, 0);
 
 	////////////////////////////////////////////////////////////////////////////////
 	// End of Lighting pass
@@ -941,7 +961,7 @@ void Scene::RenderAllTree(TreeNode const* node, int depth) const
 /********************************************************************************************
 									KD Tree functionality									
 ********************************************************************************************/
-Scene::KDTree* Scene::BuildKDTree(void)
+void Scene::BuildKDTree(void)
 {
 	MinMax const mm = GetMinMax(nodes, 0, nodes.size());
 	Box3D const box = Box3D( (mm.second + mm.first) * 0.5f, (mm.second - mm.first) * 0.5f );
@@ -950,12 +970,12 @@ Scene::KDTree* Scene::BuildKDTree(void)
 	for (int i{}; i < nodes_.size(); ++i)
 		nodes_[i] = &nodes[i];
 
-	return BuildNode(box, nodes_, 0);
+	kd_root = BuildNode(box, nodes_, 0);
 }
 
 Scene::KDTree* Scene::BuildNode(Box3D const& box, std::vector<Node*>& tri_nodes, int depth)
 {
-	float cMin = -FLT_MIN;
+	float cMin = FLT_MAX;
 	SweepAlgoVar bestResult{ cMin };
 
 	std::map<float, SharedPoints> sharedPoints{};
@@ -1001,8 +1021,8 @@ Scene::KDTree* Scene::BuildNode(Box3D const& box, std::vector<Node*>& tri_nodes,
 		while(it1 != sharedPoints.end())
 		{
 			// Inc/Dec the counters from pk-1 (p1) to pk (p0)
-			SharedPoints const& p0 = it0->second; ++it0;
-			SharedPoints const& p1 = it1->second; ++it1;
+			SharedPoints const& p0 = it0->second;
+			SharedPoints const& p1 = it1->second;
 
 			nL += p1.in_plane + p1.start;
 			nR -= p0.in_plane + p0.end;
@@ -1011,11 +1031,14 @@ Scene::KDTree* Scene::BuildNode(Box3D const& box, std::vector<Node*>& tri_nodes,
 			// Calculate Cv(Pk)
 			float const currSplitPoint = it1->first;
 			Box3DPair const splitBox = SplitBoxAtSPlane(box, currSplitPoint, s);
+
 			float const cV = cT + 
 							 ( ProbabilityOfIntersection(splitBox.first , box) * (nL + nP) * cI ) +
 							 ( ProbabilityOfIntersection(splitBox.second, box) * (nR + nP) * cI );
 
-			if (cMin > cV)
+			++it0; ++it1;
+
+			if (cV > cMin)
 				continue;
 
 			// Keep track of minimum cost cMin, split point Pk and split axis s that produces the minimum cost
@@ -1030,17 +1053,20 @@ Scene::KDTree* Scene::BuildNode(Box3D const& box, std::vector<Node*>& tri_nodes,
 	KDTree* newNode = new KDTree;
 	if (noSplitCost < bestResult.cost || log2(nodes.size()) <= depth)
 	{
-		newNode->tree.type = NodeType::Leaf;
+		newNode->type = NodeType::Leaf;
 		newNode->nodes.reserve( tri_nodes.size() );
-		for (size_t i{}; i < newNode->nodes.size(); ++i)
+		for (size_t i{}; i < tri_nodes.size(); ++i)
 			newNode->nodes.emplace_back(tri_nodes[i]);
 	}
 	else
 	{
-		newNode->tree.type = NodeType::Internal;
-		SplitUpTriangles(tri_nodes, bestResult);
+		newNode->type = NodeType::Internal;
+		SplitTriangle st = SplitUpTriangles(tri_nodes, bestResult);
+		Box3DPair const boxes = SplitUpBoundingBox(st);
+		newNode->lChild = BuildNode(boxes.first, st.first, depth + 1);
+		newNode->rChild = BuildNode(boxes.second, st.second, depth + 1);
 	}
-	newNode->tree.aabb = box;
+	newNode->aabb = box;
 
 	return newNode;
 }
@@ -1074,13 +1100,13 @@ typename Scene::Box3DPair Scene::SplitBoxAtSPlane(Box3D const& box, float splitP
 	return std::make_pair(b1, b2);
 }
 
-void Scene::SplitUpTriangles(std::vector<Node*> const& triangles, SweepAlgoVar const& result)
+Scene::SplitTriangle Scene::SplitUpTriangles(std::vector<Node*> const& triangles, SweepAlgoVar const& result)
 {
-	st.first.clear(), st.second.clear();
+	SplitTriangle st;
 	int const   s = result.splitAxis;
 	float const p = result.splitPoint;
 
-	for (Node const* node : triangles)
+	for (Node* node : triangles)
 	{
 		glm::vec3 const min{ node->aabb.center - node->aabb.extents },
 						max{ node->aabb.center + node->aabb.extents };
@@ -1092,17 +1118,202 @@ void Scene::SplitUpTriangles(std::vector<Node*> const& triangles, SweepAlgoVar c
 		else if (min[s] >= p && max[s] > p)
 			st.second.emplace_back(node);
 		else
-		{
+		{	// Both the triangle are within the two planes
 			st.first.emplace_back(node);
 			st.second.emplace_back(node);
 		}
 	}
+
+	return st;
 }
 
-typename Scene::Box3DPair Scene::SplitUpBoundingBox(void) const
+typename Scene::Box3DPair Scene::SplitUpBoundingBox(SplitTriangle triangles) const
 {
 	Box3D lhs{}, rhs{};
 
+	lhs = MakeBoundingBox(triangles.first);
+	rhs = MakeBoundingBox(triangles.second);
 
 	return std::make_pair(lhs, rhs);
+}
+
+Box3D Scene::MakeBoundingBox(std::vector<Node*> nodes_) const
+{
+	if (!nodes_.size())
+		return Box3D{};
+	glm::vec3 min{ nodes_[0]->aabb.center - nodes_[0]->aabb.extents },
+			  max{ nodes_[0]->aabb.center + nodes_[0]->aabb.extents };
+
+	for (size_t i = 1; i < nodes_.size(); ++i)
+	{
+		glm::vec3 const min0 = nodes_[i]->aabb.center - nodes_[i]->aabb.extents,
+						max0 = nodes_[i]->aabb.center + nodes_[i]->aabb.extents;
+
+		min = glm::min(min, min0);
+		max = glm::max(max, max0);
+	}
+
+	return { (max + min) * 0.5f, (max - min) * 0.5f };
+}
+
+int Scene::GetMinDepth(KDTree* node) const
+{
+	if (!node)
+		return INT_MAX;
+
+	if (node->type == NodeType::Leaf)
+		return 1;
+
+	return std::min( GetMinDepth(node->lChild), GetMinDepth(node->rChild) ) + 1;
+}
+
+int Scene::GetMaxDepth(KDTree* node) const
+{
+	if (!node)
+		return INT_MIN;
+
+	if (node->type == NodeType::Leaf)
+		return 1;	
+
+	return std::max(GetMaxDepth(node->lChild), GetMaxDepth(node->rChild)) + 1;
+}
+
+void Scene::RenderKDTree(KDTree* node, int depth) const
+{
+	if (!node)
+		return;
+
+	if (depth < kd_renderDepth)
+	{
+		RenderKDTree(node->lChild, depth + 1);
+		RenderKDTree(node->rChild, depth + 1);
+		return;
+	}
+
+	int loc{}, programId{};
+	lightingProgram->UseShader();
+	programId = lightingProgram->programId;
+
+	glm::vec3 const& ext = node->aabb.extents,
+					 pos = node->aabb.center;
+
+	glm::mat4 modelTr;
+	if (node->type == NodeType::Leaf && node->node)
+	{
+		modelTr = glm::mat4
+		{
+			{ node->node->tri[1].x - node->node->tri[0].x, 0.0f, 0.0f, 0.0f },
+			{ 0.0f, node->node->tri[1].y - node->node->tri[0].y, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, node->node->tri[1].z - node->node->tri[0].z, 0.0f },
+			{ node->node->tri[0].x, node->node->tri[0].y, node->node->tri[0].z, 1.0f },
+		};
+	}
+	else
+	{
+		modelTr = glm::mat4
+		{
+			{ ext.x, 0.0f, 0.0f, 0.0f },
+			{ 0.0f, ext.y, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, ext.z, 0.0f },
+			{ pos.x, pos.y, pos.z, 1.0f },
+		};
+	}
+
+	//glm::mat4 modelTr = node->type == NodeType::Leaf && node->node ?
+	//	glm::mat4
+	//{
+	//	{ node->node->tri[1].x - node->node->tri[0].x, 0.0f, 0.0f, 0.0f },
+	//	{ 0.0f, node->node->tri[1].y - node->node->tri[0].y, 0.0f, 0.0f },
+	//	{ 0.0f, 0.0f, node->node->tri[1].z - node->node->tri[0].z, 0.0f },
+	//	{ node->node->tri[0].x, node->node->tri[0].y, node->node->tri[0].z, 1.0f },
+	//} :
+	//glm::mat4
+	//{
+	//	{ ext.x, 0.0f, 0.0f, 0.0f },
+	//	{ 0.0f, ext.y, 0.0f, 0.0f },
+	//	{ 0.0f, 0.0f, ext.z, 0.0f },
+	//	{ pos.x, pos.y, pos.z, 1.0f },
+	//};
+
+	loc = glGetUniformLocation(programId, "ModelTr");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(modelTr));
+
+	loc = glGetUniformLocation(programId, "objectId");
+	glUniform1i(loc, debugId);
+
+	loc = glGetUniformLocation(programId, "diffuse");
+	glUniform3fv(loc, 1, &debugColor[0]);
+
+	glBindVertexArray(aabbVao);
+	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	lightingProgram->UnuseShader();
+}
+
+void Scene::RenderAllKDTree(KDTree* node, int depth) const
+{
+	if (!node)
+		return;
+
+	RenderAllKDTree(node->lChild, depth + 1);
+	RenderAllKDTree(node->rChild, depth + 1);
+
+	int loc{}, programId{};
+	lightingProgram->UseShader();
+	programId = lightingProgram->programId;
+
+	glm::vec3 const& ext = node->aabb.extents,
+		pos = node->aabb.center;
+
+	glm::mat4 modelTr = node->type == NodeType::Leaf && node->node ?
+		glm::mat4
+	{
+		{ node->node->tri[1].x - node->node->tri[0].x, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, node->node->tri[1].y - node->node->tri[0].y, 0.0f, 0.0f },
+		{ 0.0f, 0.0f, node->node->tri[1].z - node->node->tri[0].z, 0.0f },
+		{ node->node->tri[0].x, node->node->tri[0].y, node->node->tri[0].z, 1.0f },
+	} :
+	glm::mat4
+	{
+		{ ext.x, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, ext.y, 0.0f, 0.0f },
+		{ 0.0f, 0.0f, ext.z, 0.0f },
+		{ pos.x, pos.y, pos.z, 1.0f },
+	};
+
+	loc = glGetUniformLocation(programId, "ModelTr");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(modelTr));
+
+	loc = glGetUniformLocation(programId, "objectId");
+	glUniform1i(loc, debugId);
+
+	glm::vec4 const color{ treeLayerColors[depth], 1.0f };
+	loc = glGetUniformLocation(programId, "diffuse");
+	glUniform3fv(loc, 1, &color[0]);
+
+	glBindVertexArray(aabbVao);
+	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	lightingProgram->UnuseShader();
+}
+
+void Scene::KdIntersect(Ray3D const& ray, KDTree const* node, float& min_t) const
+{
+	float t{};
+	if (node->type == NodeType::Internal)
+	{
+		if (!Intersects(ray, node->aabb))
+			return;
+		KdIntersect(ray, node->lChild, min_t);
+		KdIntersect(ray, node->rChild, min_t);
+	}
+	else 
+	{
+		float temp{ min_t };
+		Box3D const aabb = MakeBoundingBox(node->nodes);
+		if (Intersects(ray, aabb, &temp))
+			min_t = std::min(min_t, temp);
+	}
 }
