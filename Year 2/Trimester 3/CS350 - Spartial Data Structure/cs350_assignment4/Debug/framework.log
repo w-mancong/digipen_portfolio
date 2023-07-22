@@ -1,0 +1,37 @@
+﻿cl : command line warning D9035: option 'Gm' has been deprecated and will be removed in a future release
+  scene.cpp
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(56,28): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(57,35): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(126,25): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(131,10): warning C4305: '=': truncation from 'double' to 'float'
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(192,36): warning C4244: 'argument': conversion from 'double' to 'const float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(193,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(194,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(200,50): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+          with
+          [
+              T=float
+          ]
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(377,12): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(401,54): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+          with
+          [
+              T=float
+          ]
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\scene.cpp(950,18): warning C4018: '<': signed/unsigned mismatch
+  Generating Code...
+  Compiling...
+  interact.cpp
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(102,12): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(103,12): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(106,34): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(107,34): warning C4244: '-=': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(111,29): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(112,29): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\interact.cpp(142,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  framework.cpp
+  Generating Code...
+  Skipping... (no relevant changes detected)
+  object.cpp
+  framework.vcxproj -> C:\sandbox\digipen_portfolio\Year 2\Trimester 3\CS350 - Spartial Data Structure\cs350_assignment4\Debug\framework.exe
+  0 File(s) copied
