@@ -1,0 +1,18 @@
+sq_root_compute_varargs 
+Square root of 3 is 1
+Square root of 25 is 5
+Square root of 169 is 13
+Square root of 9810 is 99
+Square root of 1169 is 34
+Square root of 19810 is 140
+Square root of 1369 is 37
+Square root of 99810 is 315
+sq_root_compute_array 
+Square root of 3 is 1
+Square root of 25 is 5
+Square root of 169 is 13
+Square root of 9830 is 99
+Square root of 1169 is 34
+Square root of 19810 is 140
+Square root of 1369 is 37
+Square root of 99810 is 315
