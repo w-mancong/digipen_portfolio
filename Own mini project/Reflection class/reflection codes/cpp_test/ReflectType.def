@@ -1,0 +1,24 @@
+/*****************************************
+ Insert custom type that are Classes here
+******************************************/
+REFLECT_CUSTOM_CTYPE(Vector3, vector3)
+REFLECT_CUSTOM_CTYPE(Test, test)
+
+/*****************************************
+ Insert custom type that are Structs here
+******************************************/
+REFLECT_CUSTOM_STYPE(Color, colors)
+REFLECT_CUSTOM_STYPE(Transform, transform)
+
+REFLECT_TYPE(char, char)
+REFLECT_TYPE(bool, bool)
+REFLECT_TYPE(int8_t, signedChar)
+REFLECT_TYPE(uint8_t, unsignedChar)
+REFLECT_TYPE(int16_t, short)
+REFLECT_TYPE(uint16_t, unsignedShort)
+REFLECT_TYPE(int32_t, int)
+REFLECT_TYPE(uint32_t, unsignedInt)
+REFLECT_TYPE(int64_t, longLong)
+REFLECT_TYPE(uint64_t, unsignedLongLong)
+REFLECT_TYPE(float, float)
+REFLECT_TYPE(double, double)
