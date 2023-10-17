@@ -73,7 +73,8 @@ public:
 	void RemoveListener(EventType eventType, int index)
 	{
 		std::vector<Listeners>& v = m_events[eventType];
-		v.erase(std::remove_if(v.begin(),
+		v.erase(std::remove_if(
+			v.begin(),
 			v.end(),
 			[=](Listeners x)
 			{
