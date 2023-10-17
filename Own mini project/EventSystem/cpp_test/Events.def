@@ -1,0 +1,3 @@
+// EVENT_TYPE(event_name, type of function)
+EVENT_TYPE(MouseInput, void(int))
+EVENT_TYPE(KeyboardInput, void(int))
