@@ -94,13 +94,13 @@ public:
 			}));
 	}
 
-	template <typename Func, typename... Args>
+	template <typename EDT, typename... Args>
 	void InvokeEvent(EventType eventType, Args... args)
 	{
 		auto it = m_events[eventType].begin();  auto const end = m_events[eventType].end();
 		while(it != end)
 		{
-			auto const func = *dynamic_cast<Func*>( it->second.get() );
+			auto const func = *dynamic_cast<EDT*>( it->second.get() );
 			func(args...); ++it;
 		};
 	}
