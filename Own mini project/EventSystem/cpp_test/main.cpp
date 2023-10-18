@@ -40,6 +40,7 @@ enum class EventType
 #undef EVENT_TYPE
 };
 
+#pragma region Partial template specialization
 // *************************************************************************************
 template <unsigned>
 struct GetDispatcherType {};
@@ -63,6 +64,7 @@ struct GetFunctionType< static_cast<unsigned>( EventType::##event_name ) >\
 #include "Events.def"
 #undef EVENT_TYPE
 // *************************************************************************************
+#pragma endregion
 
 class EventSystem
 {
@@ -100,6 +102,15 @@ public:
 		auto it = m_events[eventType].begin();  auto const end = m_events[eventType].end();
 		while(it != end)
 		{
+			/*
+				If a run-time error occurs here, check if: 
+				1) The total number of arguments are passed in correctly. 
+				2) The argument types are correct
+
+				Note: If you need to check, you can mouse over the enumeration
+				of EventType, or simply check Events.def to see what the 
+				type/total number of arguments for that specific event
+			*/
 			auto const func = *dynamic_cast<EDT*>( (it++)->second.get() );
 			func(args...);
 		};
@@ -115,13 +126,14 @@ private:
 };
 
 #define ADD_LISTENER(event_name, func_name)\
-EventSystem::GetInstance()->AddListener< decltype( GetDispatcherType< static_cast<unsigned>(event_name) >::Get()),\
-										 decltype( GetFunctionType< static_cast<unsigned>(event_name) >::Get())>(event_name, func_name)
+EventSystem::GetInstance()->AddListener< decltype(GetDispatcherType<static_cast<unsigned>(event_name)>::Get()),\
+										 decltype(GetFunctionType<static_cast<unsigned>(event_name)>::Get())>(event_name, func_name)
 #define REMOVE_LISTENER(event_name, index)\
 EventSystem::GetInstance()->RemoveListener(event_name, index)
 #define INVOKE_EVENT(event_name, ...)\
-EventSystem::GetInstance()->InvokeEvent< decltype( GetDispatcherType< static_cast<unsigned>(event_name) >::Get() ) >(event_name, __VA_ARGS__)
+EventSystem::GetInstance()->InvokeEvent< decltype( GetDispatcherType<static_cast<unsigned>(event_name)>::Get())>(event_name, __VA_ARGS__)
 
+#pragma region Example of how to use EventSystem
 class A
 {
 public:
@@ -171,3 +183,4 @@ int main()
 	INVOKE_EVENT(EventType::MouseInput, 2);
 	INVOKE_EVENT(EventType::KeyboardInput, 123, "Hello World");
 }
+#pragma endregion
