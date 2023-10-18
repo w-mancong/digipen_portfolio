@@ -1,4 +1,18 @@
-// void(int)
+/*
+	This file contains all the macro EVENT_TYPE that will be used for declaring
+	all the different event types. 
+
+	Example of how it works
+	EVENT_TYPE(Type of event, parameters for said event)
+
+	Note: Do comment the type of parameters each event type will take so that when 
+	you're going through EventType (an enum), you will be able to see the argument 
+	type for each said event
+
+	Note 2: All events only accept argument types, no return value
+*/
+
+// parameters => int
 EVENT_TYPE(MouseInput, int)
-// void(int, std::string const&)
+// parameters => int, std::string const&
 EVENT_TYPE(KeyboardInput, int, std::string const&)
