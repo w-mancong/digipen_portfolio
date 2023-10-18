@@ -53,6 +53,18 @@ struct GetDispatcherType<static_cast<unsigned>( EventType::##event_name )>\
 #include "Events.def"
 #undef EVENT_TYPE
 
+template <unsigned>
+struct GetFunctionType {};
+
+#define EVENT_TYPE(event_name, function_type)\
+template<>\
+struct GetFunctionType< static_cast<unsigned>( EventType::##event_name ) >\
+{\
+	static std::function<function_type> Get() { return {}; }\
+};
+#include "Events.def"
+#undef EVENT_TYPE
+
 class EventSystem
 {
 public:
@@ -62,11 +74,11 @@ public:
 		return &instance;
 	}
 
-	template <typename Func, typename = std::is_function<Func>>
+	template <typename EDT, typename Func, typename = std::is_function<Func>>
 	int AddListener(EventType eventType, Func f)
 	{
 		static int count = -1;
-		m_events[eventType].emplace_back( std::make_pair( ++count, std::make_shared< EventDispatcher<Func> >(f) ) );
+		m_events[eventType].emplace_back( std::make_pair( ++count, std::make_shared< EDT >(f) ) );
 		return count;
 	}
 
@@ -102,10 +114,36 @@ private:
 	Events m_events{};
 };
 
-#define ADD_LISTENER(event_name, func_name) EventSystem::GetInstance()->AddListener<decltype(func_name)>(event_name, func_name)
+#define ADD_LISTENER(event_name, func_name)\
+EventSystem::GetInstance()->AddListener< decltype( GetDispatcherType< static_cast<unsigned>(event_name) >::Get()),\
+										 decltype( GetFunctionType< static_cast<unsigned>(event_name) >::Get())>(event_name, func_name)
+
 #define REMOVE_LISTENER(event_name, index)  EventSystem::GetInstance()->RemoveListener(event_name, index)
 #define INVOKE_EVENT(event_name, ...)\
 EventSystem::GetInstance()->InvokeEvent< decltype( GetDispatcherType< static_cast<unsigned>(event_name) >::Get() ) >(event_name, __VA_ARGS__)
+
+class A
+{
+public:
+	A()
+	{
+		Init();
+	}
+
+	void Init()
+	{
+		ADD_LISTENER(EventType::MouseInput, [&](int a)
+			{
+				Test(a);
+			});
+	};
+
+private:
+	void Test(int a)
+	{
+		std::cout << "I am an class A object: " << a << std::endl;
+	}
+};
 
 void Test0(int a)
 {
@@ -124,6 +162,7 @@ void Test2(int a, std::string const& str)
 
 int main()
 {
+	A a1;
 	int a = ADD_LISTENER(EventType::MouseInput, Test0);
 	int b = ADD_LISTENER(EventType::MouseInput, Test1);
 	int c = ADD_LISTENER(EventType::KeyboardInput, Test2);

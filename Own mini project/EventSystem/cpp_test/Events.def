@@ -1,3 +1,4 @@
-// EVENT_TYPE(event_name, type of function)
+// void(int)
 EVENT_TYPE(MouseInput, void(int))
+// void(int, std::string const&)
 EVENT_TYPE(KeyboardInput, void(int, std::string const&))
