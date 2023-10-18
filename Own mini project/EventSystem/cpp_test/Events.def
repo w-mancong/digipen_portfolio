@@ -1,4 +1,4 @@
 // void(int)
-EVENT_TYPE(MouseInput, void(int))
+EVENT_TYPE(MouseInput, int)
 // void(int, std::string const&)
-EVENT_TYPE(KeyboardInput, void(int, std::string const&))
+EVENT_TYPE(KeyboardInput, int, std::string const&)

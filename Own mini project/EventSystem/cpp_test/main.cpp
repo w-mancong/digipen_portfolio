@@ -14,13 +14,12 @@ public:
 	virtual ~Functional() = 0 {};
 };
 
-template < typename Func = void(), typename = std::is_function<Func> >
+template < typename... Args >
 class EventDispatcher : public Functional
 {
 public:
 	EventDispatcher() = default;
-	EventDispatcher(std::function<Func> f) : func{ f } {};
-	EventDispatcher(Func f) : func{ f } {};
+	EventDispatcher(std::function<void(Args...)> f) : func{ f } {};
 
 	template<typename... Args>
 	void operator()(Args... args) const
@@ -29,41 +28,41 @@ public:
 	}
 
 private:
-	std::function<Func> const func;
+	std::function<void(Args...)> func;
 };
 
 enum class EventType
 {
-#define EVENT_TYPE(event_name, function_type) event_name,
+#define EVENT_TYPE(event_name, ...) event_name,
 	Invalid = -1,
 #include "Events.def"
 	Total,
 #undef EVENT_TYPE
 };
 
+// *************************************************************************************
 template <unsigned>
 struct GetDispatcherType {};
-
-#define EVENT_TYPE(event_name, function_type)\
+#define EVENT_TYPE(event_name, ...)\
 template<>\
 struct GetDispatcherType<static_cast<unsigned>( EventType::##event_name )>\
 {\
-	static EventDispatcher<function_type> Get() { return {}; }\
+	static EventDispatcher<__VA_ARGS__> Get() { return {}; }\
 };
 #include "Events.def"
 #undef EVENT_TYPE
-
+// *************************************************************************************
 template <unsigned>
 struct GetFunctionType {};
-
-#define EVENT_TYPE(event_name, function_type)\
+#define EVENT_TYPE(event_name, ...)\
 template<>\
 struct GetFunctionType< static_cast<unsigned>( EventType::##event_name ) >\
 {\
-	static std::function<function_type> Get() { return {}; }\
+	static std::function<void(__VA_ARGS__)> Get() { return {}; }\
 };
 #include "Events.def"
 #undef EVENT_TYPE
+// *************************************************************************************
 
 class EventSystem
 {
@@ -74,6 +73,7 @@ public:
 		return &instance;
 	}
 
+	// EDT is EventDispatcher's type, func is the type of function
 	template <typename EDT, typename Func, typename = std::is_function<Func>>
 	int AddListener(EventType eventType, Func f)
 	{
@@ -88,7 +88,7 @@ public:
 		v.erase(std::remove_if(
 			v.begin(),
 			v.end(),
-			[=](Listeners x)
+			[=](Listeners const& x)
 			{
 				return index == x.first;
 			}));
@@ -117,8 +117,8 @@ private:
 #define ADD_LISTENER(event_name, func_name)\
 EventSystem::GetInstance()->AddListener< decltype( GetDispatcherType< static_cast<unsigned>(event_name) >::Get()),\
 										 decltype( GetFunctionType< static_cast<unsigned>(event_name) >::Get())>(event_name, func_name)
-
-#define REMOVE_LISTENER(event_name, index)  EventSystem::GetInstance()->RemoveListener(event_name, index)
+#define REMOVE_LISTENER(event_name, index)\
+EventSystem::GetInstance()->RemoveListener(event_name, index)
 #define INVOKE_EVENT(event_name, ...)\
 EventSystem::GetInstance()->InvokeEvent< decltype( GetDispatcherType< static_cast<unsigned>(event_name) >::Get() ) >(event_name, __VA_ARGS__)
 
@@ -147,17 +147,17 @@ private:
 
 void Test0(int a)
 {
-	std::cout << "I am Test0. Argument value a is: " << a << std::endl;
+	std::cout << "I am Test0 with an int parameter. Argument value a is: " << a << std::endl;
 }
 
 void Test1(int a)
 {
-	std::cout << "I am Test1. Argument value a is: " << a << std::endl;
+	std::cout << "I am Test1 with an int parameter. Argument value a is: " << a << std::endl;
 }
 
 void Test2(int a, std::string const& str)
 {
-	std::cout << "I am Test2. Argument value a is: " << a << ' ' << str << std::endl;
+	std::cout << "I am Test2 with an int and string parameter. Argument value a is: " << a << ' ' << str << std::endl;
 }
 
 int main()
