@@ -88,7 +88,7 @@ public:
 		auto it = m_events[eventType].begin();  auto const end = m_events[eventType].end();
 		while(it != end)
 		{
-			auto func = *dynamic_cast<Func*>( it->second.get() );
+			auto const func = *dynamic_cast<Func*>( it->second.get() );
 			func(args...); ++it;
 		};
 	}
