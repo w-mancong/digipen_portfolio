@@ -1,76 +1,105 @@
 #include <iostream>
 #include <type_traits>
-#include <utility>
-#include <vector>
-#include <deque>
 
-template <typename T>
-struct BoxedType{};
-
-// an instance of BoxedType<T>
-template <typename T>
-constexpr auto BoxedInstance = BoxedType<T>{};
-
-// function without function body
-template <typename T>
-constexpr T StripBoxedType(BoxedType<T>);
-
-template <typename T>
-constexpr auto ElementInstance(BoxedType<T>) -> decltype(std::declval<typename T::value_type>());
-
-// SFINAE out using this function without function body
-template<typename LambdaType, typename... ArgsTypes,
-	typename = decltype( std::declval<LambdaType>()(std::declval<ArgsTypes&&>()...) )> 
-	std::true_type is_implemented(void*);
-
-// catch all function without function body
-template<typename LambdaType, typename... ArgTypes>
-std::false_type is_implemented(...);
-
-constexpr auto is_implementation_valid = [](auto lambda_instance)
+template <typename T1, typename T2>
+auto modulo_plain(T1 n, T2 d)
 {
-	return [](auto&&... lambda_args)
-	{
-		return decltype(is_implemented<decltype(lambda_instance), decltype(lambda_args)&&...>(nullptr)){};
-	};
-};
+	return n % d;
+}
 
-constexpr auto is_default_constructible_lambda = [](auto boxed_instance) -> decltype( decltype( StripBoxedType(boxed_instance) ) () ) {};
+void test_modulo_plain()
+{
+	std::cout << "In function [test_modulo_plain]" << std::endl;
+	int n = 9;
+	int d = 5;
 
-constexpr auto is_default_construtible_helper = is_implementation_valid(is_default_constructible_lambda);
+	std::cout << n << " = " << modulo_plain(n, d)
+		<< " (mod " << d << ")" << std::endl;
+}
+
+///////////////////////////////////////////////////////
+// SFINAE using type traits
+template <typename T1, typename T2,
+		  typename = std::enable_if_t< std::is_integral_v<T1> && std::is_integral_v<T2> > > // Confine T1 and T2 to be integral types
+auto modulo_trait(T1 n, T2 d)
+{
+	return n % d;
+}
+
+void test_modulo_trait()
+{
+	std::cout << "In function [test_modulo_trait]" << std::endl;
+	int n = 9;
+	int d = 5;
+
+	std::cout << n << " = " << modulo_trait(n, d)
+		<< " (mod " << d << ")" << std::endl;
+}
+
+///////////////////////////////////////////////////////
+template <typename T1, typename T2>
+auto modulo_requires(T1 n, T2 d)
+	requires requires{ n % d; }
+{
+	return n % d;
+}
+
+void test_modulo_requires()
+{
+	std::cout << "In function [test_modulo_requires]" << std::endl;
+	int n = 9;
+	int d = 5;
+
+	std::cout << n << " = " << modulo_requires(n, d)
+		<< " (mod " << d << ")" << std::endl;
+}
+
+///////////////////////////////////////////////////////
+template <typename T1, typename T2>
+concept ModuloSupport = requires (T1 n, T2 d) { n % d; };
+
+template <typename T1, typename T2>
+auto modulo_concepts(T1 n, T2 d) requires ModuloSupport<T1, T2>
+{
+	return n % d;
+}
+
+void test_modulo_concepts()
+{
+	std::cout << "In function [test_modulo_concepts]" << std::endl;
+	int n = 9;
+	int d = 5;
+
+	std::cout << n << " = " << modulo_concepts(n, d)
+		<< " (mod " << d << ")" << std::endl;
+}
+
+///////////////////////////////////////////////////////
 template <typename T>
-constexpr bool is_default_constructible = is_default_construtible_helper(BoxedInstance<T>);
-/// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-constexpr auto is_push_front_supported_lambda = [](auto boxed_instance) -> decltype( StripBoxedType(boxed_instance).push_front( ElementInstance(boxed_instance) ) ) {};
-constexpr auto is_push_front_supported_helper = is_implementation_valid(is_push_front_supported_lambda);
-template <template<typename> class Cntr, typename T = int>
-constexpr bool is_push_front_supported = is_push_front_supported_helper( BoxedInstance<Cntr<T>> );
+concept IntegralType = std::is_integral_v<T>;
 
-#define TYPE_NAME(type) typeid(type).name()
-
-class Constructible
+template <typename T1, typename T2>
+	requires IntegralType<T1> && IntegralType<T2>
+auto modulo_constraints(T1 n, T2 d)
 {
-public:
-	Constructible() = default;
-};
+	return n % d;
+}
 
-class NotConstructible
+void test_modulo_constraints()
 {
-public:
-	NotConstructible() = delete;
-};
+	std::cout << "In function [test_modulo_constraints]" << std::endl;
+	int n = 9;
+	int d = 5;
+
+	std::cout << n << " = " << modulo_constraints(n, d)
+		<< " (mod " << d << ")" << std::endl;
+}
 
 int main(void)
 {
-	std::cout << "Is " << TYPE_NAME(int&) << " default constructible? "
-		<< std::boolalpha << (is_default_construtible_helper(BoxedInstance<int&>) ? "yes" : "no") <<  std::endl;
-
-	std::cout << "Is " << TYPE_NAME(int) << " default constructible? "
-		<< std::boolalpha << (is_default_constructible<int> ? "yes" : "no") << std::endl;
-
-	std::cout << "Does std::vector support push front ? " << std::boolalpha <<
-		(is_push_front_supported<std::vector> ? "yes" : "no") << std::endl;
-
-	std::cout << "Does std::deque support push front ? " << std::boolalpha <<
-		(is_push_front_supported<std::deque> ? "yes" : "no") << std::endl;
+	//test_modulo_plain();
+	//test_modulo_trait();
+	//test_modulo_requires();
+	//test_modulo_concepts();
+	test_modulo_constraints();
 }

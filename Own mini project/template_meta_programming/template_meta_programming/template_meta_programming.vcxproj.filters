@@ -26,5 +26,8 @@
     <ClInclude Include="fib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GenericLambdaSFINAE.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
