@@ -23,5 +23,8 @@
     <ClInclude Include="my_type_traits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

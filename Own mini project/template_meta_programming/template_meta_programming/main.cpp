@@ -1,33 +1,43 @@
 #include <iostream>
 #include <type_traits>
-#include "my_type_traits.h"
+#include <utility>
 
-int fib(int x)
-{
-	if (x == 0 || x == 1)
-		return x;
-	return fib(x - 1) + fib(x - 2);
-}
+template <typename T>
+struct BoxedType{};
 
-template <unsigned int N>
-struct st_fib
+// an instance of BoxedType<T>
+template <typename T>
+constexpr auto BoxedInstance = BoxedType<T>{};
+
+// function without function body
+template <typename T>
+constexpr T StripBoxedType(BoxedType<T>);
+
+// SFINAE out using this function without function body
+template<typename LambdaType, typename... ArgsTypes,
+	typename = decltype( std::declval<LambdaType>()(std::declval<ArgsTypes&&>()...) )> 
+	std::true_type is_implemented(void*);
+
+// catch all function without function body
+template<typename LambdaType, typename... ArgTypes>
+std::false_type is_implemented(...);
+
+constexpr auto is_implementation_valid = [](auto lambda_instance)
 {
-	static const unsigned long long value = st_fib<N - 1>::value + st_fib<N - 2>::value;
+	return [](auto&&... lambda_args)
+	{
+		return decltype(is_implemented<decltype(lambda_instance), decltype(lambda_args)&&...>(nullptr)){};
+	};
 };
 
-template <>
-struct st_fib<0>
-{
-	static const unsigned long long value = 0;
-};
+constexpr auto is_default_constructible_lambda = [](auto boxed_instance) -> decltype( decltype( StripBoxedType(boxed_instance) )() ) {};
 
-template <>
-struct st_fib<1>
-{
-	static const unsigned long long value = 1;
-};
+constexpr auto is_default_construtible_helper = is_implementation_valid(is_default_constructible_lambda);
+
+#define TYPE_NAME(type) typeid(type).name()
 
 int main(void)
 {
-
+	std::cout << "Is " << TYPE_NAME(int) << " default constructible? "
+		<< std::boolalpha << (is_default_construtible_helper(BoxedInstance<int&>) ? "yes" : "no") <<  std::endl;
 }
