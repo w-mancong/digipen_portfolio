@@ -90,7 +90,7 @@ public:
 		v.erase(std::remove_if(
 			v.begin(),
 			v.end(),
-			[=](Listeners const& x)
+			[index](Listeners const& x)
 			{
 				return index == x.first;
 			}));
@@ -144,10 +144,7 @@ public:
 
 	void Init()
 	{
-		ADD_LISTENER(EventType::MouseInput, [&](int a)
-			{
-				Test(a);
-			});
+		ADD_LISTENER(EventType::MouseInput, [&](int a) { Test(a); });
 	};
 
 private:
