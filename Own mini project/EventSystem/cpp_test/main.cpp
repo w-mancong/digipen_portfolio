@@ -43,27 +43,16 @@ enum class EventType
 #pragma region Partial template specialization
 // *************************************************************************************
 template <unsigned>
-struct GetDispatcherType {};
+struct GetType {};
 #define EVENT_TYPE(event_name, ...)\
 template<>\
-struct GetDispatcherType<static_cast<unsigned>( EventType::##event_name )>\
+struct GetType<static_cast<unsigned>( EventType::##event_name )>\
 {\
-	static EventDispatcher<__VA_ARGS__> Get() { return {}; }\
+	static EventDispatcher<__VA_ARGS__> GetEDT() { return {}; }\
+	static std::function<void(__VA_ARGS__)> GetFn() { return {}; }\
 };
 #include "Events.def"
 #undef EVENT_TYPE
-// *************************************************************************************
-template <unsigned>
-struct GetFunctionType {};
-#define EVENT_TYPE(event_name, ...)\
-template<>\
-struct GetFunctionType< static_cast<unsigned>( EventType::##event_name ) >\
-{\
-	static std::function<void(__VA_ARGS__)> Get() { return {}; }\
-};
-#include "Events.def"
-#undef EVENT_TYPE
-// *************************************************************************************
 #pragma endregion
 
 class EventSystem
@@ -126,12 +115,12 @@ private:
 };
 
 #define ADD_LISTENER(event_name, func_name)\
-EventSystem::GetInstance()->AddListener< decltype(GetDispatcherType<static_cast<unsigned>(event_name)>::Get()),\
-										 decltype(GetFunctionType<static_cast<unsigned>(event_name)>::Get())>(event_name, func_name)
+EventSystem::GetInstance()->AddListener< decltype(GetType<static_cast<unsigned>(event_name)>::GetEDT()),\
+										 decltype(GetType<static_cast<unsigned>(event_name)>::GetFn())>(event_name, func_name)
 #define REMOVE_LISTENER(event_name, index)\
 EventSystem::GetInstance()->RemoveListener(event_name, index)
 #define INVOKE_EVENT(event_name, ...)\
-EventSystem::GetInstance()->InvokeEvent< decltype( GetDispatcherType<static_cast<unsigned>(event_name)>::Get())>(event_name, __VA_ARGS__)
+EventSystem::GetInstance()->InvokeEvent< decltype( GetType<static_cast<unsigned>(event_name)>::GetEDT())>(event_name, __VA_ARGS__)
 
 #pragma region Example of how to use EventSystem
 class A
