@@ -71,7 +71,7 @@ const float grndHigh = 5.0;        // Highest extent above sea level
 int constexpr spherePolyCount = 108;
 size_t constexpr iterations = 10000;
 #else
-int constexpr spherePolyCount = 96;
+int constexpr spherePolyCount = 12;
 size_t constexpr iterations = 1;
 #endif
 

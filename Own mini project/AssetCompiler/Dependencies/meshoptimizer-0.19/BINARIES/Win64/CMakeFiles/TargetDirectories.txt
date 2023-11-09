@@ -1,0 +1,4 @@
+C:/Users/joach/Downloads/meshoptimizer-0.19/BINARIES/Win64/CMakeFiles/meshoptimizer.dir
+C:/Users/joach/Downloads/meshoptimizer-0.19/BINARIES/Win64/CMakeFiles/INSTALL.dir
+C:/Users/joach/Downloads/meshoptimizer-0.19/BINARIES/Win64/CMakeFiles/ALL_BUILD.dir
+C:/Users/joach/Downloads/meshoptimizer-0.19/BINARIES/Win64/CMakeFiles/ZERO_CHECK.dir

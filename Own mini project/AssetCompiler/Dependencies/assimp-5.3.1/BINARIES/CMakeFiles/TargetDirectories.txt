@@ -1,0 +1,13 @@
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/CMakeFiles/uninstall.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/CMakeFiles/UpdateAssimpLibsDebugSymbolsAndDLLs.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/CMakeFiles/INSTALL.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/CMakeFiles/ALL_BUILD.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/CMakeFiles/ZERO_CHECK.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/contrib/zlib/CMakeFiles/zlibstatic.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/contrib/zlib/CMakeFiles/INSTALL.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/contrib/zlib/CMakeFiles/ALL_BUILD.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/code/CMakeFiles/assimp.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/code/CMakeFiles/INSTALL.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/test/CMakeFiles/unit.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/test/CMakeFiles/INSTALL.dir
+C:/Users/joach/Downloads/assimp-5.3.1/BINARIES/test/headercheck/CMakeFiles/INSTALL.dir
