@@ -127,8 +127,8 @@
       <AdditionalDependencies>meshoptimizer.lib;assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(ProjectDir)Dependencies\assimp-5.3.1\BINARIES\bin\D\assimp-vc143-mtd.dll" "$(OutDir)" /Y
-copy "$(ProjectDir)Dependencies\DirectXTex-Sep2023\texconv.exe" "$(OutDir)" /Y</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

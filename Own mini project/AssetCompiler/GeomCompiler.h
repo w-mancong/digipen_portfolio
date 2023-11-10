@@ -33,19 +33,20 @@ private:
 	Assimp::Exporter	m_Exporter;
 	std::string			m_OutputFileDirectory{ "..\\..\\Assets\\models" },
 						m_ExportFileType{ "fbx" };
-	unsigned int		m_ImportFlag{ aiProcess_Triangulate | aiProcess_FlipUVs },
+	static constexpr 
+	const unsigned int	m_ImportFlag{ aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_GenNormals },
 						m_ExportFlag{  };
 
 	struct Submesh
 	{
-		std::string				 meshName{};
-		std::vector<glm::vec3>	 vertices{}, 
-								 normals{}, 
-								 tangents{}, 
-								 biTangents{};
-		std::vector<glm::vec2>	 texCoords{};
-		std::vector<uint32_t>	 indices{};
-		std::vector<std::string> materialPaths{};
+		std::string							meshName{};
+		std::vector<glm::vec3>				vertices{}, 
+											normals{}, 
+											tangents{}, 
+											biTangents{};
+		std::vector<glm::vec2>				texCoords{};
+		std::vector<std::vector<uint32_t>>	indices{};
+		std::vector<std::string>			materialPaths{};
 	};
 
 	struct SerializationData 

@@ -17,20 +17,41 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <string>
 #include "meshoptimizer.h"
 #include "GeomCompiler.h"
 
 namespace
 {
-	aiTextureType constexpr const TEXTURE_TYPE[] = { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_DIFFUSE, 
-													 aiTextureType_METALNESS, aiTextureType_DIFFUSE_ROUGHNESS, 
-													 aiTextureType_NORMALS };
+	aiTextureType constexpr const TEXTURE_TYPE[] = { aiTextureType_DIFFUSE, aiTextureType_AMBIENT, aiTextureType_EMISSIVE,
+													 aiTextureType_NORMALS, aiTextureType_SHININESS, aiTextureType_METALNESS };
+	char const* TEXTURE_NAMES[] = { "albedo: ", "ambient_occulusion: ", "emissive: ", "normal: ", "roughness: ", "metallic: " };
 	uint64_t constexpr const NUM_TEXTURE_TYPE = sizeof(TEXTURE_TYPE) / sizeof(*TEXTURE_TYPE);
 }
 
 std::ostream& operator<<(std::ostream& os, aiString s)
 {
 	return os << s.C_Str();
+}
+
+std::string operator+(std::string const& lhs, aiString const& rhs)
+{
+	return lhs + rhs.C_Str();
+}
+
+std::string operator+(aiString const& lhs, std::string const& rhs)
+{
+	return lhs.C_Str() + rhs;
+}
+
+std::string operator+(aiString const& lhs, char const* rhs)
+{
+	return lhs.C_Str() + std::string(rhs);
+}
+
+std::string operator+(char const* lhs, aiString const& rhs)
+{
+	return lhs + std::string(rhs.C_Str());
 }
 
 GeomCompiler::GeomCompiler() {
@@ -72,6 +93,57 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 	// Optimizing
 
 	// Binary export
+	auto LoadMaterial = [this](Submesh& submesh, aiMesh const* currMesh)
+	{
+		aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
+		for (uint64_t typeIdx{}; typeIdx < NUM_TEXTURE_TYPE; ++typeIdx)
+		{
+			aiTextureType const type = *(TEXTURE_TYPE + typeIdx);
+			uint32_t const matCnt = mat->GetTextureCount(type);
+			for (uint32_t matIdx{}; matIdx < matCnt; ++matIdx)
+			{
+				aiString path{};
+				aiReturn ret = mat->GetTexture(type, matIdx, &path);
+				if (ret == aiReturn_FAILURE)
+					continue;
+				submesh.materialPaths.emplace_back( *(TEXTURE_NAMES + typeIdx) + path);
+			}
+		}
+	};
+
+	auto LoadVertices = [this](Submesh& submesh, aiMesh const* currMesh)
+	{
+		uint32_t const numVertices = currMesh->mNumVertices;
+		for (uint32_t vertIdx{}; vertIdx < numVertices; ++vertIdx)
+		{
+			if (currMesh->HasPositions())
+				submesh.vertices.emplace_back( ConvertaiVec3toVec3( currMesh->mVertices[vertIdx] ) );
+			if (currMesh->HasNormals())
+				submesh.normals.emplace_back( ConvertaiVec3toVec3( currMesh->mNormals[vertIdx] ) );
+			if (currMesh->HasTangentsAndBitangents())
+			{
+				submesh.tangents.emplace_back( ConvertaiVec3toVec3( currMesh->mTangents[vertIdx] ) );
+				submesh.biTangents.emplace_back( ConvertaiVec3toVec3( currMesh->mBitangents[vertIdx] ) );
+			}
+			if (currMesh->HasTextureCoords(0))
+				submesh.texCoords.emplace_back( ConvertaiVec3toVec3( currMesh->mTextureCoords[0][vertIdx] ) );
+		}
+	};
+
+	auto LoadIndices = [this](Submesh& submesh, aiMesh const* currMesh)
+	{
+		uint32_t const numFaces = currMesh->mNumFaces;
+		for (uint32_t faceIdx{}; faceIdx < numFaces; ++faceIdx)
+		{
+			aiFace const currFace{ currMesh->mFaces[faceIdx] };
+			uint32_t const indicesCnt = currFace.mNumIndices;
+			std::vector<uint32_t> indices{}; indices.reserve(indicesCnt);
+			for (uint32_t indicesIdx{}; indicesIdx < indicesCnt; ++indicesIdx)
+				indices.emplace_back( currFace.mIndices[indicesIdx] );
+			submesh.indices.emplace_back(indices);
+		}
+	};
+
 	SerializationData data{};
 	uint32_t const numMesh = m_Scene->mNumMeshes;
 	for (uint32_t cnt{}; cnt < numMesh; ++cnt)
@@ -79,53 +151,17 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		aiMesh* currMesh{ m_Scene->mMeshes[cnt] };
 		Submesh submesh{};
 
-		std::cout << currMesh->mName << std::endl;
+		submesh.meshName = currMesh->mName.C_Str();
 		if (m_Scene->HasMaterials())
-		{
-			aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
-			for (uint64_t i{ 1 }; i <= 17; ++i)
-			{
-				//aiTextureType const type = *(TEXTURE_TYPE + i);
-				aiTextureType const type = static_cast<aiTextureType>( i );
-				uint64_t const count = mat->GetTextureCount(type);
-				if (mat->GetTextureCount(type) > 0)
-				{
-					// Retrieve the first texture of the current type
-					aiString texturePath{};
-					if (AI_SUCCESS == mat->GetTexture(type, 0, &texturePath)) {
-						std::cout << "Texture type: " << type << ", Path: " << texturePath.C_Str() << std::endl;
-					}
-					else {
-						std::cerr << "Failed to retrieve texture path for type: " << type << std::endl;
-					}
-				}
-			}
-		}
+			LoadMaterial(submesh, currMesh);
+
+		LoadVertices(submesh, currMesh);
+		LoadIndices(submesh, currMesh);
+
+		data.meshInfos.emplace_back(submesh);
 	}
 
-
-
-	//for (unsigned int i = 0; i < m_Scene->mNumMaterials; ++i) {
-	//	aiMaterial* material = m_Scene->mMaterials[i];
-
-	//	// Iterate through each texture type (diffuse, specular, normal, etc.)
-	//	for (unsigned int j = 0; j < aiTextureType_UNKNOWN; ++j) {
-	//		aiTextureType textureType = static_cast<aiTextureType>(j);
-
-	//		// Check if the material has a texture of the current type
-	//		if (material->GetTextureCount(textureType) > 0) 
-	//		{
-	//			// Retrieve the first texture of the current type
-	//			aiString texturePath{};
-	//			if (AI_SUCCESS == material->GetTexture(textureType, 0, &texturePath)) {
-	//				std::cout << "Texture type: " << textureType << ", Path: " << texturePath.C_Str() << std::endl;
-	//			}
-	//			else {
-	//				std::cerr << "Failed to retrieve texture path for type: " << textureType << std::endl;
-	//			}
-	//		}
-	//	}
-	//}
+	return true;
 
 	// Exporting
 	//std::string outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
