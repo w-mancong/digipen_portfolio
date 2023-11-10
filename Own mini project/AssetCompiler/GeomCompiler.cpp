@@ -20,6 +20,14 @@
 #include "meshoptimizer.h"
 #include "GeomCompiler.h"
 
+namespace
+{
+	aiTextureType constexpr const TEXTURE_TYPE[] = { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_DIFFUSE, 
+													 aiTextureType_METALNESS, aiTextureType_DIFFUSE_ROUGHNESS, 
+													 aiTextureType_NORMALS };
+	uint64_t constexpr const NUM_TEXTURE_TYPE = sizeof(TEXTURE_TYPE) / sizeof(*TEXTURE_TYPE);
+}
+
 std::ostream& operator<<(std::ostream& os, aiString s)
 {
 	return os << s.C_Str();
@@ -65,21 +73,59 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 
 	// Binary export
 	SerializationData data{};
-	uint32_t numMesh = m_Scene->mNumMeshes;
-	for (uint32_t i{}; i < numMesh; ++i)
+	uint32_t const numMesh = m_Scene->mNumMeshes;
+	for (uint32_t cnt{}; cnt < numMesh; ++cnt)
 	{
-		aiMesh* currMesh{ m_Scene->mMeshes[i] };
+		aiMesh* currMesh{ m_Scene->mMeshes[cnt] };
 		Submesh submesh{};
 
+		std::cout << currMesh->mName << std::endl;
 		if (m_Scene->HasMaterials())
 		{
 			aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
-			
-			aiTextureType_AMBIENT;
-
+			for (uint64_t i{ 1 }; i <= 17; ++i)
+			{
+				//aiTextureType const type = *(TEXTURE_TYPE + i);
+				aiTextureType const type = static_cast<aiTextureType>( i );
+				uint64_t const count = mat->GetTextureCount(type);
+				if (mat->GetTextureCount(type) > 0)
+				{
+					// Retrieve the first texture of the current type
+					aiString texturePath{};
+					if (AI_SUCCESS == mat->GetTexture(type, 0, &texturePath)) {
+						std::cout << "Texture type: " << type << ", Path: " << texturePath.C_Str() << std::endl;
+					}
+					else {
+						std::cerr << "Failed to retrieve texture path for type: " << type << std::endl;
+					}
+				}
+			}
 		}
-
 	}
+
+
+
+	//for (unsigned int i = 0; i < m_Scene->mNumMaterials; ++i) {
+	//	aiMaterial* material = m_Scene->mMaterials[i];
+
+	//	// Iterate through each texture type (diffuse, specular, normal, etc.)
+	//	for (unsigned int j = 0; j < aiTextureType_UNKNOWN; ++j) {
+	//		aiTextureType textureType = static_cast<aiTextureType>(j);
+
+	//		// Check if the material has a texture of the current type
+	//		if (material->GetTextureCount(textureType) > 0) 
+	//		{
+	//			// Retrieve the first texture of the current type
+	//			aiString texturePath{};
+	//			if (AI_SUCCESS == material->GetTexture(textureType, 0, &texturePath)) {
+	//				std::cout << "Texture type: " << textureType << ", Path: " << texturePath.C_Str() << std::endl;
+	//			}
+	//			else {
+	//				std::cerr << "Failed to retrieve texture path for type: " << textureType << std::endl;
+	//			}
+	//		}
+	//	}
+	//}
 
 	// Exporting
 	//std::string outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
