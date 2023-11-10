@@ -31,7 +31,7 @@ private:
 	aiMatrix4x4			m_DescriptorMatrix;
 	Assimp::Importer	m_Importer;
 	Assimp::Exporter	m_Exporter;
-	std::string			m_OutputFileDirectory{ "..\\..\\Assets\\models" },
+	std::string			m_OutputFileDirectory{ "Assets\\models" },
 						m_ExportFileType{ "fbx" };
 	static constexpr 
 	const unsigned int	m_ImportFlag{ aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_GenNormals },
@@ -49,9 +49,17 @@ private:
 		std::vector<std::string>			materialPaths{};
 	};
 
-	struct SerializationData 
+	struct DeserializationData 
 	{
 		std::vector<Submesh> meshInfos{};
+	};
+
+	// Using these struct to find the offset of each vertices/indices
+	struct HeaderInfo
+	{
+		uint64_t meshNameSize{};
+		uint64_t verticesCount{};
+		uint64_t indicesCount{};
 	};
 
 public:
@@ -62,15 +70,18 @@ public:
 	// ----------------------------------------
 	bool Compile(const std::string& _inputFilepath);
 
-	bool Serialize(const std::string& _filepath, const SerializationData& _data);
-	bool Deserialize(const std::string& _filepath, SerializationData& _data);
-	bool Deserialize(const std::string& _filepath, 
-						std::vector<glm::vec3>& _vertices, 
-						std::vector<glm::vec3>& _normals, 
-						std::vector<glm::vec3>& _tangents, 
-						std::vector<glm::vec3>& _biTangents, 
-						std::vector<glm::vec2>& _texCoords, 
-						std::vector<std::vector<unsigned int>>& _indices);
+	bool Deserialize(std::string const& outputFile, DeserializationData const& data);
+	void Serialize(std::string const& inputFile);
+
+	//bool Serialize(const std::string& _filepath, const SerializationData& _data);
+	//bool Deserialize(const std::string& _filepath, SerializationData& _data);
+	//bool Deserialize(const std::string& _filepath, 
+	//					std::vector<glm::vec3>& _vertices, 
+	//					std::vector<glm::vec3>& _normals, 
+	//					std::vector<glm::vec3>& _tangents, 
+	//					std::vector<glm::vec3>& _biTangents, 
+	//					std::vector<glm::vec2>& _texCoords, 
+	//					std::vector<std::vector<unsigned int>>& _indices);
 	//bool BinarySerialize(const std::string& _filepath, const std::vector<Vec3>& _vertices, const std::vector<std::vector<unsigned int>>& _indices);
 	//bool BinaryDeserialize(const std::string& _filepath, std::vector<Vec3>& _vertices, std::vector<std::vector<unsigned int>>& _indices);
 };
