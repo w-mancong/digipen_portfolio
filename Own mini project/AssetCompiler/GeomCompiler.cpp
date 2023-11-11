@@ -172,12 +172,7 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 
 	// Exporting
 	std::string outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
-	Deserialize(outputFile, data);
-
-	Serialize(outputFile);
-
-	return true;
-	//return Deserialize(outputFile, data);
+	return Deserialize(outputFile, data);
 }
 
 bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationData const& data)
