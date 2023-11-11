@@ -85,6 +85,7 @@ glm::vec3 ConvertaiVec3toVec3(const aiVector3D& _vector) {
 glm::vec2 ConvertaiVec3toVec2(const aiVector3D& _vector) {
 	return glm::vec2{ _vector.x, _vector.y };
 }
+
 // ----------------------------------------
 // Compile Mesh/Models
 // ----------------------------------------
@@ -133,16 +134,16 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		for (uint32_t vertIdx{}; vertIdx < numVertices; ++vertIdx)
 		{
 			if (currMesh->HasPositions())
-				submesh.vertices.emplace_back( ConvertaiVec3toVec3( currMesh->mVertices[vertIdx] ) );
+				submesh.vec3Attrib[Idx(Vec3Attrib::Position)].emplace_back(ConvertaiVec3toVec3(currMesh->mVertices[vertIdx]));
 			if (currMesh->HasNormals())
-				submesh.normals.emplace_back( ConvertaiVec3toVec3( currMesh->mNormals[vertIdx] ) );
+				submesh.vec3Attrib[Idx(Vec3Attrib::Normals)].emplace_back( ConvertaiVec3toVec3( currMesh->mNormals[vertIdx] ) );
 			if (currMesh->HasTangentsAndBitangents())
 			{
-				submesh.tangents.emplace_back( ConvertaiVec3toVec3( currMesh->mTangents[vertIdx] ) );
-				submesh.biTangents.emplace_back( ConvertaiVec3toVec3( currMesh->mBitangents[vertIdx] ) );
+				submesh.vec3Attrib[Idx(Vec3Attrib::Tangents)].emplace_back( ConvertaiVec3toVec3( currMesh->mTangents[vertIdx] ) );
+				submesh.vec3Attrib[Idx(Vec3Attrib::BiTangents)].emplace_back( ConvertaiVec3toVec3( currMesh->mBitangents[vertIdx] ) );
 			}
 			if (currMesh->HasTextureCoords(0))
-				submesh.texCoords.emplace_back( ConvertaiVec3toVec2( currMesh->mTextureCoords[0][vertIdx] ) );
+				submesh.vec2Attrib[Idx(Vec2Attrib::TextureCoords)].emplace_back(ConvertaiVec3toVec2(currMesh->mTextureCoords[0][vertIdx]));
 		}
 	};
 
@@ -153,10 +154,8 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		{
 			aiFace const currFace{ currMesh->mFaces[faceIdx] };
 			uint32_t const indicesCnt = currFace.mNumIndices;
-			std::vector<uint32_t> indices{}; indices.reserve(indicesCnt);
 			for (uint32_t indicesIdx{}; indicesIdx < indicesCnt; ++indicesIdx)
-				indices.emplace_back( currFace.mIndices[indicesIdx] );
-			submesh.indices.emplace_back(indices);
+				submesh.indices.emplace_back( currFace.mIndices[indicesIdx] );
 		}
 	};
 
@@ -204,14 +203,38 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 	{
 		Submesh const& submesh = data.meshInfos[meshIdx];
 
-		HeaderInfo const info{ submesh.meshName.size() + 1, submesh.vertices.size(), submesh.indices.size() };
+		uint64_t v3cnt[TOTAL_VEC3_ATTRIBUTE], v2cnt[TOTAL_VEC2_ATTRIBUTE];
+		Count(v3cnt, v2cnt, submesh);
+		HeaderInfo const info
+		{
+			.meshNameSize = submesh.meshName.size(),
+			.vec3VerticesCnt = { v3cnt[0], v3cnt[1], v3cnt[2], v3cnt[3] },
+			.vec2VerticesCnt = { v2cnt[0] },
+			.indicesCount = submesh.indices.size()
+		};
+		// Writing the data offset for each submesh
 		ofs.write(reinterpret_cast<char const*>(&info), sizeof(HeaderInfo));
 
 		// Write the name of the mesh
 		ofs.write(submesh.meshName.c_str(), info.meshNameSize);
 
-		// Write position vertices into ofs
-		ofs.write(reinterpret_cast<char const *>( submesh.vertices.data() ), sizeof(glm::vec3) * info.verticesCount);
+		for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
+		{	// Writing all vec3 vertex attribute into buffer
+			uint64_t const SIZE = sizeof(glm::vec3) * submesh.vec3Attrib[i].size();
+			ofs.write(reinterpret_cast<char const*>(submesh.vec3Attrib[i].data()), SIZE);
+		}
+
+		// Write texture coordinates
+		for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
+		{	// Writing all vec2 vertex attribute into buffer
+			uint64_t const offset = sizeof(glm::vec2) * submesh.vec2Attrib[i].size();
+			ofs.write(reinterpret_cast<char const*>(submesh.vec2Attrib[i].data()), offset);
+		}
+
+		// Write indices
+		ofs.write(reinterpret_cast<char const*>( submesh.indices.data() ), sizeof(uint32_t) * info.indicesCount);
+
+		// Write string of material path
 	}
 
 	return true;
@@ -233,191 +256,47 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 		ifs.read(reinterpret_cast<char*>(&info), sizeof(HeaderInfo));
 
 		{	// name
-			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.meshNameSize);
+			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.meshNameSize + 1);
 			ifs.read(name.get(), info.meshNameSize);
-			name[info.meshNameSize - 1] = '\0';
+			name[info.meshNameSize] = '\0';
 			std::cout << name << std::endl;
 		}
 
-		{	// vertices
-			std::unique_ptr<glm::vec3[]> vertices = std::make_unique<glm::vec3[]>(info.verticesCount);
-			ifs.read(reinterpret_cast<char*>(vertices.get()), sizeof(glm::vec3) * info.verticesCount);
+		{	// position, normals, tangents, bitangents
+			std::vector<glm::vec3> vec3Attrib[TOTAL_VEC3_ATTRIBUTE];
+			for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
+				vec3Attrib[i].reserve( info.vec3VerticesCnt[i] );
 
-			//for (uint64_t i{}; i < info.verticesCount; ++i)
-			//	std::cout << vertices[i].x << ' ' << vertices[i].y << ' ' << vertices[i].z << std::endl;
+			for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
+			{
+				std::unique_ptr<glm::vec3[]> ptr = std::make_unique<glm::vec3[]>(info.vec3VerticesCnt[i]);
+
+				uint64_t const SIZE = sizeof(glm::vec3) * info.vec3VerticesCnt[i];
+				ifs.read(reinterpret_cast<char*>(ptr.get()), SIZE);
+
+				vec3Attrib[i] = std::move( std::vector<glm::vec3>(ptr.get(), ptr.get() + info.vec3VerticesCnt[i]) );
+			}
 		}
 
+		{	// texture coordinates, 
+			std::vector<glm::vec2> vec2Attrib[TOTAL_VEC2_ATTRIBUTE];
+			for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
+				vec2Attrib[i].reserve(info.vec2VerticesCnt[i]);
+
+			for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
+			{
+				std::unique_ptr<glm::vec2[]> ptr = std::make_unique<glm::vec2[]>(info.vec2VerticesCnt[i]);
+
+				uint64_t const SIZE = sizeof(glm::vec2) * info.vec2VerticesCnt[i];
+				ifs.read(reinterpret_cast<char*>(ptr.get()), SIZE);
+
+				vec2Attrib[i] = std::move( std::vector<glm::vec2>(ptr.get(), ptr.get() + info.vec2VerticesCnt[i]) );
+			}
+		}
+
+		{	// indicies
+			std::vector<uint32_t> indices{}; indices.reserve(info.indicesCount);
+			ifs.read(reinterpret_cast<char*>(indices.data()), sizeof(uint32_t) * info.indicesCount);
+		}
 	}
 }
-
-//bool GeomCompiler::Serialize(const std::string& _filepath, const SerializationData& _data) {
-//	std::ofstream ofs{ _filepath, std::ios::out | std::ios::binary };
-//	if (ofs.is_open() == false) {
-//		std::cout << ">> Error encountered during serializiation. Output file could not be created\n";
-//		return false;
-//	}
-//
-//	//ofs << "Vertices\n";
-//	//for (int i{ 0 }; i < _data.vertices.size(); ++i) {
-//	//	ofs << _data.vertices[i];
-//	//	if (i + 1 < _data.vertices.size())
-//	//		ofs << ",\n";
-//	//}
-//
-//	//ofs << "\nNormals\n";
-//	//for (int i{ 0 }; i < _data.normals.size(); ++i) {
-//	//	ofs << _data.normals[i];
-//	//	if (i + 1 < _data.normals.size())
-//	//		ofs << ",\n";
-//	//}
-//
-//	//ofs << "\nTangents\n";
-//	//for (int i{ 0 }; i < _data.tangents.size(); ++i) {
-//	//	ofs << _data.tangents[i];
-//	//	if (i + 1 < _data.tangents.size())
-//	//		ofs << ",\n";
-//	//}
-//
-//	//ofs << "\nBiTangents\n";
-//	//for (int i{ 0 }; i < _data.biTangents.size(); ++i) {
-//	//	ofs << _data.biTangents[i];
-//	//	if (i + 1 < _data.biTangents.size())
-//	//		ofs << ",\n";
-//	//}
-//
-//	//ofs << "\nTexCoords\n";
-//	//for (int i{ 0 }; i < _data.texCoords.size(); ++i) {
-//	//	ofs << _data.texCoords[i];
-//	//	if (i + 1 < _data.texCoords.size())
-//	//		ofs << ",\n";
-//	//}
-//
-//	//ofs << "\nIndices\n";
-//	//for (int i{ 0 }; i < _data.indices.size(); ++i) {
-//	//	for (unsigned int j{ 0 }; j < _data.indices[i].size(); ++j) {
-//	//		ofs << _data.indices[i][j];
-//	//		if (j + 1 < _data.indices[i].size())
-//	//			ofs << ",";
-//	//	}
-//	//	if (i + 1 < _data.indices.size())
-//	//		ofs << ",\n";
-//	//}
-//
-//	ofs.close();
-//	return true;
-//}
-//
-//template <typename Out>
-//void split(const std::string& s, char delim, Out result) {
-//	std::istringstream iss(s);
-//	std::string item;
-//	while (std::getline(iss, item, delim)) {
-//		*result++ = item;
-//	}
-//}
-//
-//std::vector<std::string> split(const std::string& _string, char _delimiter) {
-//	std::vector<std::string> result;
-//	split(_string, _delimiter, std::back_inserter(result));
-//	return result;
-//}
-//
-//bool GeomCompiler::Deserialize(const std::string& _filepath, SerializationData& _data) {
-//	//return Deserialize(_filepath, _data.vertices, _data.normals, _data.tangents, _data.biTangents, _data.texCoords, _data.indices);
-//	return false;
-//}
-//
-//bool GeomCompiler::Deserialize(const std::string& _filepath,
-//								std::vector<glm::vec3>& _vertices,
-//								std::vector<glm::vec3>& _normals,
-//								std::vector<glm::vec3>& _tangents,
-//								std::vector<glm::vec3>& _biTangents,
-//								std::vector<glm::vec2>& _texCoords,
-//								std::vector<std::vector<unsigned int>>& _indices) {
-//	std::ifstream ifs{ _filepath, std::ios::in | std::ios::binary };
-//	if (ifs.is_open() == false) {
-//		std::cout << ">> Error encountered during deserialization. Input file could not be opened\n";
-//		return false;
-//	}
-//
-//	_vertices.clear();
-//	_normals.clear();
-//	_tangents.clear();
-//	_biTangents.clear();
-//	_texCoords.clear();
-//	_indices.clear();
-//
-//	std::string currLine{};
-//	ifs >> currLine;
-//
-//	if (currLine == "Vertices") {
-//		ifs >> currLine;
-//		do {
-//			std::vector<std::string> result{ split(currLine, ',') };
-//			if (result.size() == 3)
-//				_vertices.emplace_back(glm::vec3{ std::stof(result[0]), std::stof(result[1]), std::stof(result[2]) });
-//			else
-//				break;
-//		} while (ifs >> currLine);
-//	}
-//
-//	if (currLine == "Normals") {
-//		ifs >> currLine;
-//		do {
-//			std::vector<std::string> result{ split(currLine, ',') };
-//			if (result.size() == 3)
-//				_normals.emplace_back(glm::vec3{ std::stof(result[0]), std::stof(result[1]), std::stof(result[2]) });
-//			else
-//				break;
-//		} while (ifs >> currLine);
-//	}
-//
-//	if (currLine == "Tangents") {
-//		ifs >> currLine;
-//		do {
-//			std::vector<std::string> result{ split(currLine, ',') };
-//			if (result.size() == 3)
-//				_tangents.emplace_back(glm::vec3{ std::stof(result[0]), std::stof(result[1]), std::stof(result[2]) });
-//			else
-//				break;
-//		} while (ifs >> currLine);
-//	}
-//
-//	if (currLine == "BiTangents") {
-//		ifs >> currLine;
-//		do {
-//			std::vector<std::string> result{ split(currLine, ',') };
-//			if (result.size() == 3)
-//				_biTangents.emplace_back(glm::vec3{ std::stof(result[0]), std::stof(result[1]), std::stof(result[2]) });
-//			else
-//				break;
-//		} while (ifs >> currLine);
-//	}
-//
-//	if (currLine == "TexCoords") {
-//		ifs >> currLine;
-//		do {
-//			std::vector<std::string> result{ split(currLine, ',') };
-//			if (result.size() == 2)
-//				_texCoords.emplace_back(glm::vec2{ std::stof(result[0]), std::stof(result[1]) });
-//			else
-//				break;
-//		} while (ifs >> currLine);
-//	}
-//
-//	if (currLine == "Indices") {
-//		ifs >> currLine;
-//		do {
-//			std::vector<std::string> result{ split(currLine, ',') };
-//			std::vector<unsigned int> indices{};
-//			for (size_t i{ 0 }; i < result.size(); ++i)
-//				indices.emplace_back(std::stoul(result[i]));
-//			_indices.emplace_back(indices);
-//		} while (ifs >> currLine);
-//	}
-//
-//
-//
-//	ifs.close();
-//	return true;
-//}
