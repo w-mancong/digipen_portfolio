@@ -120,7 +120,7 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		}
 	};
 
-	auto LoadVertices = [this](Submesh& submesh, aiMesh const* currMesh)
+	auto LoadVertices = [](Submesh& submesh, aiMesh const* currMesh)
 	{
 		uint32_t const numVertices = currMesh->mNumVertices;
 		for (uint32_t vertIdx{}; vertIdx < numVertices; ++vertIdx)
@@ -139,7 +139,7 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		}
 	};
 
-	auto LoadIndices = [this](Submesh& submesh, aiMesh const* currMesh)
+	auto LoadIndices = [](Submesh& submesh, aiMesh const* currMesh)
 	{
 		uint32_t const numFaces = currMesh->mNumFaces;
 		for (uint32_t faceIdx{}; faceIdx < numFaces; ++faceIdx)
@@ -150,6 +150,40 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 				submesh.indices.emplace_back( currFace.mIndices[indicesIdx] );
 		}
 	};
+
+	//auto OptimizeMesh = [](Submesh& submesh)
+	//{
+	//	struct FullVertices
+	//	{
+	//		glm::vec3 position{}, normal{}, tangents{}, bitangents{};
+	//		glm::vec2 texCoords{};
+	//	};
+
+	//	uint64_t const SIZE = submesh.vec3Attrib[0].size();
+	//	std::vector<FullVertices> copy{}; copy.reserve(SIZE);
+	//	for (uint64_t i{}; i < SIZE; ++i)
+	//	{
+	//		copy.emplace_back
+	//		(
+	//			FullVertices{
+	//				.position = submesh.vec3Attrib[Idx(Vec3Attrib::Position)][i],
+	//				.normal = submesh.vec3Attrib[Idx(Vec3Attrib::Normals)][i],
+	//				.tangents = submesh.vec3Attrib[Idx(Vec3Attrib::Tangents)][i],
+	//				.bitangents = submesh.vec3Attrib[Idx(Vec3Attrib::BiTangents)][i],
+	//				.texCoords = submesh.vec2Attrib[Idx(Vec2Attrib::TextureCoords)][i],
+	//			}
+	//		);
+	//	}
+
+	//	std::cout << "Optimizing: " << submesh.meshName << std::endl;
+	//	uint64_t const indices_counter = submesh.indices.size();
+	//	std::vector<uint32_t> remap{};
+
+	//	uint64_t const vertex_counter = 
+	//		meshopt_generateVertexRemap(&remap[0], submesh.indices.data(), indices_counter, copy.data(), indices_counter, sizeof(FullVertices));
+
+	//	
+	//};
 
 	DeserializationData data{};
 	uint32_t const numMesh = m_Scene->mNumMeshes;
@@ -171,7 +205,8 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 	}
 
 	// Exporting
-	std::string outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
+	//std::string outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
+	std::string outputFile{ _inputFilepath.substr(0, _inputFilepath.find_last_of('.')) + ".h_mesh"};
 	return Deserialize(outputFile, data);
 }
 
