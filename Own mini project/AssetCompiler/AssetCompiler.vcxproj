@@ -166,6 +166,7 @@ copy "$(ProjectDir)Dependencies\DirectXTex-Sep2023\texconv.exe" "$(OutDir)" /Y</
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssetCompiler.h" />
+    <ClInclude Include="CompileMesh.h" />
     <ClInclude Include="GeomCompiler.h" />
     <ClInclude Include="ShellApi.h" />
     <ClInclude Include="TexCompiler.h" />

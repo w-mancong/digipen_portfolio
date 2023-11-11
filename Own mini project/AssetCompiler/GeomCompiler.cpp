@@ -17,18 +17,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <string>
 #include <memory>
 #include "meshoptimizer.h"
 #include "GeomCompiler.h"
 
-namespace
-{
-	aiTextureType constexpr const TEXTURE_TYPE[] = { aiTextureType_DIFFUSE, aiTextureType_AMBIENT, aiTextureType_EMISSIVE,
-													 aiTextureType_NORMALS, aiTextureType_SHININESS, aiTextureType_METALNESS };
-	char const* TEXTURE_NAMES[] = { "albedo: ", "ambient_occulusion: ", "emissive: ", "normal: ", "roughness: ", "metallic: " };
-	uint64_t constexpr const NUM_TEXTURE_TYPE = sizeof(TEXTURE_TYPE) / sizeof(*TEXTURE_TYPE);
-}
+using namespace MeshCompiler;
 
 std::ostream& operator<<(std::ostream& os, aiString s)
 {
@@ -107,12 +100,11 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		return false;
 	}
 
-	// Optimizing
-
 	// Binary export
 	auto LoadMaterial = [this](Submesh& submesh, aiMesh const* currMesh)
 	{
 		aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
+		uint64_t counter{};
 		for (uint64_t typeIdx{}; typeIdx < NUM_TEXTURE_TYPE; ++typeIdx)
 		{
 			aiTextureType const type = *(TEXTURE_TYPE + typeIdx);
@@ -123,7 +115,7 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 				aiReturn ret = mat->GetTexture(type, matIdx, &path);
 				if (ret == aiReturn_FAILURE)
 					continue;
-				submesh.materialPaths.emplace_back( *(TEXTURE_NAMES + typeIdx) + path);
+				submesh.materialPaths[counter++] = (*(TEXTURE_NAMES + typeIdx) + path);
 			}
 		}
 	};
@@ -166,6 +158,8 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		aiMesh* currMesh{ m_Scene->mMeshes[cnt] };
 		Submesh submesh{};
 
+		// Optimize each submesh before storing the value
+
 		submesh.meshName = currMesh->mName.C_Str();
 		if (m_Scene->HasMaterials())
 			LoadMaterial(submesh, currMesh);
@@ -203,15 +197,19 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 	{
 		Submesh const& submesh = data.meshInfos[meshIdx];
 
-		uint64_t v3cnt[TOTAL_VEC3_ATTRIBUTE], v2cnt[TOTAL_VEC2_ATTRIBUTE];
-		Count(v3cnt, v2cnt, submesh);
 		HeaderInfo const info
 		{
 			.meshNameSize = submesh.meshName.size(),
-			.vec3VerticesCnt = { v3cnt[0], v3cnt[1], v3cnt[2], v3cnt[3] },
-			.vec2VerticesCnt = { v2cnt[0] },
+			.verticeCount = submesh.vec3Attrib[0].size(),
 			.indicesCount = submesh.indices.size()
 		};
+
+		{	// To insert the size of each material file path
+			HeaderInfo& H = const_cast<HeaderInfo&>(info);
+			for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
+				H.materialPathSize[i] = submesh.materialPaths[i].size();
+		}
+
 		// Writing the data offset for each submesh
 		ofs.write(reinterpret_cast<char const*>(&info), sizeof(HeaderInfo));
 
@@ -235,11 +233,16 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 		ofs.write(reinterpret_cast<char const*>( submesh.indices.data() ), sizeof(uint32_t) * info.indicesCount);
 
 		// Write string of material path
+		for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
+			ofs.write(submesh.materialPaths[i].c_str(), info.materialPathSize[i]);
 	}
 
 	return true;
 }
 
+/* ******************************************************************************
+								Test Function
+ ****************************************************************************** */
 void GeomCompiler::Serialize(std::string const& inputFile)
 {
 	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
@@ -249,7 +252,7 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 	}
 
 	uint64_t numMesh{};
-	ifs.read(reinterpret_cast<char*>( &numMesh ), sizeof(uint64_t));
+	ifs.read(reinterpret_cast<char*>(&numMesh), sizeof(uint64_t));
 	for (uint64_t meshIdx{}; meshIdx < numMesh; ++meshIdx)
 	{
 		HeaderInfo info{};
@@ -265,38 +268,49 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 		{	// position, normals, tangents, bitangents
 			std::vector<glm::vec3> vec3Attrib[TOTAL_VEC3_ATTRIBUTE];
 			for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
-				vec3Attrib[i].reserve( info.vec3VerticesCnt[i] );
+				vec3Attrib[i].reserve( info.verticeCount );
 
 			for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
 			{
-				std::unique_ptr<glm::vec3[]> ptr = std::make_unique<glm::vec3[]>(info.vec3VerticesCnt[i]);
+				std::unique_ptr<glm::vec3[]> ptr = std::make_unique<glm::vec3[]>(info.verticeCount);
 
-				uint64_t const SIZE = sizeof(glm::vec3) * info.vec3VerticesCnt[i];
+				uint64_t const SIZE = sizeof(glm::vec3) * info.verticeCount;
 				ifs.read(reinterpret_cast<char*>(ptr.get()), SIZE);
 
-				vec3Attrib[i] = std::move( std::vector<glm::vec3>(ptr.get(), ptr.get() + info.vec3VerticesCnt[i]) );
+				vec3Attrib[i] = std::move( std::vector<glm::vec3>(ptr.get(), ptr.get() + info.verticeCount) );
 			}
 		}
 
 		{	// texture coordinates, 
 			std::vector<glm::vec2> vec2Attrib[TOTAL_VEC2_ATTRIBUTE];
 			for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
-				vec2Attrib[i].reserve(info.vec2VerticesCnt[i]);
+				vec2Attrib[i].reserve(info.verticeCount);
 
 			for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
 			{
-				std::unique_ptr<glm::vec2[]> ptr = std::make_unique<glm::vec2[]>(info.vec2VerticesCnt[i]);
+				std::unique_ptr<glm::vec2[]> ptr = std::make_unique<glm::vec2[]>(info.verticeCount);
 
-				uint64_t const SIZE = sizeof(glm::vec2) * info.vec2VerticesCnt[i];
+				uint64_t const SIZE = sizeof(glm::vec2) * info.verticeCount;
 				ifs.read(reinterpret_cast<char*>(ptr.get()), SIZE);
 
-				vec2Attrib[i] = std::move( std::vector<glm::vec2>(ptr.get(), ptr.get() + info.vec2VerticesCnt[i]) );
+				vec2Attrib[i] = std::move( std::vector<glm::vec2>(ptr.get(), ptr.get() + info.verticeCount) );
 			}
 		}
 
 		{	// indicies
 			std::vector<uint32_t> indices{}; indices.reserve(info.indicesCount);
 			ifs.read(reinterpret_cast<char*>(indices.data()), sizeof(uint32_t) * info.indicesCount);
+		}
+
+		{	// Material file paths
+			std::string materialPaths[NUM_TEXTURE_TYPE]{};
+			for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
+			{
+				std::unique_ptr<char[]> path = std::make_unique<char[]>(info.materialPathSize[i] + 1);
+				ifs.read(path.get(), info.materialPathSize[i]);
+				path[info.materialPathSize[i]] = '\0';
+				materialPaths[i] = path.get();
+			}
 		}
 	}
 }

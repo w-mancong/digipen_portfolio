@@ -35,10 +35,13 @@
     <ClInclude Include="TexCompiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AssetCompiler.h">
+    <ClInclude Include="ShellApi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ShellApi.h">
+    <ClInclude Include="CompileMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AssetCompiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
