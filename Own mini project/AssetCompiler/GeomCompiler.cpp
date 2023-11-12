@@ -104,6 +104,8 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 	auto LoadMaterial = [this](Submesh& submesh, aiMesh const* currMesh)
 	{
 		aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
+		submesh.materialName = mat->GetName().C_Str();
+
 		uint64_t counter{};
 		for (uint64_t typeIdx{}; typeIdx < NUM_TEXTURE_TYPE; ++typeIdx)
 		{
@@ -229,9 +231,10 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 
 		HeaderInfo const info
 		{
-			.meshNameSize = submesh.meshName.size(),
-			.verticeCount = submesh.vec3Attrib[0].size(),
-			.indicesCount = submesh.indices.size()
+			.meshNameSize	  = submesh.meshName.size(),
+			.verticeCount	  = submesh.vec3Attrib[0].size(),
+			.indicesCount	  = submesh.indices.size(),
+			.materialNameSize = submesh.materialName.size(),
 		};
 
 		{	// To insert the size of each material file path
@@ -261,6 +264,9 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 
 		// Write indices
 		ofs.write(reinterpret_cast<char const*>( submesh.indices.data() ), sizeof(uint32_t) * info.indicesCount);
+
+		// Write name of material
+		ofs.write(submesh.materialName.c_str(), info.materialNameSize);
 
 		// Write string of material path
 		for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
@@ -330,6 +336,12 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 		{	// indicies
 			std::vector<uint32_t> indices{}; indices.reserve(info.indicesCount);
 			ifs.read(reinterpret_cast<char*>(indices.data()), sizeof(uint32_t) * info.indicesCount);
+		}
+
+		{	// Material name
+			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.materialNameSize + 1);
+			ifs.read(name.get(), info.materialNameSize);
+			name[info.materialNameSize] = '\0';
 		}
 
 		{	// Material file paths

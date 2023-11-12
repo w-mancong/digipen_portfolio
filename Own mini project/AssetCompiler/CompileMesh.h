@@ -33,11 +33,12 @@ namespace MeshCompiler
 
 	struct Submesh
 	{
-		std::string				 meshName{};
-		std::vector<glm::vec3>   vec3Attrib[TOTAL_VEC3_ATTRIBUTE]{};
-		std::vector<glm::vec2>	 vec2Attrib[TOTAL_VEC2_ATTRIBUTE]{};
-		std::vector<uint32_t>	 indices{};
-		std::string				 materialPaths[NUM_TEXTURE_TYPE] {};
+		std::string				meshName{};
+		std::vector<glm::vec3>  vec3Attrib[TOTAL_VEC3_ATTRIBUTE]{};
+		std::vector<glm::vec2>	vec2Attrib[TOTAL_VEC2_ATTRIBUTE]{};
+		std::vector<uint32_t>	indices{};
+		std::string				materialName{};
+		std::string				materialPaths[NUM_TEXTURE_TYPE] {};
 	};
 
 	struct DeserializationData
@@ -54,6 +55,7 @@ namespace MeshCompiler
 		uint64_t meshNameSize{};
 		uint64_t verticeCount{};
 		uint64_t indicesCount{};
+		uint64_t materialNameSize{};
 		uint64_t materialPathSize[NUM_TEXTURE_TYPE]{};
 	};
 
