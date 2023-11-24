@@ -6,7 +6,7 @@
 #    Module:				CSD3400
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 #    File Name:				GeomCompiler.cpp
-#    Primary Author:		Joachim
+#    Primary Author:		Wong Man Cong
 #    Secondary Author:		-
 *********************************************************************************************************************************************************/
 
@@ -16,7 +16,6 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include <iterator>
 #include <memory>
 #include "meshoptimizer.h"
 #include "GeomCompiler.h"
@@ -71,6 +70,17 @@ GeomCompiler::GeomCompiler() {
 	this->m_DescriptorMatrix.Translation(aiVector3D{ 0.f, 0.f, 0.f }, this->m_DescriptorMatrix);
 }
 
+glm::mat4 ConvertaiMat4toMat4(aiMatrix4x4 const& mat)
+{
+	return
+	{
+		{ mat.a1, mat.a2, mat.a3, mat.a4 },
+		{ mat.b1, mat.b2, mat.b3, mat.b4 },
+		{ mat.c1, mat.c2, mat.c3, mat.c4 },
+		{ mat.d1, mat.d2, mat.d3, mat.d4 },
+	};
+}
+
 glm::vec3 ConvertaiVec3toVec3(const aiVector3D& _vector) {
 	return glm::vec3{ _vector.x, _vector.y, _vector.z };
 }
@@ -100,101 +110,25 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		return false;
 	}
 
+	CompiledMesh data{};
+	ProcessNode(m_Scene->mRootNode, data);
+
+	// Exporting
+	//std::string const outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
+	std::string const outputFile{ _inputFilepath.substr(0, _inputFilepath.find_last_of('.')) + ".h_mesh" };
+	Deserialize(outputFile, data);
+	Serialize(outputFile);
+	return true;
+	//return Deserialize(outputFile, data);
+}
+
+void GeomCompiler::ProcessNode(aiNode* node, CompiledMesh& data) const
+{
 	// Binary export
-	auto LoadMaterial = [this](Submesh& submesh, aiMesh const* currMesh)
-	{
-		aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
-		submesh.materialName = mat->GetName().C_Str();
-
-		uint64_t counter{};
-		for (uint64_t typeIdx{}; typeIdx < NUM_TEXTURE_TYPE; ++typeIdx)
-		{
-			aiTextureType const type = *(TEXTURE_TYPE + typeIdx);
-			uint32_t const matCnt = mat->GetTextureCount(type);
-			for (uint32_t matIdx{}; matIdx < matCnt; ++matIdx)
-			{
-				aiString path{};
-				aiReturn ret = mat->GetTexture(type, matIdx, &path);
-				if (ret == aiReturn_FAILURE)
-					continue;
-				submesh.materialPaths[counter++] = (*(TEXTURE_NAMES + typeIdx) + path);
-			}
-		}
-	};
-
-	auto LoadVertices = [](Submesh& submesh, aiMesh const* currMesh)
-	{
-		uint32_t const numVertices = currMesh->mNumVertices;
-		for (uint32_t vertIdx{}; vertIdx < numVertices; ++vertIdx)
-		{
-			if (currMesh->HasPositions())
-				submesh.vec3Attrib[Idx(Vec3Attrib::Position)].emplace_back(ConvertaiVec3toVec3(currMesh->mVertices[vertIdx]));
-			if (currMesh->HasNormals())
-				submesh.vec3Attrib[Idx(Vec3Attrib::Normals)].emplace_back( ConvertaiVec3toVec3( currMesh->mNormals[vertIdx] ) );
-			if (currMesh->HasTangentsAndBitangents())
-			{
-				submesh.vec3Attrib[Idx(Vec3Attrib::Tangents)].emplace_back( ConvertaiVec3toVec3( currMesh->mTangents[vertIdx] ) );
-				submesh.vec3Attrib[Idx(Vec3Attrib::BiTangents)].emplace_back( ConvertaiVec3toVec3( currMesh->mBitangents[vertIdx] ) );
-			}
-			if (currMesh->HasTextureCoords(0))
-				submesh.vec2Attrib[Idx(Vec2Attrib::TextureCoords)].emplace_back(ConvertaiVec3toVec2(currMesh->mTextureCoords[0][vertIdx]));
-		}
-	};
-
-	auto LoadIndices = [](Submesh& submesh, aiMesh const* currMesh)
-	{
-		uint32_t const numFaces = currMesh->mNumFaces;
-		for (uint32_t faceIdx{}; faceIdx < numFaces; ++faceIdx)
-		{
-			aiFace const currFace{ currMesh->mFaces[faceIdx] };
-			uint32_t const indicesCnt = currFace.mNumIndices;
-			for (uint32_t indicesIdx{}; indicesIdx < indicesCnt; ++indicesIdx)
-				submesh.indices.emplace_back( currFace.mIndices[indicesIdx] );
-		}
-	};
-
-	//auto OptimizeMesh = [](Submesh& submesh)
-	//{
-	//	struct FullVertices
-	//	{
-	//		glm::vec3 position{}, normal{}, tangents{}, bitangents{};
-	//		glm::vec2 texCoords{};
-	//	};
-
-	//	uint64_t const SIZE = submesh.vec3Attrib[0].size();
-	//	std::vector<FullVertices> copy{}; copy.reserve(SIZE);
-	//	for (uint64_t i{}; i < SIZE; ++i)
-	//	{
-	//		copy.emplace_back
-	//		(
-	//			FullVertices{
-	//				.position = submesh.vec3Attrib[Idx(Vec3Attrib::Position)][i],
-	//				.normal = submesh.vec3Attrib[Idx(Vec3Attrib::Normals)][i],
-	//				.tangents = submesh.vec3Attrib[Idx(Vec3Attrib::Tangents)][i],
-	//				.bitangents = submesh.vec3Attrib[Idx(Vec3Attrib::BiTangents)][i],
-	//				.texCoords = submesh.vec2Attrib[Idx(Vec2Attrib::TextureCoords)][i],
-	//			}
-	//		);
-	//	}
-
-	//	std::cout << "Optimizing: " << submesh.meshName << std::endl;
-	//	uint64_t const indices_counter = submesh.indices.size();
-	//	std::vector<uint32_t> remap{};
-
-	//	uint64_t const vertex_counter = 
-	//		meshopt_generateVertexRemap(&remap[0], submesh.indices.data(), indices_counter, copy.data(), indices_counter, sizeof(FullVertices));
-
-	//	
-	//};
-
-	DeserializationData data{};
-	uint32_t const numMesh = m_Scene->mNumMeshes;
-	for (uint32_t cnt{}; cnt < numMesh; ++cnt)
-	{
-		aiMesh* currMesh{ m_Scene->mMeshes[cnt] };
+	for (uint32_t i = 0; i < node->mNumMeshes; i++)
+	{	// Process all the node's meshes (if any)
+		aiMesh* currMesh = m_Scene->mMeshes[node->mMeshes[i]];
 		Submesh submesh{};
-
-		// Optimize each submesh before storing the value
 
 		submesh.meshName = currMesh->mName.C_Str();
 		if (m_Scene->HasMaterials())
@@ -203,19 +137,71 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		LoadVertices(submesh, currMesh);
 		LoadIndices(submesh, currMesh);
 
+		submesh.transformMatrix = ConvertaiMat4toMat4(node->mTransformation.Transpose());
 		data.meshInfos.emplace_back(submesh);
 	}
-
-	// Exporting
-	//std::string outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
-	std::string outputFile{ _inputFilepath.substr(0, _inputFilepath.find_last_of('.')) + ".h_mesh"};
-	return Deserialize(outputFile, data);
+	// Then do the same for each of its children
+	for (uint32_t i = 0; i < node->mNumChildren; i++)
+		ProcessNode(node->mChildren[i], data);
 }
 
-bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationData const& data)
+void GeomCompiler::LoadMaterial(Submesh& submesh, aiMesh const* currMesh) const
+{
+	aiMaterial const* mat = m_Scene->mMaterials[currMesh->mMaterialIndex];
+	submesh.materialName = mat->GetName().C_Str();
+
+	uint64_t counter{};
+	for (uint64_t typeIdx{}; typeIdx < NUM_TEXTURE_TYPE; ++typeIdx)
+	{
+		aiTextureType const type = *(TEXTURE_TYPE + typeIdx);
+		uint32_t const matCnt = mat->GetTextureCount(type);
+		for (uint32_t matIdx{}; matIdx < matCnt; ++matIdx)
+		{
+			aiString path{};
+			aiReturn ret = mat->GetTexture(type, matIdx, &path);
+			if (ret == aiReturn_FAILURE)
+				continue;
+			submesh.materialPaths[counter++] = (*(TEXTURE_NAMES + typeIdx) + path);
+		}
+	}
+}
+
+void GeomCompiler::LoadVertices(Submesh& submesh, aiMesh const* currMesh) const
+{
+	uint32_t const numVertices = currMesh->mNumVertices;
+	for (uint32_t vertIdx{}; vertIdx < numVertices; ++vertIdx)
+	{
+		Vertex vertex{};
+		if (currMesh->HasPositions())
+			vertex.position = ConvertaiVec3toVec3(currMesh->mVertices[vertIdx]);
+		if (currMesh->HasNormals())
+			vertex.normal = ConvertaiVec3toVec3(currMesh->mNormals[vertIdx]);
+		if (currMesh->HasTangentsAndBitangents())
+		{
+			vertex.tangent = ConvertaiVec3toVec3(currMesh->mTangents[vertIdx]);
+			submesh.bitangents.emplace_back(ConvertaiVec3toVec3(currMesh->mBitangents[vertIdx]));
+		}
+		if (currMesh->HasTextureCoords(0))
+			vertex.uv = ConvertaiVec3toVec2(currMesh->mTextureCoords[0][vertIdx]);
+		submesh.vertices.emplace_back(vertex);
+	}
+}
+
+void GeomCompiler::LoadIndices(Submesh& submesh, aiMesh const* currMesh) const
+{
+	uint32_t const numFaces = currMesh->mNumFaces;
+	for (uint32_t faceIdx{}; faceIdx < numFaces; ++faceIdx)
+	{
+		aiFace const currFace{ currMesh->mFaces[faceIdx] };
+		uint32_t const indicesCnt = currFace.mNumIndices;
+		for (uint32_t indicesIdx{}; indicesIdx < indicesCnt; ++indicesIdx)
+			submesh.indices.emplace_back(currFace.mIndices[indicesIdx]);
+	}
+}
+
+bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
 {
 	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
-	//std::ofstream ofs{ outputFile, std::ios::out };	
 	if (!ofs.is_open()) {
 		std::cout << ">> Error encountered during serializiation. Output file could not be created\n";
 		return false;
@@ -224,16 +210,16 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 	uint64_t const numMesh = data.meshInfos.size();
 	// Write the numebr of submeshes into file
 	ofs.write(reinterpret_cast<char const*>(&numMesh), sizeof(uint64_t));
-	
+
 	for (uint64_t meshIdx{}; meshIdx < numMesh; ++meshIdx)
 	{
 		Submesh const& submesh = data.meshInfos[meshIdx];
 
 		HeaderInfo const info
 		{
-			.meshNameSize	  = submesh.meshName.size(),
-			.verticeCount	  = submesh.vec3Attrib[0].size(),
-			.indicesCount	  = submesh.indices.size(),
+			.meshNameSize = submesh.meshName.size(),
+			.verticeCount = submesh.vertices.size(),
+			.indicesCount = submesh.indices.size(),
 			.materialNameSize = submesh.materialName.size(),
 		};
 
@@ -249,28 +235,24 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, DeserializationDat
 		// Write the name of the mesh
 		ofs.write(submesh.meshName.c_str(), info.meshNameSize);
 
-		for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
-		{	// Writing all vec3 vertex attribute into buffer
-			uint64_t const SIZE = sizeof(glm::vec3) * submesh.vec3Attrib[i].size();
-			ofs.write(reinterpret_cast<char const*>(submesh.vec3Attrib[i].data()), SIZE);
-		}
+		// Write the data of vertices
+		ofs.write(reinterpret_cast<char const*>(submesh.vertices.data()), sizeof(Vertex) * info.verticeCount);
 
-		// Write texture coordinates
-		for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
-		{	// Writing all vec2 vertex attribute into buffer
-			uint64_t const offset = sizeof(glm::vec2) * submesh.vec2Attrib[i].size();
-			ofs.write(reinterpret_cast<char const*>(submesh.vec2Attrib[i].data()), offset);
-		}
+		// Write bitangents
+		ofs.write(reinterpret_cast<char const*>(submesh.bitangents.data()), sizeof(glm::vec3) * info.verticeCount);
 
 		// Write indices
-		ofs.write(reinterpret_cast<char const*>( submesh.indices.data() ), sizeof(uint32_t) * info.indicesCount);
+		ofs.write(reinterpret_cast<char const*>(submesh.indices.data()), sizeof(uint32_t) * info.indicesCount);
 
-		// Write name of material
+		// Material name
 		ofs.write(submesh.materialName.c_str(), info.materialNameSize);
 
 		// Write string of material path
 		for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
 			ofs.write(submesh.materialPaths[i].c_str(), info.materialPathSize[i]);
+
+		// Write model matrix
+		ofs.write(reinterpret_cast<char const*>(&submesh.transformMatrix[0][0]), sizeof(glm::mat4));
 	}
 
 	return true;
@@ -301,36 +283,14 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 			std::cout << name << std::endl;
 		}
 
-		{	// position, normals, tangents, bitangents
-			std::vector<glm::vec3> vec3Attrib[TOTAL_VEC3_ATTRIBUTE];
-			for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
-				vec3Attrib[i].reserve( info.verticeCount );
-
-			for (uint64_t i{}; i < TOTAL_VEC3_ATTRIBUTE; ++i)
-			{
-				std::unique_ptr<glm::vec3[]> ptr = std::make_unique<glm::vec3[]>(info.verticeCount);
-
-				uint64_t const SIZE = sizeof(glm::vec3) * info.verticeCount;
-				ifs.read(reinterpret_cast<char*>(ptr.get()), SIZE);
-
-				vec3Attrib[i] = std::move( std::vector<glm::vec3>(ptr.get(), ptr.get() + info.verticeCount) );
-			}
+		{	// Vertices
+			std::unique_ptr<Vertex[]> vertices = std::make_unique<Vertex[]>(info.verticeCount);
+			ifs.read(reinterpret_cast<char*>(vertices.get()), sizeof(Vertex) * info.verticeCount);
 		}
 
-		{	// texture coordinates, 
-			std::vector<glm::vec2> vec2Attrib[TOTAL_VEC2_ATTRIBUTE];
-			for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
-				vec2Attrib[i].reserve(info.verticeCount);
-
-			for (uint64_t i{}; i < TOTAL_VEC2_ATTRIBUTE; ++i)
-			{
-				std::unique_ptr<glm::vec2[]> ptr = std::make_unique<glm::vec2[]>(info.verticeCount);
-
-				uint64_t const SIZE = sizeof(glm::vec2) * info.verticeCount;
-				ifs.read(reinterpret_cast<char*>(ptr.get()), SIZE);
-
-				vec2Attrib[i] = std::move( std::vector<glm::vec2>(ptr.get(), ptr.get() + info.verticeCount) );
-			}
+		{	// Bitangents
+			std::unique_ptr<glm::vec3[]> bitangents = std::make_unique<glm::vec3[]>(info.verticeCount);
+			ifs.read(reinterpret_cast<char*>(bitangents.get()), sizeof(glm::vec3) * info.verticeCount);
 		}
 
 		{	// indicies
@@ -353,6 +313,12 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 				path[info.materialPathSize[i]] = '\0';
 				materialPaths[i] = path.get();
 			}
+		}
+
+		{	// Read transform matrix
+			glm::mat4 mat(1.0f);
+			ifs.read(reinterpret_cast<char*>(&mat[0][0]), sizeof(glm::mat4));
+			std::cout << std::endl;
 		}
 	}
 }
