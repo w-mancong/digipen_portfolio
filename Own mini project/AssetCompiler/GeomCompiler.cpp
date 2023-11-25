@@ -116,10 +116,7 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 	// Exporting
 	//std::string const outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
 	std::string const outputFile{ _inputFilepath.substr(0, _inputFilepath.find_last_of('.')) + ".h_mesh" };
-	Deserialize(outputFile, data);
-	Serialize(outputFile);
-	return true;
-	//return Deserialize(outputFile, data);
+	return Deserialize(outputFile, data);
 }
 
 void GeomCompiler::ProcessNode(aiNode* node, CompiledMesh& data) const
