@@ -98,6 +98,15 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 	// Importing
 	try {
 		m_Scene = m_Importer.ReadFile(_inputFilepath, this->m_ImportFlag);
+
+		if (m_Scene && m_Scene->mRootNode) {
+			// Create a scaling matrix
+			aiMatrix4x4 scalingMatrix;
+			aiMatrix4x4::Scaling(aiVector3D(0.01f, 0.01f, 0.01f), scalingMatrix);
+
+			// Apply the scaling matrix to the root node
+			m_Scene->mRootNode->mTransformation = scalingMatrix * m_Scene->mRootNode->mTransformation;
+		}
 	}
 	catch (std::exception& _e) {
 		std::cout << ">> Exception countered while loading input data file\n";
@@ -119,7 +128,7 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 	return Deserialize(outputFile, data);
 }
 
-void GeomCompiler::ProcessNode(aiNode* node, CompiledMesh& data) const
+void GeomCompiler::ProcessNode(aiNode* node, CompiledMesh& data, const aiMatrix4x4& parentTransform) const
 {
 	// Binary export
 	for (uint32_t i = 0; i < node->mNumMeshes; i++)
@@ -134,12 +143,17 @@ void GeomCompiler::ProcessNode(aiNode* node, CompiledMesh& data) const
 		LoadVertices(submesh, currMesh);
 		LoadIndices(submesh, currMesh);
 
-		submesh.transformMatrix = ConvertaiMat4toMat4(node->mTransformation.Transpose());
+		// Optimize mesh base on it's loaded vertices and indices
+		OptimizeMesh(submesh);
+
+		// Update the transform matrix based on root node
+		aiMatrix4x4 currentTransform = parentTransform * node->mTransformation;
+		submesh.transformMatrix = ConvertaiMat4toMat4(currentTransform.Transpose());
 		data.meshInfos.emplace_back(submesh);
 	}
 	// Then do the same for each of its children
 	for (uint32_t i = 0; i < node->mNumChildren; i++)
-		ProcessNode(node->mChildren[i], data);
+		ProcessNode(node->mChildren[i], data, parentTransform * node->mTransformation);
 }
 
 void GeomCompiler::LoadMaterial(Submesh& submesh, aiMesh const* currMesh) const
@@ -176,7 +190,7 @@ void GeomCompiler::LoadVertices(Submesh& submesh, aiMesh const* currMesh) const
 		if (currMesh->HasTangentsAndBitangents())
 		{
 			vertex.tangent = ConvertaiVec3toVec3(currMesh->mTangents[vertIdx]);
-			submesh.bitangents.emplace_back(ConvertaiVec3toVec3(currMesh->mBitangents[vertIdx]));
+			vertex.bitangent = ConvertaiVec3toVec3(currMesh->mBitangents[vertIdx]);
 		}
 		if (currMesh->HasTextureCoords(0))
 			vertex.uv = ConvertaiVec3toVec2(currMesh->mTextureCoords[0][vertIdx]);
@@ -194,6 +208,30 @@ void GeomCompiler::LoadIndices(Submesh& submesh, aiMesh const* currMesh) const
 		for (uint32_t indicesIdx{}; indicesIdx < indicesCnt; ++indicesIdx)
 			submesh.indices.emplace_back(currFace.mIndices[indicesIdx]);
 	}
+}
+
+void GeomCompiler::OptimizeMesh(MC::Submesh& submesh) const
+{
+	uint64_t const indices_counter = submesh.indices.size();
+	std::vector<uint32_t> remap(indices_counter);
+
+	uint64_t const vertex_counter = meshopt_generateVertexRemap(&remap[0], submesh.indices.data(), indices_counter, submesh.vertices.data(), indices_counter, sizeof(Vertex));
+	Submesh opMesh{};
+	opMesh.indices.resize(indices_counter);
+	opMesh.vertices.resize(vertex_counter);
+
+	meshopt_remapIndexBuffer(opMesh.indices.data(), submesh.indices.data(), indices_counter, &remap[0]);
+
+	meshopt_optimizeVertexCache(opMesh.indices.data(), opMesh.indices.data(), indices_counter, vertex_counter);
+
+	meshopt_remapVertexBuffer(opMesh.vertices.data(), submesh.vertices.data(), indices_counter, sizeof(Vertex), &remap[0]);
+
+	meshopt_optimizeOverdraw(opMesh.indices.data(), opMesh.indices.data(), indices_counter, &opMesh.vertices[0].position.x, vertex_counter, sizeof(Vertex), 1.05f);
+
+	opMesh.vertices.resize(meshopt_optimizeVertexFetch(opMesh.vertices.data(), opMesh.indices.data(), indices_counter, opMesh.vertices.data(), vertex_counter, sizeof(Vertex)));
+
+	submesh.indices = std::exchange(opMesh.indices, {});
+	submesh.vertices = std::exchange(opMesh.vertices, {});
 }
 
 bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
@@ -234,9 +272,6 @@ bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const
 
 		// Write the data of vertices
 		ofs.write(reinterpret_cast<char const*>(submesh.vertices.data()), sizeof(Vertex) * info.verticeCount);
-
-		// Write bitangents
-		ofs.write(reinterpret_cast<char const*>(submesh.bitangents.data()), sizeof(glm::vec3) * info.verticeCount);
 
 		// Write indices
 		ofs.write(reinterpret_cast<char const*>(submesh.indices.data()), sizeof(uint32_t) * info.indicesCount);
@@ -285,11 +320,6 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 			ifs.read(reinterpret_cast<char*>(vertices.get()), sizeof(Vertex) * info.verticeCount);
 		}
 
-		{	// Bitangents
-			std::unique_ptr<glm::vec3[]> bitangents = std::make_unique<glm::vec3[]>(info.verticeCount);
-			ifs.read(reinterpret_cast<char*>(bitangents.get()), sizeof(glm::vec3) * info.verticeCount);
-		}
-
 		{	// indicies
 			std::vector<uint32_t> indices{}; indices.reserve(info.indicesCount);
 			ifs.read(reinterpret_cast<char*>(indices.data()), sizeof(uint32_t) * info.indicesCount);
@@ -315,7 +345,6 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 		{	// Read transform matrix
 			glm::mat4 mat(1.0f);
 			ifs.read(reinterpret_cast<char*>(&mat[0][0]), sizeof(glm::mat4));
-			std::cout << std::endl;
 		}
 	}
 }

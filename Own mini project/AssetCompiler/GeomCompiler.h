@@ -20,64 +20,7 @@
 #include "Importer.hpp"
 #include "Exporter.hpp"
 #include "postprocess.h"
-#include "glm/glm.hpp"
-
-struct Vertex
-{
-	glm::vec3 position{};
-	glm::vec3 normal{};
-	glm::vec2 uv{};
-	glm::vec3 tangent{};
-
-	bool operator==(const Vertex& v) const&
-	{
-		return position == v.position && normal == v.normal && uv == v.uv;
-	}
-};
-
-namespace MeshCompiler
-{
-	aiTextureType constexpr const TEXTURE_TYPE[] = { aiTextureType_DIFFUSE, aiTextureType_AMBIENT, aiTextureType_EMISSIVE,
-												 aiTextureType_NORMALS, aiTextureType_SHININESS, aiTextureType_METALNESS };
-	uint64_t constexpr const NUM_TEXTURE_TYPE = sizeof(TEXTURE_TYPE) / sizeof(*TEXTURE_TYPE);
-	char constexpr const* TEXTURE_NAMES[NUM_TEXTURE_TYPE] = { "albedo: ", "ambient_occulusion: ", "emissive: ",
-															  "normal: ", "roughness: ", "metallic: " };
-
-	struct Submesh
-	{
-		std::string			   meshName{};
-		std::vector<Vertex>	   vertices{};
-		std::vector<glm::vec3> bitangents{};
-		std::vector<uint32_t>  indices{};
-		std::string			   materialName{};
-		std::string			   materialPaths[NUM_TEXTURE_TYPE]{};
-		glm::mat4			   transformMatrix{};
-	};
-
-	struct CompiledMesh
-	{
-		std::vector<Submesh> meshInfos{};
-	};
-
-	/*
-		Using this struct to find the offset of each submeshes'
-		vertices, indices, mesh name and material paths
-	*/
-	struct HeaderInfo
-	{
-		uint64_t meshNameSize{};
-		uint64_t verticeCount{};
-		uint64_t indicesCount{};
-		uint64_t materialNameSize{};
-		uint64_t materialPathSize[NUM_TEXTURE_TYPE]{};
-	};
-
-	template <typename T, typename = std::is_enum<T>>
-	uint64_t Idx(T att)
-	{
-		return static_cast<uint64_t>(att);
-	}
-}
+#include "CompiledMesh.h"
 
 // ----------------------------------------
 // Geom Compiler Class
@@ -101,10 +44,11 @@ public:
 	// ----------------------------------------
 	bool Compile(const std::string& _inputFilepath);
 
-	void ProcessNode(aiNode* node, MC::CompiledMesh& data) const;
+	void ProcessNode(aiNode* node, MC::CompiledMesh& data, const aiMatrix4x4& parentTransform = aiMatrix4x4()) const;
 	void LoadMaterial(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void LoadVertices(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void LoadIndices(MC::Submesh& submesh, aiMesh const* currMesh) const;
+	void OptimizeMesh(MC::Submesh& submesh) const;
 
 	bool Deserialize(std::string const& outputFile, MC::CompiledMesh const& data);
 	void Serialize(std::string const& inputFile);
