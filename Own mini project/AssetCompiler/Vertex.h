@@ -8,8 +8,8 @@ struct Vertex
 	glm::vec2 uv{};
 	glm::vec3 tangent{};
 	glm::vec3 bitangent{};
-	glm::ivec4 boneIDs{};
-	glm::vec4 weights{};
+	glm::ivec4 boneIDs{ -1, -1, -1, -1 };
+	glm::vec4 weights{ 0.0f, 0.0f, 0.0f, 0.0f };
 
 	bool operator==(const Vertex& v) const&
 	{
