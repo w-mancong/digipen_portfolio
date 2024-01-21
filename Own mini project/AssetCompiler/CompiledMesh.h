@@ -14,6 +14,12 @@ namespace MeshCompiler
 	char constexpr const* TEXTURE_NAMES[NUM_TEXTURE_TYPE] = { "albedo: ", "ambient_occulusion: ", "emissive: ",
 															  "normal: ", "roughness: ", "metallic: " };
 
+	struct BoneProps
+	{
+		std::string name{};
+		glm::mat4 offset{};
+	};
+
 	struct Submesh
 	{
 		std::string			   meshName{};
@@ -28,6 +34,7 @@ namespace MeshCompiler
 	{
 		std::string modelName{};
 		std::vector<Submesh> meshInfos{};
+		std::vector<BoneProps> boneProps{};
 	};
 
 	/*

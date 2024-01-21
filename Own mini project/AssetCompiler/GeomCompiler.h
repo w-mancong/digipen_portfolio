@@ -49,6 +49,7 @@ public:
 	void LoadVertices(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void LoadIndices(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void OptimizeMesh(MC::Submesh& submesh) const;
+	void ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<MC::BoneProps>& boneProps, aiMesh const* const mesh) const;
 
 	bool Deserialize(std::string const& outputFile, MC::CompiledMesh const& data);
 	void Serialize(std::string const& inputFile);

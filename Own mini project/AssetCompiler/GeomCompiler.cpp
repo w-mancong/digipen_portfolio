@@ -142,6 +142,7 @@ void GeomCompiler::ProcessNode(aiNode* node, CompiledMesh& data, const aiMatrix4
 
 		LoadVertices(submesh, currMesh);
 		LoadIndices(submesh, currMesh);
+		ExtractBoneWeightForVertices(submesh.vertices, data.boneProps, currMesh);
 
 		// Optimize mesh base on it's loaded vertices and indices
 		OptimizeMesh(submesh);
@@ -232,6 +233,58 @@ void GeomCompiler::OptimizeMesh(MC::Submesh& submesh) const
 
 	submesh.indices = std::exchange(opMesh.indices, {});
 	submesh.vertices = std::exchange(opMesh.vertices, {});
+}
+
+void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<BoneProps>& boneProps, aiMesh const* const mesh) const
+{
+	// Set the maximum bones to 100
+	unsigned numBones = mesh->mNumBones > 100 ? 100 : mesh->mNumBones;
+	// For each bone
+	for (unsigned boneIndex{}; boneIndex < numBones; ++boneIndex)
+	{
+		int boneID = -1;
+		char const* boneName = mesh->mBones[boneIndex]->mName.C_Str();
+		if (boneIndex >= boneProps.size())
+		{
+			boneProps.push_back( { boneName, ConvertaiMat4toMat4(mesh->mBones[boneIndex]->mOffsetMatrix) } );
+			boneID = boneIndex;
+		}
+		else
+		{
+			for (unsigned i{}; i < boneProps.size(); ++i)
+			{
+				if (boneProps[i].name == boneName)
+				{
+					boneID = i;
+					break;
+				}
+			}
+		}
+		assert(boneID != -1);
+
+		// Get all vertex weights for current bone
+		aiVertexWeight* weights = mesh->mBones[boneIndex]->mWeights;
+		unsigned int numWeights = mesh->mBones[boneIndex]->mNumWeights;
+
+		// For each weight at vertex x for current bone
+		for (int weightIndex{}; weightIndex < numWeights; ++weightIndex)
+		{
+			unsigned vertexID = weights[weightIndex].mVertexId;
+			float weight = weights[weightIndex].mWeight;
+			assert(vertexID <= vertices.size());
+
+			// Update four most influential bones
+			for (int i{}; i < 4; ++i)
+			{
+				if (vertices[vertexID].boneIDs[i] < 0)
+				{
+					vertices[vertexID].weights[i] = weight;
+					vertices[vertexID].boneIDs[i] = boneID;
+					break;
+				}
+			}
+		}
+	}
 }
 
 bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
