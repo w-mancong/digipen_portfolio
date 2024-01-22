@@ -5,7 +5,10 @@
 #include "glm/glm.hpp"
 #include "assimp/material.h"
 #include "Vertex.h"
+#include "SkinnedModel.h"
+#include "Bone.h"
 
+namespace Ani = Animation;
 namespace MeshCompiler
 {
 	aiTextureType constexpr const TEXTURE_TYPE[] = { aiTextureType_DIFFUSE, aiTextureType_AMBIENT, aiTextureType_EMISSIVE,
@@ -13,12 +16,6 @@ namespace MeshCompiler
 	uint64_t constexpr const NUM_TEXTURE_TYPE = sizeof(TEXTURE_TYPE) / sizeof(*TEXTURE_TYPE);
 	char constexpr const* TEXTURE_NAMES[NUM_TEXTURE_TYPE] = { "albedo: ", "ambient_occulusion: ", "emissive: ",
 															  "normal: ", "roughness: ", "metallic: " };
-
-	struct BoneProps
-	{
-		std::string name{};
-		glm::mat4 offset{};
-	};
 
 	struct Submesh
 	{
@@ -34,7 +31,17 @@ namespace MeshCompiler
 	{
 		std::string modelName{};
 		std::vector<Submesh> meshInfos{};
-		std::vector<BoneProps> boneProps{};
+		std::vector<Animation::BoneProps> boneProps{};
+	};
+
+	struct AnimationData
+	{
+		float duration{};
+		float tps{};
+		std::vector<Ani::Bone> bones{};
+		Ani::AssimpNodeData rootNode{};
+		std::vector<Ani::BoneProps> boneProps{};
+		std::string clipName{};
 	};
 
 	/*

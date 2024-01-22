@@ -119,8 +119,9 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 		return false;
 	}
 
-	CompiledMesh data{};
+	CompiledMesh data{}; AnimationData aniData{};
 	ProcessNode(m_Scene->mRootNode, data);
+	ProcessAnimation(data, aniData);
 
 	// Exporting
 	//std::string const outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
@@ -235,7 +236,7 @@ void GeomCompiler::OptimizeMesh(MC::Submesh& submesh) const
 	submesh.vertices = std::exchange(opMesh.vertices, {});
 }
 
-void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<BoneProps>& boneProps, aiMesh const* const mesh) const
+void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Ani::BoneProps>& boneProps, aiMesh const* const mesh) const
 {
 	// Set the maximum bones to 100
 	unsigned numBones = mesh->mNumBones > 100 ? 100 : mesh->mNumBones;
@@ -285,6 +286,68 @@ void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, s
 			}
 		}
 	}
+}
+
+void GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniData) const
+{
+	if (m_Scene->mNumAnimations <= 0)
+		return;
+
+	aiAnimation* animation = *m_Scene->mAnimations;
+	aniData.duration = static_cast<float>(animation->mDuration);
+	aniData.tps = static_cast<float>(animation->mTicksPerSecond);
+	GenerateBoneTree(&aniData.rootNode, m_Scene->mRootNode);
+	// Reset all root transformations
+	aniData.rootNode.transformation = glm::mat4(1.0f);
+	LoadIntermediateBones(animation, data.boneProps, aniData);
+}
+
+void GeomCompiler::GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src) const
+{
+	assert(src);
+
+	parent->name = src->mName.data;
+	parent->transformation = ConvertaiMat4toMat4(src->mTransformation);
+	parent->childrenCount = src->mNumChildren;
+
+	for (uint32_t i{}; i < parent->childrenCount; ++i)
+	{
+		Ani::AssimpNodeData newData{};
+		GenerateBoneTree(&newData, src->mChildren[i]);
+		parent->children.emplace_back(newData);
+	}
+}
+
+void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const
+{
+	for (int i{}; i < animation->mNumChannels; ++i)
+	{
+		aiNodeAnim* channel = animation->mChannels[i];
+		char const* boneName = channel->mNodeName.data;
+		int boneID = -1;
+
+		for (uint32_t j{}; j < boneProps.size(); ++j)
+		{
+			if (!strcmp(boneProps[i].name.c_str(), boneName))
+			{
+				boneID = i;
+				break;
+			}
+		}
+
+		if (boneProps.size() < 100)
+		{
+			if (boneID == -1)
+			{
+				Ani::BoneProps boneProp{};
+				boneProp.name = boneName;
+				boneProps.emplace_back(boneProp);
+				boneID = boneProps.size() - 1;
+			}
+		}
+		aniData.bones.emplace_back(Ani::Bone(channel->mNodeName.data, boneID, channel));
+	}
+	aniData.boneProps = boneProps;
 }
 
 bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)

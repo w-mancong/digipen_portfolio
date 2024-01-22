@@ -165,10 +165,14 @@ copy "$(ProjectDir)Dependencies\DirectXTex-Sep2023\texconv.exe" "$(OutDir)" /Y</
     <ClCompile Include="TexCompiler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Animation.h" />
     <ClInclude Include="AssetCompiler.h" />
+    <ClInclude Include="Bone.h" />
     <ClInclude Include="CompiledMesh.h" />
     <ClInclude Include="GeomCompiler.h" />
+    <ClInclude Include="Interpolation.h" />
     <ClInclude Include="ShellApi.h" />
+    <ClInclude Include="SkinnedModel.h" />
     <ClInclude Include="TexCompiler.h" />
     <ClInclude Include="Vertex.h" />
   </ItemGroup>
