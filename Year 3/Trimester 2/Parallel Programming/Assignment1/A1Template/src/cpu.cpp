@@ -53,13 +53,12 @@ extern "C" void heatDistrCPU(
 					up			= (i * nRowPoints) + j + 1, 
 					down		= (i * nRowPoints) + j - 1;
 
-				*(pointOut + curr) =
-					(
-						*(pointIn + left) + 
-						*(pointIn + right) + 
-						*(pointIn + up) + 
-						*(pointIn + down)
-					) / 4;
+				*(pointOut + curr) = (
+									 	*(pointIn + left) + 
+									 	*(pointIn + right) + 
+									 	*(pointIn + up) + 
+									 	*(pointIn + down)
+									 ) / 4;
 			}
 		}
 

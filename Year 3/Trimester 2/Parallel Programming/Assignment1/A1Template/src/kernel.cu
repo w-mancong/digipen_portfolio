@@ -15,7 +15,25 @@
 typedef unsigned int uint;
 __global__ void heatDistrCalc(float* in, float* out, uint nRowPoints)
 {
+	uint x = blockIdx.x * blockDim.x + threadIdx.x;
+	uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
+	// Check if x and y is within the grid boundaries
+	if (nRowPoints <= x || nRowPoints <= y)
+		return;
+
+	// Calculate the index of the current point in the array
+	uint idx = y * nRowPoints + x;
+	uint interior = nRowPoints - 1;
+	if (0 < x && interior > x && 0 < y && interior > y)
+	{
+		out[index] = (
+						in[idx - 1] +
+						in[idx + 1] +
+						in[idx - nRowPoints] +
+						in[idx + nRowPoints]
+					 ) / 4.0f;
+	}
 }
 
 
