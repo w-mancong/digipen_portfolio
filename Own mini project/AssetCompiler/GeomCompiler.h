@@ -34,6 +34,7 @@ private:
 	aiMatrix4x4			m_DescriptorMatrix{};
 	Assimp::Importer	m_Importer{};
 	Assimp::Exporter	m_Exporter{};
+	std::vector<uint32_t> m_AssimpNodeDataChildren{};
 	std::string	const	m_OutputFileDirectory{ "..\\Assets\\models" };
 	static constexpr
 		const unsigned int	m_ImportFlag{ aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_GenNormals },
@@ -58,7 +59,7 @@ public:
 	// Animation 
 	void ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Animation::BoneProps>& boneProps, aiMesh const* const mesh) const;
 	void ProcessAnimation(MC::CompiledMesh& data, MC::AnimationData& aniData) const;
-	void GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src) const;
+	void GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src, MC::BoneTreeData& boneData) const;
 	void LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const;
 	void DeserializeAnimation(MC::AnimationData const& aniData) const;
 };
