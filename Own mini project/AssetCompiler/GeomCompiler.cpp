@@ -300,6 +300,8 @@ void GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniDa
 	// Reset all root transformations
 	aniData.rootNode.transformation = glm::mat4(1.0f);
 	LoadIntermediateBones(animation, data.boneProps, aniData);
+	// serialize animation data
+	aniData.clipName = animation->mName.data;
 }
 
 void GeomCompiler::GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src) const
@@ -348,6 +350,11 @@ void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vect
 		aniData.bones.emplace_back(Ani::Bone(channel->mNodeName.data, boneID, channel));
 	}
 	aniData.boneProps = boneProps;
+}
+
+void GeomCompiler::DeserializeAnimation(MC::AnimationData const& aniData) const
+{
+
 }
 
 bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)

@@ -60,8 +60,10 @@ namespace Animation
 			}
 		}
 
-		std::vector<KeyPosition> const& GetKeyPositions(void) const { return positions; };
-		std::vector<KeyRotation> const& GetKeyRotations(void) const { return rotations; };
-		std::vector<KeyScale> const& GetKeyScale(void) const { return scales; };
+		std::vector<KeyPosition> const& GetKeyPositions(void) const { return positions; }
+		std::vector<KeyRotation> const& GetKeyRotations(void) const { return rotations; }
+		std::vector<KeyScale> const& GetKeyScale(void) const { return scales; }
+		std::string const& GetName(void) const { return name; }
+		uint32_t GetBoneID(void) const { return id; }
 	};
 }

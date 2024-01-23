@@ -46,18 +46,21 @@ public:
 	// ----------------------------------------
 	bool Compile(const std::string& _inputFilepath);
 
+	// Mesh extraction
 	void ProcessNode(aiNode* node, MC::CompiledMesh& data, const aiMatrix4x4& parentTransform = aiMatrix4x4()) const;
 	void LoadMaterial(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void LoadVertices(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void LoadIndices(MC::Submesh& submesh, aiMesh const* currMesh) const;
 	void OptimizeMesh(MC::Submesh& submesh) const;
+	bool Deserialize(std::string const& outputFile, MC::CompiledMesh const& data);
+	void Serialize(std::string const& inputFile);
+
+	// Animation 
 	void ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Animation::BoneProps>& boneProps, aiMesh const* const mesh) const;
 	void ProcessAnimation(MC::CompiledMesh& data, MC::AnimationData& aniData) const;
 	void GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src) const;
 	void LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const;
-
-	bool Deserialize(std::string const& outputFile, MC::CompiledMesh const& data);
-	void Serialize(std::string const& inputFile);
+	void DeserializeAnimation(MC::AnimationData const& aniData) const;
 };
 
 #endif

@@ -7,6 +7,7 @@
 #include "Vertex.h"
 #include "SkinnedModel.h"
 #include "Bone.h"
+#include "Animation.h"
 
 namespace Ani = Animation;
 namespace MeshCompiler
