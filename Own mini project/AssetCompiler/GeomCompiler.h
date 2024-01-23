@@ -58,10 +58,12 @@ public:
 
 	// Animation 
 	void ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Animation::BoneProps>& boneProps, aiMesh const* const mesh) const;
-	void ProcessAnimation(MC::CompiledMesh& data, MC::AnimationData& aniData) const;
-	void GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src, MC::BoneTreeData& boneData) const;
+	bool ProcessAnimation(MC::CompiledMesh& data, MC::AnimationData& aniData) const;
+	void GenerateBoneTree(aiNode const* src, MC::BoneTreeData& boneData) const;
 	void LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const;
-	void DeserializeAnimation(MC::AnimationData const& aniData) const;
+	void DeserializeAnimation(std::string const& outputFile, MC::AnimationData const& aniData) const;
+	void SerializeAnimation(std::string const& inputFile) const;
+	void SerializeBoneTree(Ani::AssimpNodeData* parent, MC::BoneTreeData const& data, uint32_t& idx) const;
 };
 
 #endif

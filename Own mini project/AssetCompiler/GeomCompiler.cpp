@@ -121,7 +121,8 @@ bool GeomCompiler::Compile(const std::string& _inputFilepath) {
 
 	CompiledMesh data{}; AnimationData aniData{};
 	ProcessNode(m_Scene->mRootNode, data);
-	ProcessAnimation(data, aniData);
+	if (ProcessAnimation(data, aniData)) 
+		return true;
 
 	// Exporting
 	//std::string const outputFile{ this->m_OutputFileDirectory + _inputFilepath.substr(_inputFilepath.find_last_of('\\'), _inputFilepath.find_last_of('.') - _inputFilepath.find_last_of('\\')) + ".h_mesh" };
@@ -288,40 +289,40 @@ void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, s
 	}
 }
 
-void GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniData) const
+bool GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniData) const
 {
 	if (m_Scene->mNumAnimations <= 0)
-		return;
+		return false;
 
 	aiAnimation* animation = *m_Scene->mAnimations;
 	aniData.duration = static_cast<float>(animation->mDuration);
 	aniData.tps = static_cast<float>(animation->mTicksPerSecond);
-	GenerateBoneTree(&aniData.rootNode, m_Scene->mRootNode, aniData.boneData);
+
+	GenerateBoneTree(m_Scene->mRootNode, aniData.boneData);
+
 	// Reset all root transformations
 	aniData.rootNode.transformation = glm::mat4(1.0f);
+
 	LoadIntermediateBones(animation, data.boneProps, aniData);
 	// serialize animation data
 	aniData.clipName = animation->mName.data;
-	DeserializeAnimation(aniData);
+
+	std::string const& outputFile = "Assets\\Animation\\" + aniData.clipName + ".h_anim";
+	DeserializeAnimation(outputFile, aniData);
+	//SerializeAnimation(outputFile);
+	return true;
 }
 
-void GeomCompiler::GenerateBoneTree(Ani::AssimpNodeData* parent, aiNode const* src, BoneTreeData& boneData) const
+void GeomCompiler::GenerateBoneTree(aiNode const* src, BoneTreeData& boneData) const
 {
 	assert(src);
 
-	parent->name = src->mName.data;
-	parent->transformation = ConvertaiMat4toMat4(src->mTransformation);
-	parent->childrenCount = src->mNumChildren;
 	// Bone data
-	boneData.assimpNodeDataChildrenCount.emplace_back(parent->childrenCount);
-	boneData.assimpNodeData.emplace_back(BoneTreeData::NodeData( parent->transformation, parent->name ));
+	boneData.assimpNodeDataChildrenCount.emplace_back(src->mNumChildren);
+	boneData.assimpNodeData.emplace_back(BoneTreeData::NodeData(ConvertaiMat4toMat4(src->mTransformation), src->mName.data ));
 
-	for (uint32_t i{}; i < parent->childrenCount; ++i)
-	{
-		Ani::AssimpNodeData newData{};
-		GenerateBoneTree(&newData, src->mChildren[i], boneData);
-		parent->children.emplace_back(newData);
-	}
+	for (uint32_t i{}; i < src->mNumChildren; ++i)
+		GenerateBoneTree(src->mChildren[i], boneData);
 }
 
 void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const
@@ -356,12 +357,12 @@ void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vect
 	aniData.boneProps = boneProps;
 }
 
-void GeomCompiler::DeserializeAnimation(MC::AnimationData const& aniData) const
+void GeomCompiler::DeserializeAnimation(std::string const& outputFile, MC::AnimationData const& aniData) const
 {
 	std::string path_to_check = "Assets\\Animation";
 	if (!std::filesystem::exists(path_to_check))
 		std::filesystem::create_directories(path_to_check);
-	std::ofstream ofs{ path_to_check + "\\" + aniData.clipName + ".h_anim", std::ios::out | std::ios::binary };
+	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
 	if (!ofs.is_open())
 	{
 		std::cout << ">> Error encountered during deserialization of animation data. Output file could not be created\n";
@@ -399,6 +400,73 @@ void GeomCompiler::DeserializeAnimation(MC::AnimationData const& aniData) const
 
 	// Write each assimp data node's transformation and name data
 	ofs.write(reinterpret_cast<char const*>(aniData.boneData.assimpNodeData.data()), sizeof(BoneTreeData::NodeData) * info.assimpNodeDataSize);
+}
+
+void GeomCompiler::SerializeAnimation(std::string const& inputFile) const
+{
+	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
+	if (!ifs.is_open())
+	{
+		std::cout << ">> Error encountered during serialization of animation data. Input file could not be opened\n";
+		return;
+	}
+
+	AnimationHeaderInfo info{};
+	// Read animation header info
+	ifs.read(reinterpret_cast<char*>(&info), sizeof(AnimationHeaderInfo));
+
+	AnimationData data{};
+	{	// Reading animation clip name
+		std::unique_ptr<char[]> clipName = std::make_unique<char[]>(info.clipNameSize + 1);
+		ifs.read(clipName.get(), info.clipNameSize);
+		clipName[info.clipNameSize] = '\0';
+		data.clipName = clipName.get();
+	}
+
+	{	// Read bone data
+		data.bones.resize(info.bonesSize);
+		ifs.read(reinterpret_cast<char*>(data.bones.data()), sizeof(Ani::Bone) * info.bonesSize);
+	}
+
+	{	// Read bone props data
+		data.boneProps.resize(info.bonePropsSize);
+		ifs.read(reinterpret_cast<char*>(data.boneProps.data()), sizeof(Ani::BoneProps) * info.bonePropsSize);
+	}
+
+	{	// Read animation's tick per seconds
+		ifs.read(reinterpret_cast<char*>(&data.tps), sizeof(float));
+	}
+
+	{	// Read animation's duration
+		ifs.read(reinterpret_cast<char*>(&data.duration), sizeof(float));
+	}
+
+	{	// Read each assimp data node's children count
+		data.boneData.assimpNodeDataChildrenCount.resize(info.assimpNodeDataSize);
+		ifs.read(reinterpret_cast<char*>(data.boneData.assimpNodeDataChildrenCount.data()), sizeof(uint32_t) * info.assimpNodeDataSize);
+	}
+
+	{	// Read each assimp data node's transformation and name data
+		data.boneData.assimpNodeData.resize(info.assimpNodeDataSize);
+		ifs.read(reinterpret_cast<char*>(data.boneData.assimpNodeData.data()), sizeof(BoneTreeData::NodeData) * info.assimpNodeDataSize);
+	}
+
+	uint32_t idx{};
+	SerializeBoneTree(&data.rootNode, data.boneData, idx);
+}
+
+void GeomCompiler::SerializeBoneTree(Ani::AssimpNodeData* parent, MC::BoneTreeData const& data, uint32_t& idx) const
+{
+	parent->name = data.assimpNodeData[idx].name;
+	parent->transformation = data.assimpNodeData[idx].transformation;
+	parent->childrenCount = data.assimpNodeDataChildrenCount[idx];
+
+	for (uint32_t i{}; i < parent->childrenCount; ++i)
+	{
+		Ani::AssimpNodeData newData{};
+		SerializeBoneTree(&newData, data, ++idx);
+		parent->children.emplace_back(newData);
+	}
 }
 
 bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
@@ -472,7 +540,7 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 {
 	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
 	if (!ifs.is_open()) {
-		std::cout << ">> Error encountered during deserialization. Input file could not be opened\n";
+		std::cout << ">> Error encountered during serialization. Input file could not be opened\n";
 		return;
 	}
 

@@ -65,5 +65,7 @@ namespace Animation
 		std::vector<KeyScale> const& GetKeyScale(void) const { return scales; }
 		std::string const& GetName(void) const { return name; }
 		uint32_t GetBoneID(void) const { return id; }
+
+		Bone() = default;
 	};
 }
