@@ -90,6 +90,7 @@
     <ClInclude Include="..\src\heat.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\src\kernel.cu" />
     <None Include="PropertySheet.props" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -28,7 +28,7 @@ __global__ void heatDistrCalc(float* in, float* out, uint nRowPoints)
 	uint interior = nRowPoints - 1;
 	if (0 < x && interior > x && 0 < y && interior > y)
 	{
-		out[index] = (
+		out[idx] = (
 						in[idx - 1] +
 						in[idx + 1] +
 						in[idx - nRowPoints] +
