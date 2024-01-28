@@ -444,7 +444,7 @@ bool GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniDa
 
 	std::string const& outputFile = "Assets\\Animation\\" + aniData.clipName + ".h_anim";
 	DeserializeAnimation(outputFile, aniData);
-	//SerializeAnimation(outputFile);
+	SerializeAnimation(outputFile);
 	return true;
 }
 
@@ -470,9 +470,9 @@ void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vect
 
 		for (uint32_t j{}; j < boneProps.size(); ++j)
 		{
-			if (!strcmp(boneProps[i].name.c_str(), boneName))
+			if (!strcmp(boneProps[j].name.c_str(), boneName))
 			{
-				boneID = i;
+				boneID = j;
 				break;
 			}
 		}
