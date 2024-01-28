@@ -237,6 +237,141 @@ void GeomCompiler::OptimizeMesh(MC::Submesh& submesh) const
 	submesh.vertices = std::exchange(opMesh.vertices, {});
 }
 
+bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
+{
+	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
+	if (!ofs.is_open()) {
+		std::cout << ">> Error encountered during deserializiation. Output file could not be created\n";
+		return false;
+	}
+
+	uint64_t const numMesh = data.meshInfos.size();
+	// Write the numebr of submeshes into file
+	ofs.write(reinterpret_cast<char const*>(&numMesh), sizeof(uint64_t));
+	{
+		uint64_t const bonePropsSize = data.boneProps.size();
+		// Write the size of bone props
+		ofs.write(reinterpret_cast<char const*>(&bonePropsSize), sizeof(uint64_t));
+		// Write the data of bone props into file
+		ofs.write(reinterpret_cast<char const*>(data.boneProps.data()), sizeof(Ani::BoneProps) * bonePropsSize);
+	}
+
+
+	for (uint64_t meshIdx{}; meshIdx < numMesh; ++meshIdx)
+	{
+		Submesh const& submesh = data.meshInfos[meshIdx];
+
+		HeaderInfo const info
+		{
+			.meshNameSize = submesh.meshName.size(),
+			.verticeCount = submesh.vertices.size(),
+			.indicesCount = submesh.indices.size(),
+			.materialNameSize = submesh.materialName.size(),
+		};
+
+		{	// To insert the size of each material file path
+			HeaderInfo& H = const_cast<HeaderInfo&>(info);
+			for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
+				H.materialPathSize[i] = submesh.materialPaths[i].size();
+		}
+
+		// Writing the data offset for each submesh
+		ofs.write(reinterpret_cast<char const*>(&info), sizeof(HeaderInfo));
+
+		// Write the name of the mesh
+		ofs.write(submesh.meshName.c_str(), info.meshNameSize);
+
+		// Write the data of vertices
+		ofs.write(reinterpret_cast<char const*>(submesh.vertices.data()), sizeof(Vertex) * info.verticeCount);
+
+		// Write indices
+		ofs.write(reinterpret_cast<char const*>(submesh.indices.data()), sizeof(uint32_t) * info.indicesCount);
+
+		// Material name
+		ofs.write(submesh.materialName.c_str(), info.materialNameSize);
+
+		// Write string of material path
+		for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
+			ofs.write(submesh.materialPaths[i].c_str(), info.materialPathSize[i]);
+
+		// Write model matrix
+		ofs.write(reinterpret_cast<char const*>(&submesh.transformMatrix[0][0]), sizeof(glm::mat4));
+	}
+
+	return true;
+}
+
+/* ******************************************************************************
+								Test Function
+ ****************************************************************************** */
+void GeomCompiler::Serialize(std::string const& inputFile)
+{
+	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
+	if (!ifs.is_open()) {
+		std::cout << ">> Error encountered during serialization. Input file could not be opened\n";
+		return;
+	}
+
+	uint64_t numMesh{};
+	ifs.read(reinterpret_cast<char*>(&numMesh), sizeof(uint64_t));
+	{
+		uint64_t bonePropsSize{};
+		// Read the total number of bone props
+		ifs.read(reinterpret_cast<char*>(&bonePropsSize), sizeof(uint64_t));
+		// Read bone props data
+		std::vector<Ani::BoneProps> boneProps{}; boneProps.reserve(bonePropsSize);
+		ifs.read(reinterpret_cast<char*>(boneProps.data()), sizeof(Ani::BoneProps) * bonePropsSize);
+	}
+
+	for (uint64_t meshIdx{}; meshIdx < numMesh; ++meshIdx)
+	{
+		HeaderInfo info{};
+		ifs.read(reinterpret_cast<char*>(&info), sizeof(HeaderInfo));
+
+		{	// name
+			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.meshNameSize + 1);
+			ifs.read(name.get(), info.meshNameSize);
+			name[info.meshNameSize] = '\0';
+			std::cout << name << std::endl;
+		}
+
+		{	// Vertices
+			std::unique_ptr<Vertex[]> vertices = std::make_unique<Vertex[]>(info.verticeCount);
+			ifs.read(reinterpret_cast<char*>(vertices.get()), sizeof(Vertex) * info.verticeCount);
+		}
+
+		{	// indicies
+			std::vector<uint32_t> indices{}; indices.reserve(info.indicesCount);
+			ifs.read(reinterpret_cast<char*>(indices.data()), sizeof(uint32_t) * info.indicesCount);
+		}
+
+		{	// Material name
+			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.materialNameSize + 1);
+			ifs.read(name.get(), info.materialNameSize);
+			name[info.materialNameSize] = '\0';
+		}
+
+		{	// Material file paths
+			std::string materialPaths[NUM_TEXTURE_TYPE]{};
+			for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
+			{
+				std::unique_ptr<char[]> path = std::make_unique<char[]>(info.materialPathSize[i] + 1);
+				ifs.read(path.get(), info.materialPathSize[i]);
+				path[info.materialPathSize[i]] = '\0';
+				materialPaths[i] = path.get();
+			}
+		}
+
+		{	// Read transform matrix
+			glm::mat4 mat(1.0f);
+			ifs.read(reinterpret_cast<char*>(&mat[0][0]), sizeof(glm::mat4));
+		}
+	}
+}
+
+// ----------------------------------------
+// Animation
+// ----------------------------------------
 void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Ani::BoneProps>& boneProps, aiMesh const* const mesh) const
 {
 	// Set the maximum bones to 100
@@ -466,137 +601,5 @@ void GeomCompiler::SerializeBoneTree(Ani::AssimpNodeData* parent, MC::BoneTreeDa
 		Ani::AssimpNodeData newData{};
 		SerializeBoneTree(&newData, data, ++idx);
 		parent->children.emplace_back(newData);
-	}
-}
-
-bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
-{
-	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
-	if (!ofs.is_open()) {
-		std::cout << ">> Error encountered during deserializiation. Output file could not be created\n";
-		return false;
-	}
-
-	uint64_t const numMesh = data.meshInfos.size();
-	// Write the numebr of submeshes into file
-	ofs.write(reinterpret_cast<char const*>(&numMesh), sizeof(uint64_t));
-	{
-		uint64_t const bonePropsSize = data.boneProps.size();
-		// Write the size of bone props
-		ofs.write(reinterpret_cast<char const*>(&bonePropsSize), sizeof(uint64_t));
-		// Write the data of bone props into file
-		ofs.write(reinterpret_cast<char const*>(data.boneProps.data()), sizeof(Ani::BoneProps) * bonePropsSize);
-	}
-
-
-	for (uint64_t meshIdx{}; meshIdx < numMesh; ++meshIdx)
-	{
-		Submesh const& submesh = data.meshInfos[meshIdx];
-
-		HeaderInfo const info
-		{
-			.meshNameSize = submesh.meshName.size(),
-			.verticeCount = submesh.vertices.size(),
-			.indicesCount = submesh.indices.size(),
-			.materialNameSize = submesh.materialName.size(),
-		};
-
-		{	// To insert the size of each material file path
-			HeaderInfo& H = const_cast<HeaderInfo&>(info);
-			for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
-				H.materialPathSize[i] = submesh.materialPaths[i].size();
-		}
-
-		// Writing the data offset for each submesh
-		ofs.write(reinterpret_cast<char const*>(&info), sizeof(HeaderInfo));
-
-		// Write the name of the mesh
-		ofs.write(submesh.meshName.c_str(), info.meshNameSize);
-
-		// Write the data of vertices
-		ofs.write(reinterpret_cast<char const*>(submesh.vertices.data()), sizeof(Vertex) * info.verticeCount);
-
-		// Write indices
-		ofs.write(reinterpret_cast<char const*>(submesh.indices.data()), sizeof(uint32_t) * info.indicesCount);
-
-		// Material name
-		ofs.write(submesh.materialName.c_str(), info.materialNameSize);
-
-		// Write string of material path
-		for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
-			ofs.write(submesh.materialPaths[i].c_str(), info.materialPathSize[i]);
-
-		// Write model matrix
-		ofs.write(reinterpret_cast<char const*>(&submesh.transformMatrix[0][0]), sizeof(glm::mat4));
-	}
-
-	return true;
-}
-
-/* ******************************************************************************
-								Test Function
- ****************************************************************************** */
-void GeomCompiler::Serialize(std::string const& inputFile)
-{
-	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
-	if (!ifs.is_open()) {
-		std::cout << ">> Error encountered during serialization. Input file could not be opened\n";
-		return;
-	}
-
-	uint64_t numMesh{};
-	ifs.read(reinterpret_cast<char*>(&numMesh), sizeof(uint64_t));
-	{
-		uint64_t bonePropsSize{};
-		// Read the total number of bone props
-		ifs.read(reinterpret_cast<char*>(&bonePropsSize), sizeof(uint64_t));
-		// Read bone props data
-		std::vector<Ani::BoneProps> boneProps{}; boneProps.reserve(bonePropsSize);
-		ifs.read(reinterpret_cast<char*>(boneProps.data()), sizeof(Ani::BoneProps) * bonePropsSize);
-	}
-
-	for (uint64_t meshIdx{}; meshIdx < numMesh; ++meshIdx)
-	{
-		HeaderInfo info{};
-		ifs.read(reinterpret_cast<char*>(&info), sizeof(HeaderInfo));
-
-		{	// name
-			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.meshNameSize + 1);
-			ifs.read(name.get(), info.meshNameSize);
-			name[info.meshNameSize] = '\0';
-			std::cout << name << std::endl;
-		}
-
-		{	// Vertices
-			std::unique_ptr<Vertex[]> vertices = std::make_unique<Vertex[]>(info.verticeCount);
-			ifs.read(reinterpret_cast<char*>(vertices.get()), sizeof(Vertex) * info.verticeCount);
-		}
-
-		{	// indicies
-			std::vector<uint32_t> indices{}; indices.reserve(info.indicesCount);
-			ifs.read(reinterpret_cast<char*>(indices.data()), sizeof(uint32_t) * info.indicesCount);
-		}
-
-		{	// Material name
-			std::unique_ptr<char[]> name = std::make_unique<char[]>(info.materialNameSize + 1);
-			ifs.read(name.get(), info.materialNameSize);
-			name[info.materialNameSize] = '\0';
-		}
-
-		{	// Material file paths
-			std::string materialPaths[NUM_TEXTURE_TYPE]{};
-			for (uint64_t i{}; i < NUM_TEXTURE_TYPE; ++i)
-			{
-				std::unique_ptr<char[]> path = std::make_unique<char[]>(info.materialPathSize[i] + 1);
-				ifs.read(path.get(), info.materialPathSize[i]);
-				path[info.materialPathSize[i]] = '\0';
-				materialPaths[i] = path.get();
-			}
-		}
-
-		{	// Read transform matrix
-			glm::mat4 mat(1.0f);
-			ifs.read(reinterpret_cast<char*>(&mat[0][0]), sizeof(glm::mat4));
-		}
 	}
 }
