@@ -237,238 +237,6 @@ void GeomCompiler::OptimizeMesh(MC::Submesh& submesh) const
 	submesh.vertices = std::exchange(opMesh.vertices, {});
 }
 
-void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Ani::BoneProps>& boneProps, aiMesh const* const mesh) const
-{
-	// Set the maximum bones to 100
-	unsigned numBones = mesh->mNumBones > 100 ? 100 : mesh->mNumBones;
-	// For each bone
-	for (unsigned boneIndex{}; boneIndex < numBones; ++boneIndex)
-	{
-		int boneID = -1;
-		char const* boneName = mesh->mBones[boneIndex]->mName.C_Str();
-		if (boneIndex >= boneProps.size())
-		{
-			boneProps.push_back( { boneName, ConvertaiMat4toMat4(mesh->mBones[boneIndex]->mOffsetMatrix) } );
-			boneID = boneIndex;
-		}
-		else
-		{
-			for (unsigned i{}; i < boneProps.size(); ++i)
-			{
-				if (boneProps[i].name == boneName)
-				{
-					boneID = i;
-					break;
-				}
-			}
-		}
-		assert(boneID != -1);
-
-		// Get all vertex weights for current bone
-		aiVertexWeight* weights = mesh->mBones[boneIndex]->mWeights;
-		unsigned int numWeights = mesh->mBones[boneIndex]->mNumWeights;
-
-		// For each weight at vertex x for current bone
-		for (int weightIndex{}; weightIndex < numWeights; ++weightIndex)
-		{
-			unsigned vertexID = weights[weightIndex].mVertexId;
-			float weight = weights[weightIndex].mWeight;
-			assert(vertexID <= vertices.size());
-
-			// Update four most influential bones
-			for (int i{}; i < 4; ++i)
-			{
-				if (vertices[vertexID].boneIDs[i] < 0)
-				{
-					vertices[vertexID].weights[i] = weight;
-					vertices[vertexID].boneIDs[i] = boneID;
-					break;
-				}
-			}
-		}
-	}
-}
-
-bool GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniData) const
-{
-	if (m_Scene->mNumAnimations <= 0)
-		return false;
-
-	aiAnimation* animation = *m_Scene->mAnimations;
-	aniData.duration = static_cast<float>(animation->mDuration);
-	aniData.tps = static_cast<float>(animation->mTicksPerSecond);
-
-	GenerateBoneTree(m_Scene->mRootNode, aniData.boneData);
-
-	// Reset all root transformations
-	aniData.rootNode.transformation = glm::mat4(1.0f);
-
-	LoadIntermediateBones(animation, data.boneProps, aniData);
-	// serialize animation data
-	aniData.clipName = animation->mName.data;
-
-	std::string const& outputFile = "Assets\\Animation\\" + aniData.clipName + ".h_anim";
-	DeserializeAnimation(outputFile, aniData);
-	//SerializeAnimation(outputFile);
-	return true;
-}
-
-void GeomCompiler::GenerateBoneTree(aiNode const* src, BoneTreeData& boneData) const
-{
-	assert(src);
-
-	// Bone data
-	boneData.assimpNodeDataChildrenCount.emplace_back(src->mNumChildren);
-	boneData.assimpNodeData.emplace_back(BoneTreeData::NodeData(ConvertaiMat4toMat4(src->mTransformation), src->mName.data ));
-
-	for (uint32_t i{}; i < src->mNumChildren; ++i)
-		GenerateBoneTree(src->mChildren[i], boneData);
-}
-
-void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const
-{
-	for (int i{}; i < animation->mNumChannels; ++i)
-	{
-		aiNodeAnim* channel = animation->mChannels[i];
-		char const* boneName = channel->mNodeName.data;
-		int boneID = -1;
-
-		for (uint32_t j{}; j < boneProps.size(); ++j)
-		{
-			if (!strcmp(boneProps[i].name.c_str(), boneName))
-			{
-				boneID = i;
-				break;
-			}
-		}
-
-		if (boneProps.size() < 100)
-		{
-			if (boneID == -1)
-			{
-				Ani::BoneProps boneProp{};
-				boneProp.name = boneName;
-				boneProps.emplace_back(boneProp);
-				boneID = boneProps.size() - 1;
-			}
-		}
-		aniData.bones.emplace_back(Ani::Bone(channel->mNodeName.data, boneID, channel));
-	}
-	aniData.boneProps = boneProps;
-}
-
-void GeomCompiler::DeserializeAnimation(std::string const& outputFile, MC::AnimationData const& aniData) const
-{
-	std::string path_to_check = "Assets\\Animation";
-	if (!std::filesystem::exists(path_to_check))
-		std::filesystem::create_directories(path_to_check);
-	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
-	if (!ofs.is_open())
-	{
-		std::cout << ">> Error encountered during deserialization of animation data. Output file could not be created\n";
-		return;
-	}
-
-	AnimationHeaderInfo const info
-	{
-		.clipNameSize		= aniData.clipName.size(),
-		.bonesSize			= aniData.bones.size(),
-		.bonePropsSize		= aniData.boneProps.size(),
-		.assimpNodeDataSize = aniData.boneData.assimpNodeDataChildrenCount.size()
-	};
-
-	// Write the offset for the animation data
-	ofs.write(reinterpret_cast<char const*>(&info), sizeof(AnimationHeaderInfo));
-
-	// Write the name of the clip name
-	ofs.write(aniData.clipName.c_str(), info.clipNameSize);
-
-	// Write bone data
-	ofs.write(reinterpret_cast<char const*>(aniData.bones.data()), sizeof(Ani::Bone) * info.bonesSize);
-
-	// Write bone props data
-	ofs.write(reinterpret_cast<char const*>(aniData.boneProps.data()), sizeof(Ani::BoneProps) * info.bonePropsSize);
-
-	// Write animation's tick per second
-	ofs.write(reinterpret_cast<char const*>(&aniData.tps), sizeof(float));
-
-	// Write animation's duration
-	ofs.write(reinterpret_cast<char const*>(&aniData.duration), sizeof(float));
-
-	// Write each assimp data node's children count
-	ofs.write(reinterpret_cast<char const*>(aniData.boneData.assimpNodeDataChildrenCount.data()), sizeof(uint32_t) * info.assimpNodeDataSize);
-
-	// Write each assimp data node's transformation and name data
-	ofs.write(reinterpret_cast<char const*>(aniData.boneData.assimpNodeData.data()), sizeof(BoneTreeData::NodeData) * info.assimpNodeDataSize);
-}
-
-void GeomCompiler::SerializeAnimation(std::string const& inputFile) const
-{
-	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
-	if (!ifs.is_open())
-	{
-		std::cout << ">> Error encountered during serialization of animation data. Input file could not be opened\n";
-		return;
-	}
-
-	AnimationHeaderInfo info{};
-	// Read animation header info
-	ifs.read(reinterpret_cast<char*>(&info), sizeof(AnimationHeaderInfo));
-
-	AnimationData data{};
-	{	// Reading animation clip name
-		std::unique_ptr<char[]> clipName = std::make_unique<char[]>(info.clipNameSize + 1);
-		ifs.read(clipName.get(), info.clipNameSize);
-		clipName[info.clipNameSize] = '\0';
-		data.clipName = clipName.get();
-	}
-
-	{	// Read bone data
-		data.bones.resize(info.bonesSize);
-		ifs.read(reinterpret_cast<char*>(data.bones.data()), sizeof(Ani::Bone) * info.bonesSize);
-	}
-
-	{	// Read bone props data
-		data.boneProps.resize(info.bonePropsSize);
-		ifs.read(reinterpret_cast<char*>(data.boneProps.data()), sizeof(Ani::BoneProps) * info.bonePropsSize);
-	}
-
-	{	// Read animation's tick per seconds
-		ifs.read(reinterpret_cast<char*>(&data.tps), sizeof(float));
-	}
-
-	{	// Read animation's duration
-		ifs.read(reinterpret_cast<char*>(&data.duration), sizeof(float));
-	}
-
-	{	// Read each assimp data node's children count
-		data.boneData.assimpNodeDataChildrenCount.resize(info.assimpNodeDataSize);
-		ifs.read(reinterpret_cast<char*>(data.boneData.assimpNodeDataChildrenCount.data()), sizeof(uint32_t) * info.assimpNodeDataSize);
-	}
-
-	{	// Read each assimp data node's transformation and name data
-		data.boneData.assimpNodeData.resize(info.assimpNodeDataSize);
-		ifs.read(reinterpret_cast<char*>(data.boneData.assimpNodeData.data()), sizeof(BoneTreeData::NodeData) * info.assimpNodeDataSize);
-	}
-
-	uint32_t idx{};
-	SerializeBoneTree(&data.rootNode, data.boneData, idx);
-}
-
-void GeomCompiler::SerializeBoneTree(Ani::AssimpNodeData* parent, MC::BoneTreeData const& data, uint32_t& idx) const
-{
-	parent->name = data.assimpNodeData[idx].name;
-	parent->transformation = data.assimpNodeData[idx].transformation;
-	parent->childrenCount = data.assimpNodeDataChildrenCount[idx];
-
-	for (uint32_t i{}; i < parent->childrenCount; ++i)
-	{
-		Ani::AssimpNodeData newData{};
-		SerializeBoneTree(&newData, data, ++idx);
-		parent->children.emplace_back(newData);
-	}
-}
-
 bool GeomCompiler::Deserialize(std::string const& outputFile, CompiledMesh const& data)
 {
 	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
@@ -598,5 +366,240 @@ void GeomCompiler::Serialize(std::string const& inputFile)
 			glm::mat4 mat(1.0f);
 			ifs.read(reinterpret_cast<char*>(&mat[0][0]), sizeof(glm::mat4));
 		}
+	}
+}
+
+// ----------------------------------------
+// Animation
+// ----------------------------------------
+void GeomCompiler::ExtractBoneWeightForVertices(std::vector<Vertex>& vertices, std::vector<Ani::BoneProps>& boneProps, aiMesh const* const mesh) const
+{
+	// Set the maximum bones to 100
+	unsigned numBones = mesh->mNumBones > 100 ? 100 : mesh->mNumBones;
+	// For each bone
+	for (unsigned boneIndex{}; boneIndex < numBones; ++boneIndex)
+	{
+		int boneID = -1;
+		char const* boneName = mesh->mBones[boneIndex]->mName.C_Str();
+		if (boneIndex >= boneProps.size())
+		{
+			boneProps.push_back( { boneName, ConvertaiMat4toMat4(mesh->mBones[boneIndex]->mOffsetMatrix) } );
+			boneID = boneIndex;
+		}
+		else
+		{
+			for (unsigned i{}; i < boneProps.size(); ++i)
+			{
+				if (boneProps[i].name == boneName)
+				{
+					boneID = i;
+					break;
+				}
+			}
+		}
+		assert(boneID != -1);
+
+		// Get all vertex weights for current bone
+		aiVertexWeight* weights = mesh->mBones[boneIndex]->mWeights;
+		unsigned int numWeights = mesh->mBones[boneIndex]->mNumWeights;
+
+		// For each weight at vertex x for current bone
+		for (int weightIndex{}; weightIndex < numWeights; ++weightIndex)
+		{
+			unsigned vertexID = weights[weightIndex].mVertexId;
+			float weight = weights[weightIndex].mWeight;
+			assert(vertexID <= vertices.size());
+
+			// Update four most influential bones
+			for (int i{}; i < 4; ++i)
+			{
+				if (vertices[vertexID].boneIDs[i] < 0)
+				{
+					vertices[vertexID].weights[i] = weight;
+					vertices[vertexID].boneIDs[i] = boneID;
+					break;
+				}
+			}
+		}
+	}
+}
+
+bool GeomCompiler::ProcessAnimation(MC::CompiledMesh& data, AnimationData& aniData) const
+{
+	if (m_Scene->mNumAnimations <= 0)
+		return false;
+
+	aiAnimation* animation = *m_Scene->mAnimations;
+	aniData.duration = static_cast<float>(animation->mDuration);
+	aniData.tps = static_cast<float>(animation->mTicksPerSecond);
+
+	GenerateBoneTree(m_Scene->mRootNode, aniData.boneData);
+
+	// Reset all root transformations
+	aniData.rootNode.transformation = glm::mat4(1.0f);
+
+	LoadIntermediateBones(animation, data.boneProps, aniData);
+	// serialize animation data
+	aniData.clipName = animation->mName.data;
+
+	std::string const& outputFile = "Assets\\Animation\\" + aniData.clipName + ".h_anim";
+	DeserializeAnimation(outputFile, aniData);
+	SerializeAnimation(outputFile);
+	return true;
+}
+
+void GeomCompiler::GenerateBoneTree(aiNode const* src, BoneTreeData& boneData) const
+{
+	assert(src);
+
+	// Bone data
+	boneData.assimpNodeDataChildrenCount.emplace_back(src->mNumChildren);
+	boneData.assimpNodeData.emplace_back(BoneTreeData::NodeData(ConvertaiMat4toMat4(src->mTransformation), src->mName.data ));
+
+	for (uint32_t i{}; i < src->mNumChildren; ++i)
+		GenerateBoneTree(src->mChildren[i], boneData);
+}
+
+void GeomCompiler::LoadIntermediateBones(aiAnimation const* animation, std::vector<Animation::BoneProps>& boneProps, MC::AnimationData& aniData) const
+{
+	for (int i{}; i < animation->mNumChannels; ++i)
+	{
+		aiNodeAnim* channel = animation->mChannels[i];
+		char const* boneName = channel->mNodeName.data;
+		int boneID = -1;
+
+		for (uint32_t j{}; j < boneProps.size(); ++j)
+		{
+			if (!strcmp(boneProps[j].name.c_str(), boneName))
+			{
+				boneID = j;
+				break;
+			}
+		}
+
+		if (boneProps.size() < 100)
+		{
+			if (boneID == -1)
+			{
+				Ani::BoneProps boneProp{};
+				boneProp.name = boneName;
+				boneProps.emplace_back(boneProp);
+				boneID = boneProps.size() - 1;
+			}
+		}
+		aniData.bones.emplace_back(Ani::Bone(channel->mNodeName.data, boneID, channel));
+	}
+	aniData.boneProps = boneProps;
+}
+
+void GeomCompiler::DeserializeAnimation(std::string const& outputFile, MC::AnimationData const& aniData) const
+{
+	std::string path_to_check = "Assets\\Animation";
+	if (!std::filesystem::exists(path_to_check))
+		std::filesystem::create_directories(path_to_check);
+	std::ofstream ofs{ outputFile, std::ios::out | std::ios::binary };
+	if (!ofs.is_open())
+	{
+		std::cout << ">> Error encountered during deserialization of animation data. Output file could not be created\n";
+		return;
+	}
+
+	AnimationHeaderInfo const info
+	{
+		.clipNameSize		= aniData.clipName.size(),
+		.bonesSize			= aniData.bones.size(),
+		.bonePropsSize		= aniData.boneProps.size(),
+		.assimpNodeDataSize = aniData.boneData.assimpNodeDataChildrenCount.size()
+	};
+
+	// Write the offset for the animation data
+	ofs.write(reinterpret_cast<char const*>(&info), sizeof(AnimationHeaderInfo));
+
+	// Write the name of the clip name
+	ofs.write(aniData.clipName.c_str(), info.clipNameSize);
+
+	// Write bone data
+	ofs.write(reinterpret_cast<char const*>(aniData.bones.data()), sizeof(Ani::Bone) * info.bonesSize);
+
+	// Write bone props data
+	ofs.write(reinterpret_cast<char const*>(aniData.boneProps.data()), sizeof(Ani::BoneProps) * info.bonePropsSize);
+
+	// Write animation's tick per second
+	ofs.write(reinterpret_cast<char const*>(&aniData.tps), sizeof(float));
+
+	// Write animation's duration
+	ofs.write(reinterpret_cast<char const*>(&aniData.duration), sizeof(float));
+
+	// Write each assimp data node's children count
+	ofs.write(reinterpret_cast<char const*>(aniData.boneData.assimpNodeDataChildrenCount.data()), sizeof(uint32_t) * info.assimpNodeDataSize);
+
+	// Write each assimp data node's transformation and name data
+	ofs.write(reinterpret_cast<char const*>(aniData.boneData.assimpNodeData.data()), sizeof(BoneTreeData::NodeData) * info.assimpNodeDataSize);
+}
+
+void GeomCompiler::SerializeAnimation(std::string const& inputFile) const
+{
+	std::ifstream ifs{ inputFile, std::ios::in | std::ios::binary };
+	if (!ifs.is_open())
+	{
+		std::cout << ">> Error encountered during serialization of animation data. Input file could not be opened\n";
+		return;
+	}
+
+	AnimationHeaderInfo info{};
+	// Read animation header info
+	ifs.read(reinterpret_cast<char*>(&info), sizeof(AnimationHeaderInfo));
+
+	AnimationData data{};
+	{	// Reading animation clip name
+		std::unique_ptr<char[]> clipName = std::make_unique<char[]>(info.clipNameSize + 1);
+		ifs.read(clipName.get(), info.clipNameSize);
+		clipName[info.clipNameSize] = '\0';
+		data.clipName = clipName.get();
+	}
+
+	{	// Read bone data
+		data.bones.resize(info.bonesSize);
+		ifs.read(reinterpret_cast<char*>(data.bones.data()), sizeof(Ani::Bone) * info.bonesSize);
+	}
+
+	{	// Read bone props data
+		data.boneProps.resize(info.bonePropsSize);
+		ifs.read(reinterpret_cast<char*>(data.boneProps.data()), sizeof(Ani::BoneProps) * info.bonePropsSize);
+	}
+
+	{	// Read animation's tick per seconds
+		ifs.read(reinterpret_cast<char*>(&data.tps), sizeof(float));
+	}
+
+	{	// Read animation's duration
+		ifs.read(reinterpret_cast<char*>(&data.duration), sizeof(float));
+	}
+
+	{	// Read each assimp data node's children count
+		data.boneData.assimpNodeDataChildrenCount.resize(info.assimpNodeDataSize);
+		ifs.read(reinterpret_cast<char*>(data.boneData.assimpNodeDataChildrenCount.data()), sizeof(uint32_t) * info.assimpNodeDataSize);
+	}
+
+	{	// Read each assimp data node's transformation and name data
+		data.boneData.assimpNodeData.resize(info.assimpNodeDataSize);
+		ifs.read(reinterpret_cast<char*>(data.boneData.assimpNodeData.data()), sizeof(BoneTreeData::NodeData) * info.assimpNodeDataSize);
+	}
+
+	uint32_t idx{};
+	SerializeBoneTree(&data.rootNode, data.boneData, idx);
+}
+
+void GeomCompiler::SerializeBoneTree(Ani::AssimpNodeData* parent, MC::BoneTreeData const& data, uint32_t& idx) const
+{
+	parent->name = data.assimpNodeData[idx].name;
+	parent->transformation = data.assimpNodeData[idx].transformation;
+	parent->childrenCount = data.assimpNodeDataChildrenCount[idx];
+
+	for (uint32_t i{}; i < parent->childrenCount; ++i)
+	{
+		Ani::AssimpNodeData newData{};
+		SerializeBoneTree(&newData, data, ++idx);
+		parent->children.emplace_back(newData);
 	}
 }
