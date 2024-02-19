@@ -47,8 +47,8 @@ void correctness_test(int nRun, int numMRows, int numMCols, int numNCols)
         FLOAT_TYPE* N = createData(numMCols, numNCols);
 
         // Print the matrix in the cpu
-        //printf("M:\n");
-        //printMatrix(M, numMRows, numMCols);
+        printf("M:\n");
+        printMatrix(M, numMRows, numMCols);
         //printf("N:\n");
         //printMatrix(N, numMCols, numNCols);
 
@@ -69,11 +69,21 @@ void correctness_test(int nRun, int numMRows, int numMCols, int numNCols)
         FLOAT_TYPE* h_M_conv = static_cast<FLOAT_TYPE*>(malloc(numMRows * numMCols * sizeof(FLOAT_TYPE)));
         convertRowColumn(h_M_conv, M, numMRows, numMCols);
 
+        printf("N:\n");
+        printMatrix(N, numMCols, numNCols);
+        // Print out transpose M
+        printf("Transposed M:\n");
+        printMatrix(h_M_conv, numMCols, numMRows);
+
         // Copy matrices to the device
         checkCudaErrors(cudaMemcpy(d_M, h_M_conv, numMRows * numMCols * sizeof(FLOAT_TYPE), cudaMemcpyHostToDevice));
         getLastCudaError("cudaMemcpy to d_M failed\n");
         checkCudaErrors(cudaMemcpy(d_N, N, numMCols * numNCols * sizeof(FLOAT_TYPE), cudaMemcpyHostToDevice));
         getLastCudaError("cudaMemcpy to d_N failed\n");
+
+        //// Print out matrix N
+        //printf("Matrix N:\n");
+        //printMatrix(d_N, numMCols, numNCols);
 
         // Perform matrix multiplication on the GPU
         matrixMultiplyGPU(d_P, d_M, d_N, numMRows, numNCols, numMCols);
@@ -94,25 +104,25 @@ void correctness_test(int nRun, int numMRows, int numMCols, int numNCols)
         printf("GPU result:\n");
         printMatrix(P_gpu, numMRows, numNCols);
 
-  //      // Compare CPU and GPU results
-  //      bool ok = true;
-  //      for (int j = 0; j < numMRows * numNCols; j++)
-  //      {
-  //          if (fabs(P_cpu[j] - P_gpu[j]) > epsilon)
-  //          {
-  //              ok = false;
-  //              break;
-  //          }
-  //      }
+        // Compare CPU and GPU results
+        bool ok = true;
+        for (int j = 0; j < numMRows * numNCols; j++)
+        {
+            if (fabs(P_cpu[j] - P_gpu[j]) > epsilon)
+            {
+                ok = false;
+                break;
+            }
+        }
 
-  //      if (ok)
-  //      {
-  //          printf("Test passed!\n");
-  //      }
-  //      else
-  //      {
-  //      	printf("Test failed!\n");
-		//}
+        if (ok)
+        {
+            printf("Test passed!\n");
+        }
+        else
+        {
+        	printf("Test failed!\n");
+		}
 
         // Free memory
         free(M);
@@ -144,8 +154,8 @@ int main(int argc, char **argv)
 	//correctness_test(1, 200 + rand() % 100, 200 + rand() % 100, 200 + rand() % 100);
 	//correctness_test(1, 500 + rand() % 500, 500 + rand() % 500, 500 + rand() % 500);
 	//correctness_test(1, 2000, 2000, 2000);
-    correctness_test(1, 3, 4, 2);
     //correctness_test(1, 20, 30, 15);
+    correctness_test(1, 3, 5, 4);
 
 	// efficiency_test(10, 100, 100, 100);
 	// efficiency_test(10, 500, 500, 500);

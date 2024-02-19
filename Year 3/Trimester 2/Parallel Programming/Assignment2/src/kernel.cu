@@ -59,36 +59,77 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 			N_s[Ns_row][Ns_col] = N[Ng_row * n + Ng_col];
 		__syncthreads();
 
+		//if (threadIdx.x == 0) {
+		//	for (int x = 0; x < TILE_WIDTH_RATIO_K; ++x) {
+		//		for (int y = 0; y < TILE_WIDTH_N; ++y) {
+		//			printf("Block (%d, %d), N_s[%d][%d] = %f\n", blockIdx.x, blockIdx.y, x, y, N_s[x][y]);
+		//		}
+		//	}
+		//}
+		//__syncthreads();
+
 		// 3b)
-		for (int it = 0, r = 0; it < TILE_WIDTH_RATIO_K; ++it)
+		int Mg_row = tx + (bx * TILE_WIDTH_M);
+		for (int it = 0; it < TILE_WIDTH_RATIO_K; ++it)
 		{
 			// Index to access global M matrix
 			int Mg_col = it + (start_k * TILE_WIDTH_RATIO_K);
-			int Mg_row = tx + (bx * TILE_WIDTH_M);
 
+			FLOAT_TYPE v = 0.0f;
 			if (Mg_col < k && Mg_row < m)
-			{
-				FLOAT_TYPE const v = M[Mg_row * m + Mg_col]; // accessing the value at (Mg_row, Mg_col)
+				v = M[Mg_row + m * Mg_col]; // accessing the value at (Mg_row, Mg_col)
 
-				for (int n_offset = 0; n_offset < TILE_WIDTH_N; ++n_offset, ++r)
-				{
-					r /= TILE_WIDTH_N;
-					P_local[n_offset] += v * N_s[r][n_offset];
-				}
-			}
+		//if (tx == 1)
+		//{
+		//	printf("Block (%d, %d), M[%d + %d * %d] = %f\n", bx, by, Mg_row, m, Mg_col, v);
+		//}
+
+			for (int n_offset = 0; n_offset < TILE_WIDTH_N; ++n_offset)
+				P_local[n_offset] += v * N_s[it][n_offset];
 		}
 		__syncthreads(); // calling syncthreads here so that slower threads can still access the shared memory
 	}
 
-	for (int i = 0; i < TILE_WIDTH_N; ++i)
+	for (int i = 0; i < TILE_WIDTH_N; ++i) 
 	{
-		int P_col = tx + (bx * TILE_WIDTH_M) + i;
-		int P_row = tx + (by * TILE_WIDTH_N);
+		if (P_local[i] > 0.0f || P_local[i] < 0.0f)
+		{
+			printf("Block (%d, %d), Thread (%d, %d), P_local[%d] = %f\n",
+				bx, by, tx, threadIdx.y, i, P_local[i]);
+		}
+	}
+	__syncthreads();
+
+	// 4)
+	for (int i = 0; i < TILE_WIDTH_N; ++i)
+	{	// Something is not right here
+		int P_col = (by * TILE_WIDTH_N) + i;
+		int P_row = tx + (bx * TILE_WIDTH_M);
 
 		if (P_col < n && P_row < m)
-			P[P_row * n + P_col] = P_local[i];
+			P[P_row + n * P_col] = P_local[i];
 	}
 }
+
+//if (tx == 0)
+//{
+//	printf("Block (%d, %d), M[%d * %d + %d] = %f\n", bx, by, Mg_row, m, Mg_col, v);
+//}
+
+//for (int i = 0; i < TILE_WIDTH_N; ++i) {
+//	printf("Block (%d, %d), Thread (%d, %d), P_local[%d] = %f\n", 
+//		bx, by, tx, threadIdx.y, i, P_local[i]);
+//}
+//__syncthreads();
+
+//if (threadIdx.x == 0) {
+//	for (int x = 0; x < TILE_WIDTH_RATIO_K; ++x) {
+//		for (int y = 0; y < TILE_WIDTH_N; ++y) {
+//			printf("Block (%d, %d), N_s[%d][%d] = %f\n", blockIdx.x, blockIdx.y, x, y, N_s[x][y]);
+//		}
+//	}
+//}
+//__syncthreads();
 
 void matrixMultiplyGPU(FLOAT_TYPE* P,
 	FLOAT_TYPE* M,
