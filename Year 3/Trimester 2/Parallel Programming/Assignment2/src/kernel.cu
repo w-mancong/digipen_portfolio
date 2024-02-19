@@ -38,20 +38,23 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 	for (int i = 0; i < TILE_WIDTH_N; ++i)
 		P_local[i] = 0.0f;
 
-	int bx = blockIdx.x;
-	int by = blockIdx.y;
-	int tx = threadIdx.x;
+	int const bx = blockIdx.x;
+	int const by = blockIdx.y;
+	int const tx = threadIdx.x;
 
 	// Index to access the shared memory, using threadIdx.x
-	int Ns_col = tx % TILE_WIDTH_N;
-	int Ns_row = tx / TILE_WIDTH_N;
+	int const Ns_col = tx % TILE_WIDTH_N;
+	int const Ns_row = tx / TILE_WIDTH_N;
+
+	// Since this is independent from each steps, can just precalculate it here first
+	int const Ng_col = Ns_col + (by * TILE_WIDTH_N); // Index to access global N's col
+	int const Mg_row = tx + (bx * TILE_WIDTH_M);	 // Index to access global M's row
 
 	// 3)
 	int const K_IT = ((k - 1) / TILE_WIDTH_RATIO_K) + 1;
 	for (int start_k = 0; start_k < K_IT; ++start_k)
 	{
 		// Index to access global N matrix
-		int Ng_col = Ns_col + (by * TILE_WIDTH_N);
 		int Ng_row = Ns_row + (start_k * TILE_WIDTH_RATIO_K);
 
 		// 3a) Each thread load from global N matrix into shared memory
@@ -60,7 +63,6 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 		__syncthreads();
 
 		// 3b)
-		int Mg_row = tx + (bx * TILE_WIDTH_M);
 		for (int it = 0; it < TILE_WIDTH_RATIO_K; ++it)
 		{
 			// Index to access global M matrix
@@ -78,7 +80,7 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 
 	// 4)
 	for (int i = 0; i < TILE_WIDTH_N; ++i)
-	{	// Something is not right here
+	{
 		int P_col = (by * TILE_WIDTH_N) + i;
 		int P_row = tx + (bx * TILE_WIDTH_M);
 
@@ -104,3 +106,30 @@ void matrixMultiplyGPU(FLOAT_TYPE* P,
 	getLastCudaError("matrixMultiply failed\n");
 	cudaDeviceSynchronize();
 }
+
+// To print out the M_reg value
+//if (tx == 0)
+//{
+//	printf("Block (%d, %d), M[%d * %d + %d] = %f\n", bx, by, Mg_row, m, Mg_col, v);
+//}
+
+// To print out the values inside P_reg
+//for (int i = 0; i < TILE_WIDTH_N; ++i) 
+//{
+//	if (P_local[i] > 0.0f || P_local[i] < 0.0f)
+//	{
+//		printf("Block (%d, %d), Thread (%d, %d), P_local[%d] = %f\n",
+//			bx, by, tx, threadIdx.y, i, P_local[i]);
+//	}
+//}
+//__syncthreads();
+
+// Check if N_s value is correct
+//if (threadIdx.x == 0) {
+//	for (int x = 0; x < TILE_WIDTH_RATIO_K; ++x) {
+//		for (int y = 0; y < TILE_WIDTH_N; ++y) {
+//			printf("Block (%d, %d), N_s[%d][%d] = %f\n", blockIdx.x, blockIdx.y, x, y, N_s[x][y]);
+//		}
+//	}
+//}
+//__syncthreads();
