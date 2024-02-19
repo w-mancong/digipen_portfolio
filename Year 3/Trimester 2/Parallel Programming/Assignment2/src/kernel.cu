@@ -90,15 +90,15 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 		__syncthreads(); // calling syncthreads here so that slower threads can still access the shared memory
 	}
 
-	for (int i = 0; i < TILE_WIDTH_N; ++i) 
-	{
-		if (P_local[i] > 0.0f || P_local[i] < 0.0f)
-		{
-			printf("Block (%d, %d), Thread (%d, %d), P_local[%d] = %f\n",
-				bx, by, tx, threadIdx.y, i, P_local[i]);
-		}
-	}
-	__syncthreads();
+	//for (int i = 0; i < TILE_WIDTH_N; ++i) 
+	//{
+	//	if (P_local[i] > 0.0f || P_local[i] < 0.0f)
+	//	{
+	//		printf("Block (%d, %d), Thread (%d, %d), P_local[%d] = %f\n",
+	//			bx, by, tx, threadIdx.y, i, P_local[i]);
+	//	}
+	//}
+	//__syncthreads();
 
 	// 4)
 	for (int i = 0; i < TILE_WIDTH_N; ++i)
@@ -107,7 +107,7 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 		int P_row = tx + (bx * TILE_WIDTH_M);
 
 		if (P_col < n && P_row < m)
-			P[P_row + n * P_col] = P_local[i];
+			P[P_row + m * P_col] = P_local[i];
 	}
 }
 

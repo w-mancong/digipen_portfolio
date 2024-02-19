@@ -47,8 +47,8 @@ void correctness_test(int nRun, int numMRows, int numMCols, int numNCols)
         FLOAT_TYPE* N = createData(numMCols, numNCols);
 
         // Print the matrix in the cpu
-        printf("M:\n");
-        printMatrix(M, numMRows, numMCols);
+        //printf("M:\n");
+        //printMatrix(M, numMRows, numMCols);
         //printf("N:\n");
         //printMatrix(N, numMCols, numNCols);
 
@@ -69,11 +69,11 @@ void correctness_test(int nRun, int numMRows, int numMCols, int numNCols)
         FLOAT_TYPE* h_M_conv = static_cast<FLOAT_TYPE*>(malloc(numMRows * numMCols * sizeof(FLOAT_TYPE)));
         convertRowColumn(h_M_conv, M, numMRows, numMCols);
 
-        printf("N:\n");
-        printMatrix(N, numMCols, numNCols);
-        // Print out transpose M
-        printf("Transposed M:\n");
-        printMatrix(h_M_conv, numMCols, numMRows);
+        //printf("N:\n");
+        //printMatrix(N, numMCols, numNCols);
+        //// Print out transpose M
+        //printf("Transposed M:\n");
+        //printMatrix(h_M_conv, numMCols, numMRows);
 
         // Copy matrices to the device
         checkCudaErrors(cudaMemcpy(d_M, h_M_conv, numMRows * numMCols * sizeof(FLOAT_TYPE), cudaMemcpyHostToDevice));
@@ -96,13 +96,13 @@ void correctness_test(int nRun, int numMRows, int numMCols, int numNCols)
         // Convert P back to row-major format
         convertRowColumn(P_gpu, h_P_2, numNCols, numMRows);
 
-        // Print the matrix in the cpu
-        printf("CPU result:\n");
-        printMatrix(P_cpu, numMRows, numNCols);
+        //// Print the matrix in the cpu
+        //printf("CPU result:\n");
+        //printMatrix(P_cpu, numMRows, numNCols);
 
-        // Print the matrix in the gpu
-        printf("GPU result:\n");
-        printMatrix(P_gpu, numMRows, numNCols);
+        //// Print the matrix in the gpu
+        //printf("GPU result:\n");
+        //printMatrix(P_gpu, numMRows, numNCols);
 
         // Compare CPU and GPU results
         bool ok = true;
@@ -150,12 +150,12 @@ int main(int argc, char **argv)
 	// int numNCols = 241;
 	// int numNRows = numMCols;
 
-	//correctness_test(1, 101 - rand() % 10, 101 - rand() % 10, 101 - rand() % 10);
-	//correctness_test(1, 200 + rand() % 100, 200 + rand() % 100, 200 + rand() % 100);
-	//correctness_test(1, 500 + rand() % 500, 500 + rand() % 500, 500 + rand() % 500);
-	//correctness_test(1, 2000, 2000, 2000);
+	correctness_test(1, 101 - rand() % 10, 101 - rand() % 10, 101 - rand() % 10);
+	correctness_test(1, 200 + rand() % 100, 200 + rand() % 100, 200 + rand() % 100);
+	correctness_test(1, 500 + rand() % 500, 500 + rand() % 500, 500 + rand() % 500);
+	correctness_test(1, 2000, 2000, 2000);
     //correctness_test(1, 20, 30, 15);
-    correctness_test(1, 3, 5, 4);
+    //correctness_test(1, 2, 5, 4);
 
 	// efficiency_test(10, 100, 100, 100);
 	// efficiency_test(10, 500, 500, 500);
