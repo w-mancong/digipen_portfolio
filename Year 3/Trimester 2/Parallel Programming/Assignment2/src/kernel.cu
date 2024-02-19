@@ -82,8 +82,8 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 
 	for (int i = 0; i < TILE_WIDTH_N; ++i)
 	{
-		int P_col = tx + (by * TILE_WIDTH_N) + i;
-		int P_row = tx + (bx * TILE_WIDTH_M);
+		int P_col = tx + (bx * TILE_WIDTH_M) + i;
+		int P_row = tx + (by * TILE_WIDTH_N);
 
 		if (P_col < n && P_row < m)
 			P[P_row * n + P_col] = P_local[i];
