@@ -34,7 +34,9 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 {
 	// Shared memory for tiling input N array
 	__shared__ FLOAT_TYPE N_s[TILE_WIDTH_RATIO_K][TILE_WIDTH_N]; // 1)
-	FLOAT_TYPE P_reg[TILE_WIDTH_N] = { 0 };	// 2) 
+	FLOAT_TYPE P_local[TILE_WIDTH_N] = { 0 };	// 2) 
+	for (int i = 0; i < TILE_WIDTH_N; ++i)
+		P_local[i] = 0.0f;
 
 	int bx = blockIdx.x;
 	int by = blockIdx.y;
@@ -49,15 +51,25 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 	int const K_IT = ((k - 1) / TILE_WIDTH_RATIO_K) + 1;
 	for (int start_k = 0; start_k < K_IT; ++start_k)
 	{
-		int N_col = Ns_col * start_k;
-		int N_row = Ns_row * start_k;
+		// Index to access global N matrix
+		int Ng_col = Ns_col + (start_k * by * TILE_WIDTH_N);
+		int Ng_row = Ns_row + (start_k * TILE_WIDTH_RATIO_K);
 
-		//int N_col = tx % TILE_WIDTH_RATIO_K + bx;
-		//int N_row = tx / TILE_WIDTH_RATIO_K + bx;
-		//if ((some index < k) && (some index < n))
-		//{
-		//	//N_s[Ns_row][Ns_col] = N[];
-		//}
+		if (Ng_row < k && Ng_col < n)
+			N_s[Ns_row][Ns_col] = N[Ng_row * n + Ng_col];
+		__syncthreads();
+
+		for (int it = 0; it < TILE_WIDTH_RATIO_K; ++it)
+		{
+			// Index to access global M matrix
+			int Mg_col = it + (start_k * TILE_WIDTH_RATIO_K);
+			int Mg_row = tx + (blockIdx.x * TILE_WIDTH_M);
+
+			if (Mg_col < k && Mg_row < m)
+			{
+
+			}
+		}
 		__syncthreads();
 	}
 }
@@ -73,6 +85,7 @@ void matrixMultiplyGPU(FLOAT_TYPE* P,
 
 	dim3 dimGrid((numMRows - 1) / TILE_WIDTH_M + 1, (numNColumns - 1) / TILE_WIDTH_N + 1);
 	dim3 dimBlock(TILE_WIDTH_M, 1);
+
 	matrixMultiply<<<dimGrid, dimBlock>>>(P, M, N, numMRows, numNColumns, numMColumns);
 
 	getLastCudaError("matrixMultiply failed\n");

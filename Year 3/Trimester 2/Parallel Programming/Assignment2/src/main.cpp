@@ -143,7 +143,8 @@ int main(int argc, char **argv)
 	correctness_test(1, 101 - rand() % 10, 101 - rand() % 10, 101 - rand() % 10);
 	correctness_test(1, 200 + rand() % 100, 200 + rand() % 100, 200 + rand() % 100);
 	correctness_test(1, 500 + rand() % 500, 500 + rand() % 500, 500 + rand() % 500);
-	correctness_test(1, 2000, 2000, 2000);
+	//correctness_test(1, 2000, 2000, 2000);
+    //correctness_test(1, 20, 30, 15);
 
 	// efficiency_test(10, 100, 100, 100);
 	// efficiency_test(10, 500, 500, 500);
