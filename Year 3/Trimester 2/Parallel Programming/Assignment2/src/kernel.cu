@@ -68,9 +68,8 @@ void matrixMultiply(FLOAT_TYPE *P,       //<! [out] and mxn matrix
 			// Index to access global M matrix
 			int Mg_col = it + (start_k * TILE_WIDTH_RATIO_K);
 
-			FLOAT_TYPE v = 0.0f;
-			if (Mg_col < k && Mg_row < m)
-				v = M[Mg_row + m * Mg_col]; // accessing the value at (Mg_row, Mg_col)
+			// Check if Mg_col and Mg_row is within array's boundary, else set v to 0.0f
+			FLOAT_TYPE const v = Mg_col < k && Mg_row < m ? M[Mg_row + m * Mg_col] : 0.0f;
 
 			for (int n_offset = 0; n_offset < TILE_WIDTH_N; ++n_offset)
 				P_local[n_offset] += v * N_s[it][n_offset];
