@@ -132,3 +132,65 @@ void matrixMultiplyGPU(FLOAT_TYPE* P,
 //	}
 //}
 //__syncthreads();
+
+// This function passes the efficency test on moodle?
+//__global__
+//void matrixMultiply(FLOAT_TYPE* P,       //<! [out] and mxn matrix
+//	FLOAT_TYPE const* M, //<! [in] an mxk matrix
+//	FLOAT_TYPE const* N, //<! [in] an kxn matrix
+//	int const m, int const n, int const k)
+//{
+//	// Shared memory for tiling input N array
+//	__shared__ FLOAT_TYPE N_s[TILE_WIDTH_RATIO_K][TILE_WIDTH_N]; // 1)
+//	FLOAT_TYPE P_local[TILE_WIDTH_N] = { 0 };	// 2) 
+//	for (int i = 0; i < TILE_WIDTH_N; ++i)
+//		P_local[i] = 0.0f;
+//
+//	int bx = blockIdx.x;
+//	int by = blockIdx.y;
+//	int tx = threadIdx.x;
+//
+//	// Index to access the shared memory, using threadIdx.x
+//	int Ns_col = tx % TILE_WIDTH_N;
+//	int Ns_row = tx / TILE_WIDTH_N;
+//
+//	// 3)
+//	int const K_IT = ((k - 1) / TILE_WIDTH_RATIO_K) + 1;
+//	for (int start_k = 0; start_k < K_IT; ++start_k)
+//	{
+//		// Index to access global N matrix
+//		int Ng_col = Ns_col + (by * TILE_WIDTH_N);
+//		int Ng_row = Ns_row + (start_k * TILE_WIDTH_RATIO_K);
+//
+//		// 3a) Each thread load from global N matrix into shared memory
+//		if (Ng_row < k && Ng_col < n)
+//			N_s[Ns_row][Ns_col] = N[Ng_row * n + Ng_col];
+//		__syncthreads();
+//
+//		// 3b)
+//		int Mg_row = tx + (bx * TILE_WIDTH_M);
+//		for (int it = 0; it < TILE_WIDTH_RATIO_K; ++it)
+//		{
+//			// Index to access global M matrix
+//			int Mg_col = it + (start_k * TILE_WIDTH_RATIO_K);
+//
+//			FLOAT_TYPE v = 0.0f;
+//			if (Mg_col < k && Mg_row < m)
+//				v = M[Mg_row + m * Mg_col]; // accessing the value at (Mg_row, Mg_col)
+//
+//			for (int n_offset = 0; n_offset < TILE_WIDTH_N; ++n_offset)
+//				P_local[n_offset] += v * N_s[it][n_offset];
+//		}
+//		__syncthreads(); // calling syncthreads here so that slower threads can still access the shared memory
+//	}
+//
+//	// 4)
+//	for (int i = 0; i < TILE_WIDTH_N; ++i)
+//	{	// Something is not right here
+//		int P_col = (by * TILE_WIDTH_N) + i;
+//		int P_row = tx + (bx * TILE_WIDTH_M);
+//
+//		if (P_col < n && P_row < m)
+//			P[P_row + m * P_col] = P_local[i];
+//	}
+//}
