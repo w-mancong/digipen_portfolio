@@ -45,31 +45,34 @@
     <ClCompile Include="..\src\vkuioverlay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui.cpp">
+    <ClCompile Include="..\bin\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_draw.cpp">
+    <ClCompile Include="..\bin\imgui\imgui_demo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_widgets.cpp">
+    <ClCompile Include="..\bin\imgui\imgui_draw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ktx\lib\checkheader.c">
+    <ClCompile Include="..\bin\imgui\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ktx\lib\filestream.c">
+    <ClCompile Include="..\bin\ktx\lib\checkheader.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ktx\lib\hashlist.c">
+    <ClCompile Include="..\bin\ktx\lib\filestream.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ktx\lib\memstream.c">
+    <ClCompile Include="..\bin\ktx\lib\hashlist.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ktx\lib\swap.c">
+    <ClCompile Include="..\bin\ktx\lib\memstream.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ktx\lib\texture.c">
+    <ClCompile Include="..\bin\ktx\lib\swap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bin\ktx\lib\texture.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -128,8 +131,23 @@
     <ClInclude Include="..\src\vkuioverlay.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui\imgui.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="..\bin\imgui\imconfig.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bin\imgui\imgui.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bin\imgui\imgui_internal.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bin\imgui\imstb_rectpack.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bin\imgui\imstb_textedit.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bin\imgui\imstb_truetype.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

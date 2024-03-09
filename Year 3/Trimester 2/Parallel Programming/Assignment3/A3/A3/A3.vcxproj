@@ -120,11 +120,16 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)bin\ktx\other_include;$(SolutionDir)bin\ktx\include;$(SolutionDir)bin\imgui;$(SolutionDir)bin\VulkanSDK\1.3.261.1\Include;$(SolutionDir)bin\GLFW\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)bin\VulkanSDK\1.3.261.1\Lib;$(SolutionDir)bin\ktx\lib;$(SolutionDir)bin\GLFW\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>$(SolutionDir)compile.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -134,7 +139,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanTest\ktx\other_include;C:\VulkanTest\ktx\include;C:\VulkanTest\imgui;C:\VulkanSDK\1.2.170.0\Include;C:\VulkanSDK\glfw-3.3.3.bin.WIN64\include;C:\VulkanSDK\glm\glm-master</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)bin\ktx\other_include;$(SolutionDir)bin\ktx\include;$(SolutionDir)bin\imgui;$(SolutionDir)bin\VulkanSDK\1.3.261.1\Include;$(SolutionDir)bin\GLFW\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,19 +147,23 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\glfw-3.3.3.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.170.0\Lib; C:\VulkanTest\ktx\lib;</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)bin\VulkanSDK\1.3.261.1\Lib;$(SolutionDir)bin\ktx\lib;$(SolutionDir)bin\GLFW\lib-vc2019</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>cmd /c "$(SolutionDir)\compile.bat"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\imgui\imgui.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="..\..\ktx\lib\checkheader.c" />
-    <ClCompile Include="..\..\ktx\lib\filestream.c" />
-    <ClCompile Include="..\..\ktx\lib\hashlist.c" />
-    <ClCompile Include="..\..\ktx\lib\memstream.c" />
-    <ClCompile Include="..\..\ktx\lib\swap.c" />
-    <ClCompile Include="..\..\ktx\lib\texture.c" />
+    <ClCompile Include="..\bin\imgui\imgui.cpp" />
+    <ClCompile Include="..\bin\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\bin\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\bin\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\bin\ktx\lib\checkheader.c" />
+    <ClCompile Include="..\bin\ktx\lib\filestream.c" />
+    <ClCompile Include="..\bin\ktx\lib\hashlist.c" />
+    <ClCompile Include="..\bin\ktx\lib\memstream.c" />
+    <ClCompile Include="..\bin\ktx\lib\swap.c" />
+    <ClCompile Include="..\bin\ktx\lib\texture.c" />
     <ClCompile Include="..\src\appBase.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\vkbuffer.cpp" />
@@ -167,7 +176,12 @@
     <ClCompile Include="..\src\vkuioverlay.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\imgui\imgui.h" />
+    <ClInclude Include="..\bin\imgui\imconfig.h" />
+    <ClInclude Include="..\bin\imgui\imgui.h" />
+    <ClInclude Include="..\bin\imgui\imgui_internal.h" />
+    <ClInclude Include="..\bin\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\bin\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\bin\imgui\imstb_truetype.h" />
     <ClInclude Include="..\src\appBase.h" />
     <ClInclude Include="..\src\base.h" />
     <ClInclude Include="..\src\benchmark.h" />
