@@ -1,0 +1,45 @@
+#version 450
+#include "common.h"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+shared uint s_Data[HISTO_SIZE];
+const mat4 yuv_conversion = mat4(0.299, -0.169,  0.499 , 0.0,
+                                 0.587, -0.331, -0.418 , 0.0,
+                                 0.114,  0.499, -0.0813, 0.0,
+                                 0.0  ,  0.0  ,  0.0   , 1.0);
+
+/*
+    gl_GlobalInvocationID   = blockDim * blockIdx + threadIdx
+    gl_LocalInvocationID    = threadIdx
+    gl_WorkGroupID          = blockIdx
+    gl_WorkGroupSize        = blockDim
+*/
+void main()
+{
+    // Index representing current invocation within the workgroup
+    const uint currIdx = gl_LocalInvocationIndex;
+    const ivec2 gID = ivec2(gl_GlobalInvocationID.xy);
+
+    // Set default value for shared memory
+    s_Data[currIdx] = 0;
+    barrier();
+
+    // Get pixel color from image
+    vec4 pixelColor = imageLoad(imgSample, gID);
+    // convert pixelColor to yuv
+    vec4 yuv = (yuv_conversion * vec4(pixelColor.xyz, 1.0)) + vec4(0.0, 0.5, 0.5, 0.0);
+
+    // Calculations done within the range between 0.0 - 1.0
+    yuv.xyz = clamp(yuv.xyz, 0.0, 1.0);
+
+    // After clamping, add value back into shared data
+    atomicAdd(s_Data[uint(yuv.r * 255.0)], 1);
+    barrier();
+
+    // Add into global ssbo memory
+    atomicAdd(histo.m_Bin[currIdx], s_Data[currIdx]);
+
+    // Result Image will now store the value 
+    imageStore(imgResult, gID, vec4(yuv.xyz, 1.0));
+}

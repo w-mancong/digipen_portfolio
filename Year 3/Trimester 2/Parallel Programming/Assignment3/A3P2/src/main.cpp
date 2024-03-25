@@ -33,8 +33,8 @@ namespace
 	// Array format for histogram's ssbo in compute shader
 	struct HistogramUniforms
 	{
-		float	 cdf[HISTO_SIZE];
-		uint32_t bin[HISTO_SIZE];
+		float	 m_Cdf[HISTO_SIZE];
+		uint32_t m_Bin[HISTO_SIZE];
 	};
 
 	enum class ComputeShadersPipeline

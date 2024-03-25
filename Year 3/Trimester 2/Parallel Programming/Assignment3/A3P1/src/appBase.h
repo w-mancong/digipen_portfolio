@@ -107,7 +107,12 @@ private:
 	void createCommandBuffers();
 	void destroyCommandBuffers();
 	std::string shaderDir = "glsl";
+	bool screenshotSaved = true;// false;
+	bool saveScreenshotOnce = true;
 protected:
+	////@William
+	void saveScreenshot(const char* filename);
+
 	// Returns the path to the root of the glsl or hlsl shader directory.
 	std::string getShadersPath() const;
 

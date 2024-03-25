@@ -1,0 +1,114 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (binding = 0, rgba8) uniform readonly image2D inputImage;
+layout (binding = 1, rgba8) uniform image2D resultImage;
+
+const float kirsch[8][3][3] = 
+{
+    {
+        {  5,  5,  5 },
+        { -3,  0, -3 },     /*rotation 1 */
+        { -3, -3, -3 }
+    },
+    {
+        {  5,  5, -3 },
+        {  5,  0, -3 },     /*rotation 2 */
+        { -3, -3, -3 }
+    },
+    {
+        { 5, -3, -3 },
+        { 5,  0, -3 },      /*rotation 3 */
+        { 5, -3, -3 }
+    },
+    {
+        { -3, -3, -3 },
+        { 5,  0,  -3 },     /*rotation 4 */
+        { 5,  5,  -3 }
+    },
+    {
+        { -3, -3, -3 },
+        { -3,  0, -3 },     /*rotation 5 */
+        {  5,  5,  5 }
+    },
+    {
+        { -3, -3, -3 },
+        { -3,  0,  5 },     /*rotation 6 */
+        { -3,  5,  5 }
+    },
+    {
+        { -3, -3, 5 },
+        { -3,  0, 5 },      /*rotation 7 */
+        { -3, -3, 5 }
+    },
+    {
+        { -3 ,  5,  5 },
+        { -3 ,  0,  5 },    /*rotation 8 */
+        { -3 , -3, -3 }
+    }
+};
+
+//two extra row/col
+shared vec3 sData[16+2][16+2];
+
+const int MASK_WIDTH = 3;
+const int TILE_WIDTH = 16;
+const int SHARED_MEMORY_SIZE = TILE_WIDTH + MASK_WIDTH - 1;
+
+// Code is in row major
+void main()
+{
+    // gl_WorkGroupSize == blockDim (in this case is 16)
+    // blockIdx * blockDim + threadIdx == gl_GlobalInvocationID
+    
+    // Equivalent to Cuda's keyword
+    ivec2 threadIdx = ivec2(gl_LocalInvocationID.xy);
+    ivec2 blockIdx  = ivec2(gl_WorkGroupID.xy);
+    ivec2 blockDim  = ivec2(gl_WorkGroupSize.xy);
+ 
+    // 1D thread index
+    int threadIdx_1D = threadIdx.x + threadIdx.y * blockDim.x;  // row * width + col
+    // total number of available threads
+    const int TOTAL_THREADS = blockDim.x * blockDim.y;
+    const int TOTAL_ITERATIONS = (SHARED_MEMORY_SIZE * SHARED_MEMORY_SIZE + TOTAL_THREADS - 1) / TOTAL_THREADS;
+    
+    // // Load into shared memory first
+    for(int i = 0; i < TOTAL_ITERATIONS; ++i)
+    {
+        int index = threadIdx_1D + TOTAL_THREADS * i;
+        
+        ivec2 sharedIdx = ivec2(index % SHARED_MEMORY_SIZE, index / SHARED_MEMORY_SIZE);
+        
+        int loadIdx_X = blockIdx.x * blockDim.x + sharedIdx.x - 1;
+        int loadIdx_Y = blockIdx.y * blockDim.y + sharedIdx.y - 1;
+
+        // If loadIdx_X || loadIdx_Y is invalid, imageLoad will return vec3(0.0)
+        vec3 data = imageLoad(inputImage, ivec2(loadIdx_X, loadIdx_Y)).rgb;
+
+        sData[sharedIdx.y][sharedIdx.x] = data;
+    }
+
+    // Synchronize all threads in the work group before doing Kirsch algorithm
+    barrier();
+
+    // Doing edge detection using Kirsch algorithm
+    vec3 max_sum = vec3(0.0); 
+    for(int m = 0; m < 8; ++m)
+    { // Perform convolutions for all 8 masks in succession.
+        vec3 sum = vec3(0.0);
+        for(int i = 0; i < 3; ++i)
+        {
+            for(int j = 0; j < 3; ++j)
+            {
+                sum += sData[threadIdx.y + i][threadIdx.x + j] * kirsch[m][i][j];
+            }
+        }
+        // Compare and find the one that has the highest value. The one with the
+        // highest value is stored into the final bitmap.
+        max_sum = max(max_sum, sum);
+    }
+
+    // Clamp max_sum to be between 0.0 and 1.0, then storing it into the resultant image
+    vec4 final_value = clamp(vec4(max_sum / 8.0, 1.0), 0.0, 1.0);
+    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), final_value);
+}

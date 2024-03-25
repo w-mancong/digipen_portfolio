@@ -1,0 +1,48 @@
+#version 450
+#include "common.h"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+shared float cdfMin;
+
+/*
+    @brief: Correct the yuv color
+    @param value: value of cdf
+    @param minimum: minimum cdf
+*/
+float YuvCorrection(in float value, in float minimum)
+{
+    return clamp((value - minimum) / (1.0 - minimum), 0.0, 1.0);
+}
+
+/*
+    gl_GlobalInvocationID   = blockDim * blockIdx + threadIdx
+    gl_LocalInvocationID    = threadIdx
+    gl_WorkGroupID          = blockIdx
+    gl_WorkGroupSize        = blockDim
+*/
+void main()
+{
+    const ivec2 gID = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 threadIdx = ivec2(gl_LocalInvocationID.xy);
+    const uint tx = threadIdx.x, ty = threadIdx.y;
+    
+    // Load yuv value from the previous shader
+    vec3 yuv = imageLoad(imgResult, gID).xyz;
+    if(tx == 0 && ty == 0)
+        cdfMin = histo.m_Cdf[0];
+    barrier();
+
+    // correction for histogram cdf 
+    const float y = YuvCorrection(histo.m_Cdf[uint(yuv.x * 255.0)], cdfMin),
+                u = yuv.y - 0.5,
+                v = yuv.z - 0.5;
+
+    vec3 outVal = vec3(0.0, 0.0, 0.0);
+    outVal.x = clamp(y +             1.402 * v, 0, 1.0);
+    outVal.y = clamp(y - 0.344 * u - 0.714 * v, 0, 1.0);
+    outVal.z = clamp(y + 1.772 * u            , 0, 1.0);
+
+    // Store value back to image
+    imageStore(imgResult, gID, vec4(outVal, 1.0));
+}

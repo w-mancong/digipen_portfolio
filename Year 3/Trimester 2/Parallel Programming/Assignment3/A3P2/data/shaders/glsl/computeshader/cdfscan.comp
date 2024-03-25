@@ -1,0 +1,42 @@
+#version 450
+#include "common.h"
+
+layout (local_size_x = 256, local_size_y = 1) in;
+
+shared uint flatten_image_size;
+shared float s_Cdf[gl_WorkGroupSize.x];
+
+/*
+    gl_GlobalInvocationID   = blockDim * blockIdx + threadIdx
+    gl_LocalInvocationID    = threadIdx
+    gl_WorkGroupID          = blockIdx
+    gl_WorkGroupSize        = blockDim
+*/
+void main()
+{    
+    const ivec2 gID = ivec2(gl_GlobalInvocationID.xy);
+    
+    // Use the first thread out of all the threads to load image size
+    if(gID.x == 0)
+    {
+        ivec2 size = imageSize(imgSample);
+        flatten_image_size = size.x * size.y;
+    }
+    s_Cdf[gID.x] = 0.0; // Giving it a default value
+    barrier();
+
+    // Each individual thread performs their own local value on start, then save to shared memory
+    s_Cdf[gID.x] = float(histo.m_Bin[gID.x]) / flatten_image_size; 
+    barrier();
+
+    // Performing iterative scan
+    for(int stride = 1; stride <= gID.x; stride *= 2)
+    {
+        barrier();
+        float v = s_Cdf[gID.x - stride];
+        barrier();
+        s_Cdf[gID.x] += v;
+    }
+
+    histo.m_Cdf[gID.x] = s_Cdf[gID.x];
+}

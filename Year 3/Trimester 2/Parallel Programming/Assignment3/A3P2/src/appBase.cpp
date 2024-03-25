@@ -424,7 +424,7 @@ void VkAppBase::nextFrame()
 
 	render();
 	if (screenshotSaved)
-		saveScreenshot("assignment_screenshot.ppm");
+		saveScreenshot("reference_screenshot.ppm");
 
 	frameCounter++;
 	auto tEnd = std::chrono::high_resolution_clock::now();
