@@ -20,61 +20,86 @@
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
 
-// Vertex layout for this example
-struct Vertex {
-	float pos[3];
-	float uv[2];
-};
+namespace
+{
+	// Vertex layout for this example
+	struct Vertex {
+		float pos[3];
+		float uv[2];
+	};
+
+	static constexpr const uint64_t HISTO_SIZE = 256;
+
+	// Array format for histogram's ssbo in compute shader
+	struct HistogramUniforms
+	{
+		float	 cdf[HISTO_SIZE];
+		uint32_t bin[HISTO_SIZE];
+	};
+
+	enum class ComputeShadersPipeline
+	{
+		CdfScan = 0,
+		Histogram,
+		ApplyHistogram,
+		Total
+	};
+
+	uint64_t constexpr const TOTAL_SHADERS = static_cast<uint64_t>(ComputeShadersPipeline::Total);
+
+	std::string constexpr COMPUTE_SHADERS[TOTAL_SHADERS] = { "histogram", "cdfscan", "applyhisto" };
+}
 
 class VulkanExample : public VkAppBase
 {
 private:
-	vks::Texture2D textureColorMap;
-	vks::Texture2D textureComputeTarget;
+	vks::Buffer computeSSBO{};
+	vks::Texture2D textureColorMap{};
+	vks::Texture2D textureComputeTarget{};
 public:
 	struct {
-		VkPipelineVertexInputStateCreateInfo inputState;
-		std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-	} vertices;
+		VkPipelineVertexInputStateCreateInfo inputState{};
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions{};
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+	} vertices{};
 
 	// Resources for the graphics part of the example
 	struct {
-		VkDescriptorSetLayout descriptorSetLayout;	// Image display shader binding layout
-		VkDescriptorSet descriptorSetPreCompute;	// Image display shader bindings before compute shader image manipulation
-		VkDescriptorSet descriptorSetPostCompute;	// Image display shader bindings after compute shader image manipulation
-		VkPipeline pipeline;						// Image display pipeline
-		VkPipelineLayout pipelineLayout;			// Layout of the graphics pipeline
-		VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
-	} graphics;
+		VkDescriptorSetLayout descriptorSetLayout{};	// Image display shader binding layout
+		VkDescriptorSet descriptorSetPreCompute{};		// Image display shader bindings before compute shader image manipulation
+		VkDescriptorSet descriptorSetPostCompute{};		// Image display shader bindings after compute shader image manipulation
+		VkPipeline pipeline{};							// Image display pipeline
+		VkPipelineLayout pipelineLayout{};				// Layout of the graphics pipeline
+		VkSemaphore semaphore{};						// Execution dependency between compute & graphic submission
+	} graphics{};
 
 	// Resources for the compute part of the example
 	struct Compute {
-		VkQueue queue;								// Separate queue for compute commands (queue family may differ from the one used for graphics)
-		VkCommandPool commandPool;					// Use a separate command pool (queue family may differ from the one used for graphics)
-		VkCommandBuffer commandBuffer;				// Command buffer storing the dispatch commands and barriers
-		VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
-		VkDescriptorSetLayout descriptorSetLayout;	// Compute shader binding layout
-		VkDescriptorSet descriptorSet;				// Compute shader bindings
-		VkPipelineLayout pipelineLayout;			// Layout of the compute pipeline
-		std::vector<VkPipeline> pipelines;			// Compute pipelines for image filters
-		int32_t pipelineIndex = 0;					// Current image filtering compute pipeline index
-	} compute;
+		VkQueue queue{};								// Separate queue for compute commands (queue family may differ from the one used for graphics)
+		VkCommandPool commandPool{};					// Use a separate command pool (queue family may differ from the one used for graphics)
+		VkCommandBuffer commandBuffer{};				// Command buffer storing the dispatch commands and barriers
+		VkSemaphore semaphore{};						// Execution dependency between compute & graphic submission
+		VkDescriptorSetLayout descriptorSetLayout{};	// Compute shader binding layout
+		VkDescriptorSet descriptorSet{};				// Compute shader bindings
+		VkPipelineLayout pipelineLayout{};				// Layout of the compute pipeline
+		std::vector<VkPipeline> pipelines{};			// Compute pipelines for image filters
+		int32_t pipelineIndex{};						// Current image filtering compute pipeline index
+	} compute{};
 
-	vks::Buffer vertexBuffer;
-	vks::Buffer indexBuffer;
-	uint32_t indexCount;
+	vks::Buffer vertexBuffer{};
+	vks::Buffer indexBuffer{};
+	uint32_t indexCount{};
 
-	vks::Buffer uniformBufferVS;
+	vks::Buffer uniformBufferVS{};
 
 	struct {
-		glm::mat4 projection;
-		glm::mat4 modelView;
-	} uboVS;
+		glm::mat4 projection{};
+		glm::mat4 modelView{};
+	} uboVS{};
 
-	int vertexBufferSize;
+	int vertexBufferSize{};
 
-	std::vector<std::string> shaderNames;
+	std::vector<std::string> shaderNames{};
 
 	VulkanExample() : VkAppBase(ENABLE_VALIDATION)
 	{
@@ -107,6 +132,7 @@ public:
 		indexBuffer.destroy();
 		uniformBufferVS.destroy();
 
+		computeSSBO.destroy();
 		textureColorMap.destroy();
 		textureComputeTarget.destroy();
 	}
@@ -297,16 +323,43 @@ public:
 		vkQueueWaitIdle(compute.queue);
 
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
-
 		VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
-		vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[compute.pipelineIndex]);
+		VkBufferMemoryBarrier barrier
+		{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.buffer = computeSSBO.buffer,
+			.offset = 0,
+			.size = computeSSBO.descriptor.range,
+		};
+
+		// Clear data
+		vkCmdFillBuffer(compute.commandBuffer, computeSSBO.buffer, computeSSBO.descriptor.offset, computeSSBO.descriptor.range, 0);
+		vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &barrier, 0, nullptr);
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // for the other synchronizations
+
+		// Binding pipeline for histogram.comp
+		vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[0]);
 		vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
-		//groupCountX is the number of local workgroups to dispatch in the X dimension.
-		//groupCountY is the number of local workgroups to dispatch in the Y dimension.
-		//groupCountZ is the number of local workgroups to dispatch in the Z dimension.
+		vkCmdDispatch(compute.commandBuffer, (textureComputeTarget.width + 15) / 16, (textureComputeTarget.height + 15) / 16, 1);
+		vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &barrier, 0, nullptr);
+
+		// Binding pipeline for cdfscan.comp
+		vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[1]);
+		vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
+		vkCmdDispatch(compute.commandBuffer, 1, 1, 1);
+		vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &barrier, 0, nullptr);
+
+		// Binding pipeline for applyhisto.comp
+		vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[2]);
+		vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
 		vkCmdDispatch(compute.commandBuffer, (textureComputeTarget.width + 15) / 16, (textureComputeTarget.height + 15) / 16, 1);
 
+		// Building of compute command buffer ends
 		vkEndCommandBuffer(compute.commandBuffer);
 	}
 
@@ -370,13 +423,16 @@ public:
 
 	void setupDescriptorPool()
 	{
-		std::vector<VkDescriptorPoolSize> poolSizes = {
+		std::vector<VkDescriptorPoolSize> poolSizes =
+		{
 			// Graphics pipelines uniform buffers
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2),
 			// Graphics pipelines image samplers for displaying compute output image
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2),
 			// Compute pipelines uses a storage image for image reads and writes
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2),
+			// Compute pipelines for this assignment need a ssbo
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1),
 		};
 		VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 3);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
@@ -524,6 +580,8 @@ public:
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
 			// Binding 1: Output image (write)
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1),
+			// Binding 2: for my compute shader ssbo
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 2),
 		};
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
@@ -537,10 +595,12 @@ public:
 		VkDescriptorSetAllocateInfo allocInfo =
 			vks::initializers::descriptorSetAllocateInfo(descriptorPool, &compute.descriptorSetLayout, 1);
 
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &computeSSBO, sizeof(HistogramUniforms));
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &compute.descriptorSet));
 		std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
 			vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &textureColorMap.descriptor),
-			vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor)
+			vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor),
+			vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2, &computeSSBO.descriptor)
 		};
 		vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
 
@@ -549,7 +609,7 @@ public:
 			vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
 
 		// One pipeline for each effect
-		shaderNames = { "histogram", "cdfscan", "applyhisto" };
+		shaderNames = std::vector<std::string>(COMPUTE_SHADERS, COMPUTE_SHADERS + TOTAL_SHADERS);
 		for (auto& shaderName : shaderNames) {
 			std::string fileName = getShadersPath() + "computeshader/" + shaderName + ".comp.spv";
 			computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
