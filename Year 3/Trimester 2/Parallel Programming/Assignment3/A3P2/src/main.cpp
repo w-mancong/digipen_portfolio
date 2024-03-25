@@ -1,17 +1,18 @@
-/*
-* Vulkan Example -
-*
-* Copyright (C) 2016 by Sascha Willems - www.saschawillems.de
-*
-* This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
-*/
+/* Start Header *****************************************************************/
 
-/*
-* Vulkan Example - Compute shader image processing
-*
-* Modified by William Zheng
-*
-*/
+/*! \file (main.cpp)
+
+	 \author (Wong Man Cong, w.mancong, 390005621)
+
+	 \par (email: w.mancong\@digipen.edu)
+
+	 \date (March 25, 2024)
+
+	 \brief Copyright (C) 2024 DigiPen Institute of Technology.
+
+  Reproduction or disclosure of this file or its contents without the prior written consent of DigiPen Institute of Technology is prohibited. */
+
+  /* End Header *******************************************************************/
 
 #include "appBase.h"
 #define GLFW_INCLUDE_VULKAN
