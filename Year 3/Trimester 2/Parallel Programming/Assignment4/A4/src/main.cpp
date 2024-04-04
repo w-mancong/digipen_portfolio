@@ -54,9 +54,9 @@ public:
 	{
 		title = "Tessellation shader displacement";
 		camera.type = Camera::CameraType::lookat;
-		camera.setPosition(glm::vec3(0.0f, 0.0f, -1.25f));
+		camera.setPosition(glm::vec3(0.0f, 0.0f, -10.0f));
 		camera.setRotation(glm::vec3(-20.0f, 45.0f, 0.0f));
-		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 256.0f);
+		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 512.0f);
 	}
 
 	~VulkanExample()
@@ -389,12 +389,16 @@ public:
 	{
 		if (overlay->header("Settings")) 
 		{
-			if (overlay->checkBox("Tessellation displacement", &displacement)) {
+			bool updateUBO = overlay->checkBox("Tessellation displacement", &displacement) ||
+							 overlay->inputFloat("Level", &uboTessControl.tessLevel, 0.5f, 2) ||
+							 overlay->inputFloat("R", &uboTessEval.R, 0.5f, 2) || 
+							 overlay->inputFloat("r", &uboTessEval.r, 0.5f, 2) ||
+							 overlay->sliderFloat("Center.x", &uboTessEval.center.x, -5.0f, 5.0f) ||
+							 overlay->sliderFloat("Center.y", &uboTessEval.center.y, -5.0f, 5.0f) ||
+							 overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f);
+			if (updateUBO)
 				updateUniformBuffers();
-			}
-			if (overlay->inputFloat("Level", &uboTessControl.tessLevel, 0.5f, 2)) {
-				updateUniformBuffers();
-			}
+
 			if (deviceFeatures.fillModeNonSolid) {
 				if (overlay->checkBox("Splitscreen", &splitScreen)) {
 					buildCommandBuffers();
