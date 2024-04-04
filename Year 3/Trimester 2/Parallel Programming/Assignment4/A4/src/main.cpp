@@ -54,7 +54,7 @@ public:
 	{
 		title = "Tessellation shader displacement";
 		camera.type = Camera::CameraType::lookat;
-		camera.setPosition(glm::vec3(0.0f, 0.0f, -10.0f));
+		camera.setPosition(glm::vec3(0.0f, 0.0f, -6.0f));
 		camera.setRotation(glm::vec3(-20.0f, 45.0f, 0.0f));
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 512.0f);
 	}
@@ -94,13 +94,6 @@ public:
 		}
 	}
 
-	void loadAssets()
-	{
-		//const uint32_t glTFLoadingFlags = vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::PreMultiplyVertexColors | vkglTF::FileLoadingFlags::FlipY;
-		//plane.loadFromFile(getAssetPath() + "models/displacement_plane.gltf", vulkanDevice, queue, glTFLoadingFlags);
-		//textures.colorHeightMap.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
-	}
-
 	void buildCommandBuffers()
 	{
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
@@ -120,36 +113,34 @@ public:
 
 		for (int32_t i = 0; i < drawCmdBuffers.size(); ++i)
 		{
+			VkCommandBuffer const& buf = drawCmdBuffers[i];
+
 			// Set target frame buffer
 			renderPassBeginInfo.framebuffer = frameBuffers[i];
 
-			VK_CHECK_RESULT(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufInfo));
+			VK_CHECK_RESULT(vkBeginCommandBuffer(buf, &cmdBufInfo));
 
-			vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+			vkCmdBeginRenderPass(buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		
+			float const w = splitScreen ? width * 0.5f : width;
+			VkViewport viewport = vks::initializers::viewport(w, static_cast<float>(height), 0.0f, 1.0f);
+			uint64_t const iterations = splitScreen ? 2 : 1;
+			viewport.x = splitScreen ? viewport.x + viewport.width : 0.0f;
 
-			VkViewport viewport = vks::initializers::viewport((float)width, (float)height, 0.0f, 1.0f);
-			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
+			VkRect2D scissor = vks::initializers::rect2D(width, height, 0, 0);
+			vkCmdSetScissor(buf, 0, 1, &scissor);
+			vkCmdSetLineWidth(buf, 1.0f);
 
-			VkRect2D scissor = vks::initializers::rect2D(splitScreen ? width / 2 : width, height, 0, 0);
-			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
+			VkPipeline const* ptr = &pipelines.solid;
+			for (uint64_t j{}; j < iterations; ++j, ptr += j)
+			{
+				vkCmdSetViewport(buf, 0, 1, &viewport);
+				vkCmdBindPipeline(buf, VK_PIPELINE_BIND_POINT_GRAPHICS, *ptr);
+				vkCmdBindDescriptorSets(buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+				vkCmdDraw(buf, 3, 1, 0, 0);
 
-			vkCmdSetLineWidth(drawCmdBuffers[i], 1.0f);
-
-			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
-
-			//plane.bindBuffers(drawCmdBuffers[i]);
-
-			//if (splitScreen)
-			//{
-			//	vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
-			//	plane.draw(drawCmdBuffers[i]);
-			//	scissor.offset.x = width / 2;
-			//	vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
-			//}
-
-			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.solid);
-			vkCmdDraw(drawCmdBuffers[i], 3, 1, 0, 0);
-			//plane.draw(drawCmdBuffers[i]);
+				viewport.x -= viewport.width;
+			}
 
 			drawUI(drawCmdBuffers[i]);
 
@@ -366,7 +357,6 @@ public:
 	void prepare()
 	{
 		VkAppBase::prepare();
-		loadAssets();
 		prepareUniformBuffers();
 		setupDescriptorSetLayout();
 		preparePipelines();
@@ -388,24 +378,20 @@ public:
 	virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay)
 	{
 		if (overlay->header("Settings")) 
-		{
-			bool updateUBO = overlay->checkBox("Tessellation displacement", &displacement) ||
-							 overlay->inputFloat("Level", &uboTessControl.tessLevel, 0.5f, 2) ||
-							 overlay->inputFloat("R", &uboTessEval.R, 0.5f, 2) || 
-							 overlay->inputFloat("r", &uboTessEval.r, 0.5f, 2) ||
+		{			
+			bool updateCmdBuf = (deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen));
+			bool updateUBO = overlay->inputFloat("Level", &uboTessControl.tessLevel, 1.0f, 2) ||
+							 overlay->inputFloat("R", &uboTessEval.R, 0.1f, 2) || 
+							 overlay->inputFloat("r", &uboTessEval.r, 0.1f, 2) ||
 							 overlay->sliderFloat("Center.x", &uboTessEval.center.x, -5.0f, 5.0f) ||
 							 overlay->sliderFloat("Center.y", &uboTessEval.center.y, -5.0f, 5.0f) ||
-							 overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f);
+							 overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f) || 
+							 updateCmdBuf;
 			if (updateUBO)
 				updateUniformBuffers();
 
-			if (deviceFeatures.fillModeNonSolid) {
-				if (overlay->checkBox("Splitscreen", &splitScreen)) {
-					buildCommandBuffers();
-					updateUniformBuffers();
-				}
-			}
-
+			if (updateCmdBuf)
+				buildCommandBuffers();
 		}
 	}
 };
