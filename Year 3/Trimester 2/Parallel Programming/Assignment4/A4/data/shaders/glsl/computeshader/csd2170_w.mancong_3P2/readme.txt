@@ -1,0 +1,1 @@
+Common.h contains the declaration for the binding point of my images and ssbo.
