@@ -23,7 +23,6 @@ class VulkanExample : public VkAppBase
 {
 public:
 	bool splitScreen = false;//true;
-	bool displacement = true;
 
 	struct {
 		vks::Buffer tessControl, tessEval;
@@ -125,7 +124,7 @@ public:
 			float const w = splitScreen ? width * 0.5f : width;
 			VkViewport viewport = vks::initializers::viewport(w, static_cast<float>(height), 0.0f, 1.0f);
 			uint64_t const iterations = splitScreen ? 2 : 1;
-			viewport.x = splitScreen ? viewport.x + viewport.width : 0.0f;
+			viewport.x = splitScreen ? w : 0.0f;
 
 			VkRect2D scissor = vks::initializers::rect2D(width, height, 0, 0);
 			vkCmdSetScissor(buf, 0, 1, &scissor);
@@ -327,17 +326,8 @@ public:
 
 		// Tessellation control
 		float savedLevel = uboTessControl.tessLevel;
-		if (!displacement)
-		{
-			uboTessControl.tessLevel = 1.0f;
-		}
 
 		memcpy(uniformBuffers.tessControl.mapped, &uboTessControl, sizeof(uboTessControl));
-
-		if (!displacement)
-		{
-			uboTessControl.tessLevel = savedLevel;
-		}
 	}
 
 	void draw()
@@ -379,14 +369,14 @@ public:
 	{
 		if (overlay->header("Settings")) 
 		{			
-			bool updateCmdBuf = (deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen));
+			bool updateCmdBuf = false;
 			bool updateUBO = overlay->inputFloat("Level", &uboTessControl.tessLevel, 1.0f, 2) ||
 							 overlay->inputFloat("R", &uboTessEval.R, 0.1f, 2) || 
 							 overlay->inputFloat("r", &uboTessEval.r, 0.1f, 2) ||
 							 overlay->sliderFloat("Center.x", &uboTessEval.center.x, -5.0f, 5.0f) ||
 							 overlay->sliderFloat("Center.y", &uboTessEval.center.y, -5.0f, 5.0f) ||
 							 overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f) || 
-							 updateCmdBuf;
+							 ( updateCmdBuf = (deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen)) );
 			if (updateUBO)
 				updateUniformBuffers();
 
