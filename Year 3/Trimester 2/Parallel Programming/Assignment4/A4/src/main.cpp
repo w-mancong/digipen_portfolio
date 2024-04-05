@@ -22,7 +22,7 @@
 class VulkanExample : public VkAppBase
 {
 public:
-	bool splitScreen = false;//true;
+	bool splitScreen = false;
 	VkViewport viewport{};
 
 	struct {
@@ -56,7 +56,6 @@ public:
 		camera.type = Camera::CameraType::lookat;
 		camera.setPosition(glm::vec3(0.0f, 0.0f, -6.0f));
 		camera.setRotation(glm::vec3(-20.0f, 45.0f, 0.0f));
-
 		RebuildViewport();
 	}
 
@@ -124,6 +123,7 @@ public:
 			vkCmdBeginRenderPass(buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		
 			uint64_t const iterations = splitScreen ? 2 : 1;
+			VkViewport tvp = viewport; // temporary viewport
 
 			VkRect2D scissor = vks::initializers::rect2D(width, height, 0, 0);
 			vkCmdSetScissor(buf, 0, 1, &scissor);
@@ -132,12 +132,12 @@ public:
 			VkPipeline const* ptr = &pipelines.solid;
 			for (uint64_t j{}; j < iterations; ++j, ptr += j)
 			{
-				vkCmdSetViewport(buf, 0, 1, &viewport);
+				vkCmdSetViewport(buf, 0, 1, &tvp);
 				vkCmdBindPipeline(buf, VK_PIPELINE_BIND_POINT_GRAPHICS, *ptr);
 				vkCmdBindDescriptorSets(buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 				vkCmdDraw(buf, 3, 1, 0, 0);
 
-				viewport.x -= viewport.width;
+				tvp.x -= tvp.width;
 			}
 
 			drawUI(drawCmdBuffers[i]);
@@ -373,7 +373,7 @@ public:
 							 overlay->sliderFloat("Center.x", &uboTessEval.center.x, -5.0f, 5.0f) ||
 							 overlay->sliderFloat("Center.y", &uboTessEval.center.y, -5.0f, 5.0f) ||
 							 overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f) || 
-							 ( updateCmdBuf = (deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen)) );
+							 (updateCmdBuf = deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen));
 			if (updateUBO)
 				updateUniformBuffers();
 
