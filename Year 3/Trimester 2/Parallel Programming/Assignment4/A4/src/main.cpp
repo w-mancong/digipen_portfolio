@@ -17,7 +17,7 @@
 #include "appBase.h"
 #include "vkgltf.h"
 
-#define ENABLE_VALIDATION true
+#define ENABLE_VALIDATION false
 
 class VulkanExample : public VkAppBase
 {
@@ -121,7 +121,7 @@ public:
 			VK_CHECK_RESULT(vkBeginCommandBuffer(buf, &cmdBufInfo));
 
 			vkCmdBeginRenderPass(buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-		
+
 			uint64_t const iterations = splitScreen ? 2 : 1;
 			VkViewport tvp = viewport; // temporary viewport
 
@@ -364,16 +364,16 @@ public:
 	}
 	virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay)
 	{
-		if (overlay->header("Settings")) 
-		{			
+		if (overlay->header("Settings"))
+		{
 			bool updateCmdBuf = false;
 			bool updateUBO = overlay->inputFloat("Level", &uboTessControl.tessLevel, 1.0f, 2) ||
-							 overlay->inputFloat("R", &uboTessEval.R, 0.1f, 2) || 
-							 overlay->inputFloat("r", &uboTessEval.r, 0.1f, 2) ||
-							 overlay->sliderFloat("Center.x", &uboTessEval.center.x, -5.0f, 5.0f) ||
-							 overlay->sliderFloat("Center.y", &uboTessEval.center.y, -5.0f, 5.0f) ||
-							 overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f) || 
-							 (updateCmdBuf = deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen));
+				overlay->inputFloat("R", &uboTessEval.R, 0.1f, 2) ||
+				overlay->inputFloat("r", &uboTessEval.r, 0.1f, 2) ||
+				overlay->sliderFloat("Center.x", &uboTessEval.center.x, -5.0f, 5.0f) ||
+				overlay->sliderFloat("Center.y", &uboTessEval.center.y, -5.0f, 5.0f) ||
+				overlay->sliderFloat("Center.z", &uboTessEval.center.z, -5.0f, 5.0f) ||
+				(updateCmdBuf = deviceFeatures.fillModeNonSolid && overlay->checkBox("Splitscreen", &splitScreen));
 			if (updateUBO)
 				updateUniformBuffers();
 
