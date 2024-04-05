@@ -23,14 +23,15 @@ class VulkanExample : public VkAppBase
 {
 public:
 	bool splitScreen = false;//true;
+	VkViewport viewport{};
 
 	struct {
-		vks::Buffer tessControl, tessEval;
-	} uniformBuffers;
+		vks::Buffer tessControl{}, tessEval{};
+	} uniformBuffers{};
 
 	struct UBOTessControl {
 		float tessLevel = 64.0f;
-	} uboTessControl;
+	} uboTessControl{};
 
 	struct UBOTessEval {
 		glm::mat4 projection{};
@@ -38,16 +39,16 @@ public:
 		glm::vec4 center{};
 		float r{ 0.6f };
 		float R{ 2.0f };
-	} uboTessEval;
+	} uboTessEval{};
 
 	struct Pipelines {
-		VkPipeline solid;
+		VkPipeline solid{};
 		VkPipeline wireframe = VK_NULL_HANDLE;
-	} pipelines;
+	} pipelines{};
 
-	VkPipelineLayout pipelineLayout;
-	VkDescriptorSet descriptorSet;
-	VkDescriptorSetLayout descriptorSetLayout;
+	VkPipelineLayout pipelineLayout{};
+	VkDescriptorSet descriptorSet{};
+	VkDescriptorSetLayout descriptorSetLayout{};
 
 	VulkanExample() : VkAppBase(ENABLE_VALIDATION)
 	{
@@ -55,7 +56,8 @@ public:
 		camera.type = Camera::CameraType::lookat;
 		camera.setPosition(glm::vec3(0.0f, 0.0f, -6.0f));
 		camera.setRotation(glm::vec3(-20.0f, 45.0f, 0.0f));
-		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 512.0f);
+
+		RebuildViewport();
 	}
 
 	~VulkanExample()
@@ -121,10 +123,7 @@ public:
 
 			vkCmdBeginRenderPass(buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		
-			float const w = splitScreen ? width * 0.5f : width;
-			VkViewport viewport = vks::initializers::viewport(w, static_cast<float>(height), 0.0f, 1.0f);
 			uint64_t const iterations = splitScreen ? 2 : 1;
-			viewport.x = splitScreen ? w : 0.0f;
 
 			VkRect2D scissor = vks::initializers::rect2D(width, height, 0, 0);
 			vkCmdSetScissor(buf, 0, 1, &scissor);
@@ -320,12 +319,10 @@ public:
 
 	void updateUniformBuffers()
 	{
+		RebuildViewport();
 		uboTessEval.projection = camera.matrices.perspective;
 		uboTessEval.modelView = camera.matrices.view;
 		memcpy(uniformBuffers.tessEval.mapped, &uboTessEval, sizeof(uboTessEval));
-
-		// Tessellation control
-		float savedLevel = uboTessControl.tessLevel;
 
 		memcpy(uniformBuffers.tessControl.mapped, &uboTessControl, sizeof(uboTessControl));
 	}
@@ -383,6 +380,15 @@ public:
 			if (updateCmdBuf)
 				buildCommandBuffers();
 		}
+	}
+
+private:
+	void RebuildViewport()
+	{
+		float const w = splitScreen ? width * 0.5f : width;
+		viewport = vks::initializers::viewport(w, static_cast<float>(height), 0.0f, 1.0f);
+		viewport.x = splitScreen ? w : 0.0f;
+		camera.setPerspective(60.0f, static_cast<float>(viewport.width) / static_cast<float>(viewport.height), 0.1f, 512.0f);
 	}
 };
 
