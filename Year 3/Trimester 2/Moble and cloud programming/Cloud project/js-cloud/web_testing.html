@@ -10,7 +10,7 @@
 
     <!-- Input form -->
     <input type="text" id="userInput" placeholder="Enter a string">
-    <button onclick="filterProfanity()">Filter</button>
+    <button onclick="FilterText()">Filter</button>
 
     <!-- Placeholder for the output -->
     <p id="output"></p>
@@ -18,20 +18,6 @@
     <!-- <script src="https://unpkg.com/node:fs/promises"></script>
     <script src = "ProfanityFilter.js"></script> -->
     
-    <script>
-        async function filterProfanity()
-        {
-            try{
-                const response = await fetch('profanity_words.txt');
-                if(!response.ok)
-                    throw new Error('Failed to load file');
-            } catch(err){
-                console.error(err);
-            }
-            
-            const text = await response.text();
-            console.log(text);
-        }
-    </script>
+    <script src = "ProfanityFilter.js"></script>
 </body>
 </html>
